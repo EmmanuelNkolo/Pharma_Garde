@@ -7,20 +7,25 @@ const Search = (() => {
   let currentMedicine = '';
   let autocompleteIndex = -1;
 
+  let debounceTimeout = null;
+
   /**
-   * Filter medications list for autocomplete
+   * Fetch medications from Wikipedia (French)
    * @param {string} query - User input
-   * @returns {Array<string>} Matching medications
+   * @returns {Promise<Array<string>>} Matching medications
    */
-  function filterMedications(query) {
+  async function fetchMedicationsFromWikipedia(query) {
     if (!query || query.length < 2) return [];
 
-    const normalizedQuery = query.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-    return COMMON_MEDICATIONS.filter((med) => {
-      const normalizedMed = med.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      return normalizedMed.includes(normalizedQuery);
-    }).slice(0, 8);
+    try {
+      const url = `https://fr.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(query)}&limit=10&namespace=0&format=json&origin=*`;
+      const response = await fetch(url);
+      const data = await response.json();
+      return data[1] || []; // Index 1 contains the titles
+    } catch (error) {
+      console.error('Wikipedia search error:', error);
+      return [];
+    }
   }
 
   /**
@@ -41,15 +46,23 @@ const Search = (() => {
   }
 
   /**
-   * Render the autocomplete dropdown
+   * Render the autocomplete dropdown (Async)
    */
-  function renderAutocomplete(query, container, onSelect) {
-    const results = filterMedications(query);
+  async function renderAutocomplete(query, container, onSelect) {
+    if (!query || query.length < 2) {
+      container.classList.remove('visible');
+      container.innerHTML = '';
+      return;
+    }
+
+    container.innerHTML = '<div class="autocomplete-item" style="justify-content:center;color:var(--slate-500)"><div class="spinner" style="width:20px;height:20px;border-width:2px;"></div></div>';
+    container.classList.add('visible');
+
+    const results = await fetchMedicationsFromWikipedia(query);
     autocompleteIndex = -1;
 
     if (results.length === 0) {
-      container.classList.remove('visible');
-      container.innerHTML = '';
+      container.innerHTML = '<div class="autocomplete-item" style="justify-content:center;color:var(--slate-500)">Aucun résultat</div>';
       return;
     }
 
@@ -61,8 +74,6 @@ const Search = (() => {
           </div>`
       )
       .join('');
-
-    container.classList.add('visible');
 
     // Click handlers
     container.querySelectorAll('.autocomplete-item').forEach((item) => {

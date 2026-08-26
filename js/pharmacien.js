@@ -64,6 +64,9 @@
   // ── Init ───────────────────────────────────────────────
   function init() {
     btnLogin.addEventListener('click', handleLogin);
+    const btnRegister = $('#btn-register');
+    if (btnRegister) btnRegister.addEventListener('click', handleRegister);
+
     if(btnConfirmOk) btnConfirmOk.addEventListener('click', executeConfirm);
     bindTabs();
     bindGuardSwitch();
@@ -117,7 +120,57 @@
       .subscribe();
   }
 
-  // ── Login ──────────────────────────────────────────────
+  // ── Login & Register ─────────────────────────────────────
+  async function handleRegister() {
+    const nameInput = document.querySelector('#form-register input[placeholder="Nom de la pharmacie"]').value.trim();
+    const addressInput = document.querySelector('#form-register input[placeholder="Ville et Quartier"]').value.trim();
+    const phoneInput = document.querySelector('#reg-phone-input').value.trim();
+    
+    if (!nameInput || !addressInput) {
+      showToast('Veuillez remplir le nom et l\'adresse', 'error');
+      return;
+    }
+
+    const btn = $('#btn-register');
+    const originalText = btn.textContent;
+    btn.textContent = 'Création en cours...';
+    btn.disabled = true;
+
+    try {
+      // Simulate geolocation for the new pharmacy (for demo, just take center of Yaoundé)
+      const lat = 3.8480 + (Math.random() - 0.5) * 0.05;
+      const lng = 11.5021 + (Math.random() - 0.5) * 0.05;
+
+      const { data, error } = await supabase
+        .from('pharmacies')
+        .insert([{
+          name: nameInput,
+          address: addressInput,
+          phone: phoneInput,
+          lat: lat,
+          lng: lng,
+          status: 'open'
+        }])
+        .select();
+
+      if (error) throw error;
+
+      showToast('✅ Pharmacie inscrite avec succès !', 'success');
+      
+      // Auto-login
+      currentPharmacyId = data[0].id;
+      pharmacyNameInput.value = nameInput;
+      handleLogin();
+      
+    } catch(err) {
+      console.error(err);
+      showToast('Erreur lors de l\'inscription', 'error');
+    } finally {
+      btn.textContent = originalText;
+      btn.disabled = false;
+    }
+  }
+
   function handleLogin() {
     const name = pharmacyNameInput.value.trim();
     if (!name) {

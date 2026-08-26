@@ -95,15 +95,45 @@ const App = (() => {
   const toastMessage = $('#toast-message');
 
   // ── Initialization ─────────────────────────────────────
+  async function fetchPharmaciesFromOSM(lat, lng, radius = 5000) {
+    try {
+      const query = `
+        [out:json];
+        node["amenity"="pharmacy"](around:${radius},${lat},${lng});
+        out body;
+      `;
+      const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      const newPharmacies = data.elements.map(el => ({
+        id: `osm-${el.id}`,
+        name: el.tags.name || 'Pharmacie',
+        address: el.tags['addr:street'] || 'Adresse inconnue',
+        lat: el.lat,
+        lng: el.lon,
+        phone: el.tags.phone || '',
+        status: 'open',
+        isOpen: true,
+        isOnDuty: false
+      }));
+
+      PHARMACIES.length = 0;
+      PHARMACIES.push(...newPharmacies);
+      
+      updatePharmacyDisplay();
+    } catch (err) {
+      console.error('OSM fetch error:', err);
+      showToast('Erreur de récupération des pharmacies', 'error');
+    }
+  }
+
   async function init() {
     // Show splash screen for 2 seconds
     setTimeout(() => {
       splashScreen.classList.add('hidden');
       locationModal.classList.add('active');
     }, 2000);
-
-    // Fetch pharmacies from Supabase DB before initializing anything
-    await fetchPharmaciesFromSupabase();
 
     bindEvents();
   }
@@ -208,7 +238,7 @@ const App = (() => {
   }
 
   // ── App Start ──────────────────────────────────────────
-  function startApp(position) {
+  async function startApp(position) {
     // Hide location modal
     locationModal.classList.remove('active');
 
@@ -224,8 +254,8 @@ const App = (() => {
     PharmMap.setUserMarker(position.lat, position.lng);
     PharmMap.drawRadiusCircle(position, currentRadius);
 
-    // Load pharmacies
-    updatePharmacyDisplay();
+    // Fetch from OSM
+    await fetchPharmaciesFromOSM(position.lat, position.lng, currentRadius * 1000);
 
     showToast(`📍 Position détectée — ${currentCity}`, 'success');
   }
@@ -302,7 +332,7 @@ const App = (() => {
   }
 
   // ── Radius ─────────────────────────────────────────────
-  function setRadius(radius) {
+  async function setRadius(radius) {
     currentRadius = radius;
 
     // Update pills
@@ -313,8 +343,13 @@ const App = (() => {
     // Update settings
     settingsRadius.value = radius;
 
-    // Refresh
-    updatePharmacyDisplay();
+    // Refresh OSM if we have position
+    const pos = Geolocation.getPosition();
+    if (pos) {
+      await fetchPharmaciesFromOSM(pos.lat, pos.lng, currentRadius * 1000);
+    } else {
+      updatePharmacyDisplay();
+    }
   }
 
   // ── Bottom Sheet ───────────────────────────────────────
@@ -353,20 +388,26 @@ const App = (() => {
   }
 
   // ── Medicine Input & Autocomplete ──────────────────────
+  let searchDebounce = null;
   function handleMedicineInput(e) {
     const query = e.target.value.trim();
 
-    Search.renderAutocomplete(query, autocompleteList, (value) => {
-      medicineInput.value = value;
-      onMedicineSelected(value);
-    });
+    if (searchDebounce) clearTimeout(searchDebounce);
 
     if (query.length >= 2) {
       searchInfo.classList.add('visible');
       btnProceedPayment.disabled = false;
+      searchDebounce = setTimeout(() => {
+        Search.renderAutocomplete(query, autocompleteList, (value) => {
+          medicineInput.value = value;
+          onMedicineSelected(value);
+        });
+      }, 300);
     } else {
       searchInfo.classList.remove('visible');
       btnProceedPayment.disabled = true;
+      autocompleteList.classList.remove('visible');
+      autocompleteList.innerHTML = '';
     }
   }
 
