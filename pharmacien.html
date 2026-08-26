@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="description" content="Pharma-Garde — Espace Pharmacien. Gérez les demandes de médicaments et votre statut de garde.">
+  <meta name="theme-color" content="#059669">
+  <title>Pharma-Garde — Espace Pharmacien</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💊</text></svg>">
+  <link rel="stylesheet" href="css/index.css">
+  <link rel="stylesheet" href="css/pharmacien.css">
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════
+       LOGIN SCREEN
+       ═══════════════════════════════════════════════════════ -->
+  <div id="login-screen">
+    <div class="login-card">
+      <div class="login-icon">💊</div>
+      <h1 class="login-title">Pharma-Garde</h1>
+      <p class="login-subtitle">Espace Pro</p>
+
+      <div class="auth-tabs" style="display: flex; gap: 8px; margin-bottom: 24px;">
+        <button class="auth-tab active" id="tab-login" style="flex: 1; padding: 10px; border-radius: 8px; font-weight: bold; background: var(--green-600); color: white;">Connexion</button>
+        <button class="auth-tab" id="tab-register" style="flex: 1; padding: 10px; border-radius: 8px; font-weight: bold; background: rgba(255,255,255,0.1); color: var(--dark-300);">Inscription</button>
+      </div>
+      
+      <!-- Login Form -->
+      <div class="login-form" id="form-login">
+        <div class="input-group">
+          <span class="input-icon">🏥</span>
+          <input type="text" id="pharmacy-name-input" class="input-field" placeholder="Nom de votre pharmacie" value="Pharmacie Sainte-Marie">
+        </div>
+        <div class="input-group" style="margin-top: 12px;">
+          <span class="input-icon">🔑</span>
+          <input type="password" id="pharmacy-code-input" class="input-field" placeholder="Code d'accès" value="1234">
+        </div>
+        <button id="btn-login" class="btn btn-primary btn-lg btn-block" style="margin-top: 20px;">
+          Accéder au tableau de bord
+        </button>
+      </div>
+
+      <!-- Register Form -->
+      <div class="login-form" id="form-register" style="display: none;">
+        <div class="input-group">
+          <span class="input-icon">🏥</span>
+          <input type="text" class="input-field" placeholder="Nom de la pharmacie">
+        </div>
+        <div class="input-group" style="margin-top: 12px;">
+          <span class="input-icon">📍</span>
+          <input type="text" class="input-field" placeholder="Ville et Quartier">
+        </div>
+        <div class="input-group" style="margin-top: 12px;">
+          <input type="tel" id="reg-phone-input" class="input-field" placeholder="Téléphone">
+        </div>
+        <div class="input-group" style="margin-top: 12px;">
+          <span class="input-icon">🔒</span>
+          <input type="password" class="input-field" placeholder="Créer un code secret">
+        </div>
+        <button id="btn-register" class="btn btn-gold btn-lg btn-block" style="margin-top: 20px;">
+          Créer mon espace
+        </button>
+      </div>
+
+      <a href="index.html" class="back-link">← Retour à l'application patient</a>
+    </div>
+  </div>
+  
+  <script>
+    // Inline script for tabs toggle
+    document.addEventListener('DOMContentLoaded', () => {
+      const tabLogin = document.getElementById('tab-login');
+      const tabRegister = document.getElementById('tab-register');
+      const formLogin = document.getElementById('form-login');
+      const formRegister = document.getElementById('form-register');
+      const btnRegister = document.getElementById('btn-register');
+      const btnLogin = document.getElementById('btn-login');
+      const loginScreen = document.getElementById('login-screen');
+      const dashboard = document.getElementById('dashboard');
+
+      if(tabLogin && tabRegister) {
+        tabLogin.addEventListener('click', () => {
+          tabLogin.style.background = 'var(--green-600)';
+          tabLogin.style.color = 'white';
+          tabRegister.style.background = 'rgba(255,255,255,0.1)';
+          tabRegister.style.color = 'var(--dark-300)';
+          formLogin.style.display = 'block';
+          formRegister.style.display = 'none';
+        });
+
+        tabRegister.addEventListener('click', () => {
+          tabRegister.style.background = 'var(--green-600)';
+          tabRegister.style.color = 'white';
+          tabLogin.style.background = 'rgba(255,255,255,0.1)';
+          tabLogin.style.color = 'var(--dark-300)';
+          formRegister.style.display = 'block';
+          formLogin.style.display = 'none';
+        });
+      }
+
+      if (btnRegister) {
+        btnRegister.addEventListener('click', () => {
+          loginScreen.classList.add('hidden');
+          setTimeout(() => {
+            loginScreen.style.display = 'none';
+            dashboard.classList.remove('hidden');
+          }, 400);
+        });
+      }
+    });
+  </script>
+
+  <!-- ═══════════════════════════════════════════════════════
+       DASHBOARD
+       ═══════════════════════════════════════════════════════ -->
+  <div id="dashboard" class="hidden">
+    
+    <!-- Top Navigation -->
+    <header class="dash-header">
+      <div class="dash-header-left">
+        <div class="dash-logo">
+          <div class="top-logo-cross" aria-hidden="true"></div>
+          <span>Pharma-Garde</span>
+        </div>
+      </div>
+      <div class="dash-header-right">
+        <div class="guard-toggle" id="guard-toggle">
+          <span class="guard-toggle-label" id="guard-label">Statut : Ouvert</span>
+          <div class="guard-switch" id="guard-switch">
+            <span class="guard-option" data-status="open">Ouvert</span>
+            <span class="guard-option active" data-status="guard">De garde</span>
+            <span class="guard-option" data-status="closed">Fermé</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Pharmacy Info Bar -->
+    <div class="dash-info-bar">
+      <div class="dash-pharmacy-name" id="dash-pharmacy-name">Pharmacie Sainte-Marie</div>
+      <div class="dash-pharmacy-detail">📍 Carrefour Bonamoussadi, Douala</div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="dash-stats">
+      <div class="stat-card stat-primary">
+        <div class="stat-value" id="stat-today-total">12</div>
+        <div class="stat-label">Demandes aujourd'hui</div>
+        <div class="stat-icon">📩</div>
+      </div>
+      <div class="stat-card stat-success">
+        <div class="stat-value" id="stat-responded">8</div>
+        <div class="stat-label">Répondues (En stock)</div>
+        <div class="stat-icon">✅</div>
+      </div>
+      <div class="stat-card stat-warning">
+        <div class="stat-value" id="stat-pending">3</div>
+        <div class="stat-label">En attente</div>
+        <div class="stat-icon">⏳</div>
+      </div>
+      <div class="stat-card stat-info">
+        <div class="stat-value" id="stat-reserved">1</div>
+        <div class="stat-label">Réservations</div>
+        <div class="stat-icon">🔒</div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="dash-tabs">
+      <button class="dash-tab active" data-tab="active">
+        ⚡ Demandes actives
+        <span class="tab-badge" id="active-badge">3</span>
+      </button>
+      <button class="dash-tab" data-tab="history">
+        📋 Historique
+      </button>
+      <button class="dash-tab" data-tab="reservations">
+        🔒 Réservations
+        <span class="tab-badge" id="reserve-badge">1</span>
+      </button>
+    </div>
+
+    <!-- Tab Content: Active Requests -->
+    <div class="dash-tab-content active" id="tab-active">
+      <div id="active-requests">
+        <!-- Dynamically generated -->
+      </div>
+    </div>
+
+    <!-- Tab Content: History -->
+    <div class="dash-tab-content" id="tab-history">
+      <div class="history-filters">
+        <select id="history-filter-status" class="input-field" style="width: auto;">
+          <option value="all">Tous les statuts</option>
+          <option value="responded">Répondues</option>
+          <option value="ignored">Ignorées</option>
+          <option value="rupture">Rupture</option>
+        </select>
+        <select id="history-filter-date" class="input-field" style="width: auto;">
+          <option value="today">Aujourd'hui</option>
+          <option value="week">Cette semaine</option>
+          <option value="month">Ce mois</option>
+        </select>
+      </div>
+      <div id="history-list">
+        <!-- Dynamically generated -->
+      </div>
+    </div>
+
+    <!-- Tab Content: Reservations -->
+    <div class="dash-tab-content" id="tab-reservations">
+      <div id="reservations-list">
+        <!-- Dynamically generated -->
+      </div>
+    </div>
+
+    <!-- Top Medications Stats -->
+    <div class="dash-section">
+      <h3 class="dash-section-title">📊 Médicaments les plus demandés ce mois</h3>
+      <div class="top-meds" id="top-medications">
+        <!-- Dynamically generated -->
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Confirmation Modal -->
+  <div id="confirm-modal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:2000; align-items:center; justify-content:center;">
+    <div class="modal-backdrop" style="position:absolute; width:100%; height:100%; background:rgba(0,0,0,0.6);" onclick="document.getElementById('confirm-modal').style.display='none'"></div>
+    <div class="modal-content" style="position:relative; background:var(--dark-800); border:1px solid var(--glass-border); padding:24px; border-radius:16px; width:90%; max-width:350px; text-align:center;">
+      <h3 style="margin-top:0; color:white;">Confirmer la réponse</h3>
+      <p id="confirm-text" style="color:var(--dark-300); font-size:14px; margin-bottom:24px;">Confirmez-vous l'action ?</p>
+      <div style="display:flex; gap:12px;">
+        <button id="btn-confirm-cancel" class="btn btn-outline" style="flex:1;" onclick="document.getElementById('confirm-modal').style.display='none'">Annuler</button>
+        <button id="btn-confirm-ok" class="btn btn-primary" style="flex:1;">Confirmer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast toast-success">
+    <span id="toast-message">Message</span>
+  </div>
+
+  <script src="js/pharmacien.js"></script>
+</body>
+</html>

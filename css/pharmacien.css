@@ -1,0 +1,568 @@
+/* ============================================================
+   PHARMA-GARDE — Pharmacist Dashboard Styles
+   ============================================================ */
+
+body {
+  overflow-y: auto;
+  position: static;
+}
+
+/* ── Login Screen ─────────────────────────────────────────── */
+#login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  background: var(--dark-950);
+  background-image: 
+    radial-gradient(ellipse at 20% 50%, rgba(5, 150, 105, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(245, 158, 11, 0.05) 0%, transparent 50%);
+}
+
+#login-screen.hidden {
+  display: none;
+}
+
+.login-card {
+  background: var(--dark-800);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-2xl);
+  padding: var(--space-8);
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  animation: scaleIn var(--transition-slow) ease;
+}
+
+.login-icon {
+  font-size: 56px;
+  margin-bottom: var(--space-4);
+}
+
+.login-title {
+  font-size: var(--font-2xl);
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--green-300), var(--green-500));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: var(--space-1);
+}
+
+.login-subtitle {
+  font-size: var(--font-md);
+  color: var(--dark-400);
+  margin-bottom: var(--space-8);
+}
+
+.login-form {
+  text-align: left;
+}
+
+.back-link {
+  display: inline-block;
+  margin-top: var(--space-6);
+  font-size: var(--font-sm);
+  color: var(--dark-400);
+  transition: color var(--transition-fast);
+}
+
+.back-link:hover {
+  color: var(--green-400);
+}
+
+/* ── Dashboard Hidden State ───────────────────────────────── */
+#dashboard.hidden {
+  display: none;
+}
+
+/* ── Dashboard Header ─────────────────────────────────────── */
+.dash-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  padding-top: max(var(--space-4), env(safe-area-inset-top));
+  background: var(--dark-800);
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.dash-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.dash-logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-md);
+  font-weight: 800;
+  color: var(--green-400);
+}
+
+.guard-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.guard-toggle-label {
+  font-size: var(--font-xs);
+  color: var(--dark-400);
+  white-space: nowrap;
+}
+
+.guard-switch {
+  display: flex;
+  background: var(--dark-700);
+  border-radius: var(--radius-full);
+  padding: 3px;
+  gap: 2px;
+}
+
+.guard-option {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--dark-400);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.guard-option.active {
+  color: white;
+}
+
+.guard-option[data-status="open"].active {
+  background: var(--green-600);
+}
+
+.guard-option[data-status="guard"].active {
+  background: var(--gold-600);
+}
+
+.guard-option[data-status="closed"].active {
+  background: var(--dark-500);
+}
+
+.guard-option:hover:not(.active) {
+  color: var(--dark-200);
+}
+
+/* ── Info Bar ─────────────────────────────────────────────── */
+.dash-info-bar {
+  padding: var(--space-4) var(--space-5);
+  background: rgba(5, 150, 105, 0.06);
+  border-bottom: 1px solid rgba(5, 150, 105, 0.1);
+}
+
+.dash-pharmacy-name {
+  font-size: var(--font-lg);
+  font-weight: 700;
+  margin-bottom: var(--space-1);
+}
+
+.dash-pharmacy-detail {
+  font-size: var(--font-sm);
+  color: var(--dark-400);
+}
+
+/* ── Stats Cards ──────────────────────────────────────────── */
+.dash-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+}
+
+@media (min-width: 768px) {
+  .dash-stats {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.stat-card {
+  background: var(--dark-800);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-4);
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+}
+
+.stat-primary::before { background: linear-gradient(90deg, var(--green-500), var(--green-300)); }
+.stat-success::before { background: linear-gradient(90deg, #22c55e, #86efac); }
+.stat-warning::before { background: linear-gradient(90deg, var(--gold-500), var(--gold-300)); }
+.stat-info::before { background: linear-gradient(90deg, #3b82f6, #93c5fd); }
+
+.stat-value {
+  font-size: var(--font-3xl);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  margin-bottom: var(--space-1);
+}
+
+.stat-primary .stat-value { color: var(--green-400); }
+.stat-success .stat-value { color: #4ade80; }
+.stat-warning .stat-value { color: var(--gold-400); }
+.stat-info .stat-value { color: #60a5fa; }
+
+.stat-label {
+  font-size: var(--font-xs);
+  color: var(--dark-400);
+  line-height: 1.4;
+}
+
+.stat-icon {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  font-size: 20px;
+  opacity: 0.5;
+}
+
+/* ── Tabs ─────────────────────────────────────────────────── */
+.dash-tabs {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dash-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--dark-400);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.dash-tab:hover {
+  color: var(--dark-200);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.dash-tab.active {
+  color: var(--green-400);
+  background: rgba(5, 150, 105, 0.1);
+}
+
+.tab-badge {
+  background: var(--red-600);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  min-width: 20px;
+  text-align: center;
+}
+
+/* ── Tab Content ──────────────────────────────────────────── */
+.dash-tab-content {
+  display: none;
+  padding: var(--space-4) var(--space-5);
+}
+
+.dash-tab-content.active {
+  display: block;
+}
+
+/* ── Request Cards ────────────────────────────────────────── */
+.request-card {
+  background: var(--dark-800);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5);
+  margin-bottom: var(--space-3);
+  animation: fadeIn var(--transition-base);
+  position: relative;
+  overflow: hidden;
+}
+
+.request-card.urgent {
+  border-color: rgba(220, 38, 38, 0.3);
+}
+
+.request-card.urgent::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--red-500), var(--red-400));
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.request-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.request-medicine {
+  font-size: var(--font-lg);
+  font-weight: 700;
+  color: var(--dark-100);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.request-time {
+  font-size: var(--font-xs);
+  color: var(--dark-500);
+  white-space: nowrap;
+}
+
+.request-patient-info {
+  font-size: var(--font-sm);
+  color: var(--dark-400);
+  margin-bottom: var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.request-actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.request-actions .btn {
+  flex: 1;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-base);
+  font-weight: 700;
+}
+
+.btn-in-stock {
+  background: linear-gradient(135deg, var(--green-600), var(--green-700));
+  color: white;
+  border-radius: var(--radius-lg);
+}
+
+.btn-in-stock:hover {
+  box-shadow: var(--shadow-glow-green);
+}
+
+.btn-out-stock {
+  background: rgba(220, 38, 38, 0.1);
+  color: var(--red-400);
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  border-radius: var(--radius-lg);
+}
+
+.btn-out-stock:hover {
+  background: rgba(220, 38, 38, 0.2);
+}
+
+/* ── History Items ────────────────────────────────────────── */
+.history-filters {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4);
+  background: var(--dark-800);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-2);
+}
+
+.history-item-info {
+  flex: 1;
+}
+
+.history-item-medicine {
+  font-weight: 600;
+  font-size: var(--font-base);
+  margin-bottom: var(--space-1);
+}
+
+.history-item-meta {
+  font-size: var(--font-xs);
+  color: var(--dark-500);
+  display: flex;
+  gap: var(--space-3);
+}
+
+.history-item-status {
+  display: flex;
+  align-items: center;
+}
+
+/* ── Reservation Items ────────────────────────────────────── */
+.reservation-item {
+  background: var(--dark-800);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5);
+  margin-bottom: var(--space-3);
+}
+
+.reservation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.reservation-medicine {
+  font-weight: 700;
+  font-size: var(--font-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.reservation-timer {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--gold-400);
+  background: rgba(245, 158, 11, 0.1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-full);
+}
+
+.reservation-details {
+  font-size: var(--font-sm);
+  color: var(--dark-400);
+  margin-bottom: var(--space-3);
+}
+
+.reservation-actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+/* ── Section ──────────────────────────────────────────────── */
+.dash-section {
+  padding: var(--space-5);
+  border-top: 1px solid var(--color-border);
+}
+
+.dash-section-title {
+  font-size: var(--font-md);
+  font-weight: 700;
+  margin-bottom: var(--space-4);
+}
+
+/* ── Top Medications Chart ────────────────────────────────── */
+.top-meds {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.med-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.med-bar-label {
+  font-size: var(--font-sm);
+  font-weight: 500;
+  min-width: 160px;
+  color: var(--dark-200);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.med-bar-track {
+  flex: 1;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  position: relative;
+}
+
+.med-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, var(--green-600), var(--green-400));
+  transition: width 1s ease;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: var(--space-3);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  color: white;
+  min-width: 40px;
+}
+
+.med-bar:nth-child(2) .med-bar-fill {
+  background: linear-gradient(90deg, var(--gold-600), var(--gold-400));
+}
+
+.med-bar:nth-child(3) .med-bar-fill {
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+}
+
+.med-bar:nth-child(4) .med-bar-fill {
+  background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+}
+
+.med-bar:nth-child(5) .med-bar-fill {
+  background: linear-gradient(90deg, var(--red-600), var(--red-400));
+}
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .dash-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .guard-toggle {
+    width: 100%;
+  }
+
+  .guard-switch {
+    flex: 1;
+  }
+
+  .med-bar-label {
+    min-width: 120px;
+    font-size: var(--font-xs);
+  }
+}

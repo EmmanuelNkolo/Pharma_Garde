@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="description" content="Pharma-Garde Cameroun — Trouvez une pharmacie de garde et vos médicaments en un clic. Recherche express avec paiement Mobile Money.">
+  <meta name="theme-color" content="#059669">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Pharma-Garde">
+  
+  <title>Pharma-Garde — Pharmacies de Garde & Médicaments | Cameroun</title>
+  
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💊</text></svg>">
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+  
+  <!-- App CSS -->
+  <link rel="stylesheet" href="css/index.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════
+       SPLASH SCREEN
+       ═══════════════════════════════════════════════════════ -->
+  <div id="splash-screen">
+    <div class="splash-cross" aria-hidden="true"></div>
+    <div class="splash-title">Pharma-Garde</div>
+    <div class="splash-subtitle">Trouvez vos médicaments en un clic</div>
+    <div class="splash-loader">
+      <div class="loading-dots">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       LOCATION PERMISSION MODAL
+       ═══════════════════════════════════════════════════════ -->
+  <div id="location-modal">
+    <div class="location-card">
+      <div class="location-icon">📍</div>
+      <h2>Votre Position</h2>
+      <p>Pour trouver les pharmacies les plus proches, nous avons besoin de connaître votre position. Vos données restent privées.</p>
+      <div class="location-actions">
+        <button id="btn-gps" class="btn btn-primary btn-lg btn-block">
+          📍 Détecter ma position
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       MAIN APPLICATION
+       ═══════════════════════════════════════════════════════ -->
+  <div id="app">
+    
+    <!-- Top Bar -->
+    <header id="top-bar">
+      <div class="top-logo">
+        <div class="top-nav-buttons">
+          <button class="nav-btn" id="nav-back" aria-label="Retour">⬅️</button>
+          <button class="nav-btn" id="nav-forward" aria-label="Avance">➡️</button>
+        </div>
+        <div class="top-logo-cross" aria-hidden="true"></div>
+        <span class="top-logo-text">Pharma-Garde</span>
+      </div>
+      <div class="top-right">
+        <a href="pharmacien.html" class="pharmacist-btn" title="Espace Pharmacien">👨‍⚕️ Espace Pro</a>
+        <div class="city-badge" id="current-city-badge">
+          <span>📍</span>
+          <span id="city-name-display">Douala</span>
+        </div>
+        <!-- Radius Selector (moved here) -->
+        <div id="radius-selector">
+          <button class="radius-pill active" data-radius="5">5 km</button>
+          <button class="radius-pill" data-radius="10">10 km</button>
+          <button class="radius-pill" data-radius="20">20 km</button>
+        </div>
+        <button class="settings-btn" id="settings-open" aria-label="Paramètres">⚙️</button>
+      </div>
+    </header>
+
+
+
+    <!-- Map Container -->
+    <div id="map"></div>
+
+    <!-- Bottom Sheet -->
+    <div id="bottom-sheet">
+      <div class="sheet-handle-area" id="sheet-handle">
+        <div class="sheet-handle"></div>
+      </div>
+      
+      <div class="sheet-header">
+        <!-- Action Buttons -->
+        <div class="action-buttons-row">
+          <button id="search-btn" class="action-btn primary-action">
+            <span style="font-size: 16px; line-height: 1;">🔍</span>
+            <span>MEDICAMENTS</span>
+          </button>
+          <button id="camera-btn" class="action-btn secondary-action">
+            <span style="font-size: 16px; line-height: 1;">📸</span>
+            <span>ORDONNANCE</span>
+          </button>
+          <input type="file" id="ocr-camera-input" accept="image/*" capture="environment" style="display: none;">
+        </div>
+        
+        <!-- Stats -->
+        <div class="stats-row">
+          <div class="stats-count">
+            <span class="stats-dot"></span>
+            <span id="open-count">0 pharmacies ouvertes</span>
+          </div>
+          <div class="stats-count">
+            <span class="stats-dot stats-guard-dot"></span>
+            <span id="guard-count">0 de garde</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pharmacy List -->
+      <div id="pharmacy-list">
+        <!-- Pharmacy cards will be inserted here dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       SEARCH MODAL (Recherche Express de Médicament)
+       ═══════════════════════════════════════════════════════ -->
+  <div id="search-modal">
+    <div class="search-backdrop" id="search-backdrop"></div>
+    <div class="search-panel">
+      <button class="search-close" id="search-close">✕</button>
+      
+      <!-- Step 1: Input Medicine Name -->
+      <div class="search-step active" id="search-step-1">
+        <div class="search-title">
+          <span>🔍</span>
+          <span>Recherche Express</span>
+        </div>
+        <p class="search-subtitle">Entrez le nom du médicament recherché. Nous contacterons les pharmacies ouvertes autour de vous.</p>
+        
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+          <div class="search-input-wrapper" style="flex: 1; margin-bottom: 0;">
+            <span class="search-input-icon">💊</span>
+            <input type="text" id="medicine-input" placeholder="Ajouter un médicament..." autocomplete="off">
+            <div id="autocomplete-list"></div>
+          </div>
+          <button id="btn-add-medicine" class="btn btn-primary" style="padding: 0 16px; border-radius: var(--radius-lg);">+</button>
+        </div>
+        <div id="medicines-tags-container" class="medicines-tags-container" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;"></div>
+
+        <div class="search-info" id="search-info">
+          <div class="search-info-row">
+            <span class="search-info-label">Pharmacies ouvertes dans votre zone</span>
+            <span class="search-info-value" id="search-pharmacy-count">0</span>
+          </div>
+          <div class="search-info-row">
+            <span class="search-info-label">Rayon de recherche</span>
+            <span class="search-info-value" id="search-radius-display">5 km</span>
+          </div>
+          <div class="search-info-row">
+            <span class="search-info-label">Coût de la recherche</span>
+            <span class="search-info-value search-cost">100 FCFA</span>
+          </div>
+        </div>
+
+        <button id="btn-proceed-payment" class="btn btn-primary btn-lg btn-block" disabled>
+          Envoyer
+        </button>
+      </div>
+
+      <!-- Step 1.5: Confirmation -->
+      <div class="search-step" id="search-step-confirm">
+        <div class="search-title">
+          <span>📋</span>
+          <span>Confirmation de la demande</span>
+        </div>
+        <p class="search-subtitle">Veuillez vérifier la liste de vos produits</p>
+        
+        <div id="confirm-products-list" style="background: var(--dark-700); padding: 16px; border-radius: 8px; margin-bottom: 24px;">
+          <!-- Dynamically inserted -->
+        </div>
+
+        <div style="display: flex; gap: 12px;">
+          <button id="btn-cancel-request" class="btn btn-outline" style="flex:1;">Retour</button>
+          <button id="btn-validate-request" class="btn btn-primary" style="flex:1;">Valider</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Payment -->
+      <div class="search-step" id="search-step-2">
+        <div class="search-title">
+          <span>💳</span>
+          <span>Paiement</span>
+        </div>
+        
+        <div class="payment-amount-display">
+          <div class="payment-amount-label">Montant à payer</div>
+          <div>
+            <span class="payment-amount-value" id="payment-amount-val">100</span>
+            <span class="payment-amount-currency">FCFA</span>
+          </div>
+        </div>
+        
+        <div style="font-size: 13px; color: var(--gold-400); background: rgba(251, 191, 36, 0.1); padding: 12px; border-radius: 8px; margin-bottom: 16px; border: 1px solid rgba(251, 191, 36, 0.2);">
+          ℹ️ <strong>Ouverture de session : 24 heures</strong><br>
+          Toute autre demande effectuée pendant cette période sera facturée à 0 FCFA.
+        </div>
+
+        <div class="payment-methods">
+          <div class="payment-method selected" data-method="momo" id="method-momo">
+            <div class="payment-method-icon">📱</div>
+            <div class="payment-method-name">MTN MoMo</div>
+            <div class="payment-method-color">Mobile Money</div>
+          </div>
+          <div class="payment-method" data-method="om" id="method-om">
+            <div class="payment-method-icon">📲</div>
+            <div class="payment-method-name">Orange Money</div>
+            <div class="payment-method-color">OM</div>
+          </div>
+        </div>
+
+        <div class="payment-phone-input">
+          <label for="phone-input">Votre numéro de téléphone (à débiter)</label>
+          <input type="tel" id="phone-input" class="input-field" placeholder="6XX XXX XXX" maxlength="12">
+        </div>
+
+        <button id="btn-confirm-payment" class="btn btn-gold btn-lg btn-block">
+          ✅ Confirmer le paiement
+        </button>
+        <button id="btn-back-search" class="btn btn-outline btn-block" style="margin-top: 12px;">
+          ← Retour
+        </button>
+      </div>
+
+      <!-- Step 3: Pinging Pharmacies -->
+      <div class="search-step" id="search-step-3">
+        <div class="ping-section">
+          <div class="ping-animation">
+            <div class="ping-circle"></div>
+            <div class="ping-circle"></div>
+            <div class="ping-circle"></div>
+            <div class="ping-center"></div>
+          </div>
+          <div class="ping-text" id="ping-status">Envoi aux pharmacies...</div>
+          <div class="ping-subtext" id="ping-detail">Recherche de « <span id="ping-medicine-name">Paracétamol</span> » dans <span id="ping-pharmacy-count">8</span> pharmacies</div>
+        </div>
+      </div>
+
+      <!-- Step 4: Results -->
+      <div class="search-step" id="search-step-4">
+        <div class="results-title">
+          <span style="font-size: 24px;">🎉</span>
+          <h3>Résultats</h3>
+          <span class="result-count" id="result-count">0</span>
+        </div>
+        <p class="search-subtitle" id="result-subtitle">pharmacie(s) ont confirmé la disponibilité</p>
+        
+        <div id="results-list">
+          <!-- Result cards dynamically inserted -->
+        </div>
+
+        <button id="btn-new-search" class="btn btn-outline btn-block" style="margin-top: 16px;">
+          🔍 Nouvelle recherche
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       PHARMACY DETAIL MODAL
+       ═══════════════════════════════════════════════════════ -->
+  <div id="detail-modal">
+    <div class="detail-backdrop" id="detail-backdrop"></div>
+    <div class="detail-panel">
+      <div class="detail-header">
+        <div>
+          <div class="detail-name" id="detail-name">Pharmacie</div>
+          <div class="detail-address">
+            <span>📍</span>
+            <span id="detail-address">Adresse</span>
+          </div>
+        </div>
+        <div id="detail-badge"></div>
+      </div>
+
+      <div class="detail-stats">
+        <div class="detail-stat">
+          <div class="detail-stat-value" id="detail-distance">0</div>
+          <div class="detail-stat-label">km</div>
+        </div>
+        <div class="detail-stat">
+          <div class="detail-stat-value" id="detail-rating">0</div>
+          <div class="detail-stat-label">⭐ Note</div>
+        </div>
+        <div class="detail-stat">
+          <div class="detail-stat-value" id="detail-status-text">—</div>
+          <div class="detail-stat-label">Statut</div>
+        </div>
+      </div>
+
+      <div class="detail-hours">
+        <div class="detail-hours-title">🕐 Horaires</div>
+        <div class="detail-hours-value" id="detail-hours">—</div>
+      </div>
+
+      <div class="detail-actions">
+        <button class="detail-action-btn" id="detail-call">
+          <span class="detail-action-icon">📞</span>
+          <span class="detail-action-label">Appeler</span>
+        </button>
+        <button class="detail-action-btn" id="detail-whatsapp">
+          <span class="detail-action-icon">💬</span>
+          <span class="detail-action-label">WhatsApp</span>
+        </button>
+        <button class="detail-action-btn" id="detail-route">
+          <span class="detail-action-icon">🗺️</span>
+          <span class="detail-action-label">Itinéraire</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       SETTINGS MODAL
+       ═══════════════════════════════════════════════════════ -->
+  <div id="settings-modal">
+    <div class="search-backdrop" id="settings-backdrop"></div>
+    <div class="settings-panel">
+      <div class="settings-header">
+        <h2>⚙️ Paramètres</h2>
+        <button class="search-close" id="settings-close">✕</button>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Localisation</div>
+        <div class="settings-item">
+          <div>
+            <div class="settings-item-label">Rayon par défaut</div>
+            <div class="settings-item-desc">Distance maximale de recherche</div>
+          </div>
+          <select id="settings-radius" class="input-field" style="width: auto; min-width: 90px;">
+            <option value="5" selected>5 km</option>
+            <option value="10">10 km</option>
+            <option value="20">20 km</option>
+          </select>
+        </div>
+        <div class="settings-item">
+          <div>
+            <div class="settings-item-label">Ville</div>
+            <div class="settings-item-desc">Changer de ville</div>
+          </div>
+          <select id="settings-city" class="input-field" style="width: auto; min-width: 110px;">
+            <option value="Douala">Douala</option>
+            <option value="Yaoundé">Yaoundé</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Affichage</div>
+        <div class="settings-item">
+          <div>
+            <div class="settings-item-label">Pharmacies fermées</div>
+            <div class="settings-item-desc">Afficher les pharmacies fermées</div>
+          </div>
+          <div class="toggle" id="toggle-closed"></div>
+        </div>
+        <div class="settings-item">
+          <div>
+            <div class="settings-item-label">Notifications</div>
+            <div class="settings-item-desc">Alertes pharmacies de garde</div>
+          </div>
+          <div class="toggle active" id="toggle-notifications"></div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Langue / Language</div>
+        <div class="lang-toggle">
+          <button class="lang-option active" data-lang="fr">Français</button>
+          <button class="lang-option" data-lang="en">English</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">À propos</div>
+        <div style="font-size: var(--font-sm); color: var(--dark-400); line-height: 1.8;">
+          <p><strong style="color: var(--dark-200);">Pharma-Garde v1.0</strong></p>
+          <p>Trouvez une pharmacie de garde et vos médicaments en un clic, partout au Cameroun.</p>
+          <p style="margin-top: 8px;">🇨🇲 Made in Cameroun with ❤️</p>
+        </div>
+      </div>
+
+      <div class="pharmacien-link">
+        <a href="pharmacien.html">
+          <span>💊</span>
+          <span>Espace Pharmacien →</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       TOAST NOTIFICATIONS
+       ═══════════════════════════════════════════════════════ -->
+  <div id="toast" class="toast toast-success">
+    <span id="toast-message">Message</span>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+  <script src="js/pharmacies.js"></script>
+  <script src="js/geolocation.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/search.js"></script>
+  <script src="js/payment.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>
