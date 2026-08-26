@@ -102,21 +102,34 @@ const App = (() => {
         node["amenity"="pharmacy"](around:${radius},${lat},${lng});
         out body;
       `;
-      const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
-      const response = await fetch(url);
+      const response = await fetch('https://overpass-api.de/api/interpreter', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: `data=${encodeURIComponent(query)}`
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const data = await response.json();
       
-      const newPharmacies = data.elements.map(el => ({
-        id: `osm-${el.id}`,
-        name: el.tags.name || 'Pharmacie',
-        address: el.tags['addr:street'] || 'Adresse inconnue',
-        lat: el.lat,
-        lng: el.lon,
-        phone: el.tags.phone || '',
-        status: 'open',
-        isOpen: true,
-        isOnDuty: false
-      }));
+      const newPharmacies = data.elements.map(el => {
+        const tags = el.tags || {};
+        return {
+          id: `osm-${el.id}`,
+          name: tags.name || 'Pharmacie',
+          address: tags['addr:street'] || tags['addr:full'] || 'Adresse inconnue',
+          lat: el.lat,
+          lng: el.lon,
+          phone: tags.phone || tags['contact:phone'] || '',
+          status: 'open',
+          isOpen: true,
+          isOnDuty: false
+        };
+      });
 
       PHARMACIES.length = 0;
       PHARMACIES.push(...newPharmacies);
