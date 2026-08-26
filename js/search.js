@@ -93,49 +93,63 @@ const Search = (() => {
     return items[autocompleteIndex].dataset.value;
   }
 
-  /**
-   * Simulate pinging pharmacies for a medication
-   * In production, this would be an API call
-   * @param {string} medicineName
-   * @param {Array} pharmacies - Open pharmacies in range
-   * @returns {Promise<Array>} Pharmacies that have the medicine in stock
-   */
   function pingPharmacies(medicineName, pharmacies) {
-    return new Promise((resolve) => {
-      // Simulate network delay (2-5 seconds)
-      const delay = 2000 + Math.random() * 3000;
-
+    return new Promise(async (resolve) => {
       currentMedicine = medicineName;
       const requestedMeds = medicineName.split(',').map(m => m.trim()).filter(m => m);
+      const session = JSON.parse(localStorage.getItem('PharmaGarde_Session') || 'null');
+      const phone = session ? session.phone : 'Anonyme';
 
-      setTimeout(() => {
-        // Simulate random responses
-        // In production, each pharmacy would respond individually
-        const respondingPharmacies = pharmacies.filter(() => {
-          // ~70% chance a pharmacy has at least one of the medicines
-          return Math.random() > 0.3;
-        });
+      try {
+        // 1. Enregistrer la demande dans Supabase
+        const { data: request, error } = await supabase
+          .from('requests')
+          .insert([{ user_phone: phone, medicines: requestedMeds, status: 'pending' }])
+          .select()
+          .single();
 
-        // Ensure at least 1 result for demo purposes
-        if (respondingPharmacies.length === 0 && pharmacies.length > 0) {
-          respondingPharmacies.push(pharmacies[0]);
-        }
+        if (error) throw error;
 
-        resolve(
-          respondingPharmacies.map((p) => {
-            // Assign available medicines
-            const availableMeds = requestedMeds.filter(() => Math.random() > 0.3); // 70% chance to have a specific med
-            // If they have none but were selected as a responding pharmacy, give them at least one
-            if(availableMeds.length === 0) availableMeds.push(requestedMeds[0]);
-
-            return {
-              ...p,
-              responseTime: Math.floor(Math.random() * 30) + 5, // 5-35 seconds
-              availableMedicines: availableMeds,
-            };
+        // 2. Écouter les réponses en Temps Réel
+        const channel = supabase
+          .channel(`request_${request.id}`)
+          .on('postgres_changes', { 
+            event: 'UPDATE', 
+            schema: 'public', 
+            table: 'requests', 
+            filter: `id=eq.${request.id}` 
+          }, (payload) => {
+            const updatedRequest = payload.new;
+            if (updatedRequest.status === 'accepted') {
+               // Le pharmacien a cliqué sur "OUI"
+               const pharmacy = pharmacies.find(p => p.id === updatedRequest.pharmacy_id) || pharmacies[0];
+               if (pharmacy) {
+                 const respondingPharmacy = {
+                    ...pharmacy,
+                    responseTime: 5,
+                    availableMedicines: requestedMeds
+                 };
+                 supabase.removeChannel(channel);
+                 resolve([respondingPharmacy]);
+               }
+            } else if (updatedRequest.status === 'rejected') {
+                 // Continuer d'attendre d'autres pharmacies, ou terminer si c'était la seule
+                 // Pour la démo, on ignore juste
+            }
           })
-        );
-      }, delay);
+          .subscribe();
+
+        // 3. Timeout après 30 secondes
+        setTimeout(() => {
+          supabase.removeChannel(channel);
+          // Pour la démo, on résout avec un tableau vide (aucune pharmacie n'a répondu)
+          resolve([]);
+        }, 30000); 
+
+      } catch (err) {
+        console.error("Erreur de ping Supabase:", err);
+        resolve([]);
+      }
     });
   }
 

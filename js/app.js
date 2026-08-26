@@ -95,12 +95,15 @@ const App = (() => {
   const toastMessage = $('#toast-message');
 
   // ── Initialization ─────────────────────────────────────
-  function init() {
+  async function init() {
     // Show splash screen for 2 seconds
     setTimeout(() => {
       splashScreen.classList.add('hidden');
       locationModal.classList.add('active');
     }, 2000);
+
+    // Fetch pharmacies from Supabase DB before initializing anything
+    await fetchPharmaciesFromSupabase();
 
     bindEvents();
   }

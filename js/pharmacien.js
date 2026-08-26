@@ -5,29 +5,8 @@
 
 (function () {
   // ── Mock Data for Dashboard ────────────────────────────
-  const ACTIVE_REQUESTS = [
-    {
-      id: 'req-001',
-      medicines: ['Artésunate Injectable', 'Paracétamol 500mg'],
-      patientDistance: '3.2 km',
-      time: 'Il y a 2 min',
-      urgent: true,
-    },
-    {
-      id: 'req-002',
-      medicines: ['Amoxicilline 500mg'],
-      patientDistance: '5.8 km',
-      time: 'Il y a 8 min',
-      urgent: false,
-    },
-    {
-      id: 'req-003',
-      medicines: ['Paracétamol Sirop (enfant)', 'Vitamine C'],
-      patientDistance: '1.4 km',
-      time: 'Il y a 12 min',
-      urgent: true,
-    },
-  ];
+  let ACTIVE_REQUESTS = [];
+  let currentPharmacyId = 'dla-001'; // ID factice pour la démo
 
   const HISTORY_DATA = [
     { medicine: 'Quinine comprimés', status: 'responded', date: 'Auj. 18:30', patient: '4.1 km' },
@@ -88,6 +67,54 @@
     if(btnConfirmOk) btnConfirmOk.addEventListener('click', executeConfirm);
     bindTabs();
     bindGuardSwitch();
+    
+    // Si l'utilisateur est déjà dans le dashboard, on charge direct
+    if (typeof supabase !== 'undefined') {
+      fetchPendingRequests();
+      subscribeToRequests();
+    }
+  }
+
+  async function fetchPendingRequests() {
+    try {
+      const { data, error } = await supabase
+        .from('requests')
+        .select('*')
+        .eq('status', 'pending');
+        
+      if (data) {
+        ACTIVE_REQUESTS = data.map(req => ({
+          id: req.id,
+          medicines: req.medicines,
+          patientDistance: 'À proximité',
+          time: new Date(req.created_at).toLocaleTimeString(),
+          urgent: true,
+          phone: req.user_phone
+        }));
+        renderActiveRequests();
+      }
+    } catch(err) { console.error(err); }
+  }
+
+  function subscribeToRequests() {
+    supabase
+      .channel('public_requests')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'requests' }, payload => {
+        const req = payload.new;
+        if(req.status === 'pending') {
+          ACTIVE_REQUESTS.unshift({
+            id: req.id,
+            medicines: req.medicines,
+            patientDistance: 'Nouvelle demande',
+            time: new Date(req.created_at).toLocaleTimeString(),
+            urgent: true,
+            phone: req.user_phone
+          });
+          renderActiveRequests();
+          showToast('🔔 Nouvelle demande de patient !', 'info');
+        }
+      })
+      .subscribe();
   }
 
   // ── Login ──────────────────────────────────────────────
@@ -315,16 +342,27 @@
     pendingAction = null;
   }
 
-  function respondToProduct(reqId, pIdx, medName, inStock) {
+  async function respondToProduct(reqId, pIdx, medName, inStock) {
     const productEl = $(`#product-${reqId}-${pIdx}`);
     if (!productEl) return;
 
     if (inStock) {
       productEl.innerHTML = `<div style="color: var(--green-400); font-weight:bold;">✅ ${medName} (En stock confirmé)</div>`;
-      showToast('✅ Réponse "En stock" enregistrée', 'success');
+      showToast('✅ Réponse "En stock" envoyée au patient', 'success');
       
       const responded = parseInt($('#stat-responded').textContent);
       $('#stat-responded').textContent = responded + 1;
+
+      // Update Supabase
+      if (typeof supabase !== 'undefined' && reqId && !reqId.toString().startsWith('req-')) {
+        try {
+          await supabase
+            .from('requests')
+            .update({ status: 'accepted', pharmacy_id: currentPharmacyId })
+            .eq('id', reqId);
+        } catch(e) { console.error(e) }
+      }
+
     } else {
       productEl.innerHTML = `<div style="color: var(--red-400); font-weight:bold; opacity: 0.7;">❌ ${medName} (Rupture)</div>`;
       showToast('❌ Réponse "Rupture" enregistrée', 'info');
