@@ -95,73 +95,48 @@ const App = (() => {
   const toastMessage = $('#toast-message');
 
   // ── Initialization ─────────────────────────────────────
-  async function fetchPharmaciesFromOSM(lat, lng, radius = 5000) {
-    try {
-      const query = `
-        [out:json];
-        node["amenity"="pharmacy"](around:${radius},${lat},${lng});
-        out body;
-      `;
-      // Use the French instance which is often more reliable
-      const response = await fetch('https://overpass.openstreetmap.fr/api/interpreter', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: `data=${encodeURIComponent(query)}`
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      const newPharmacies = data.elements.map(el => {
-        const tags = el.tags || {};
-        return {
-          id: `osm-${el.id}`,
-          name: tags.name || 'Pharmacie',
-          address: tags['addr:street'] || tags['addr:full'] || 'Adresse inconnue',
-          lat: el.lat,
-          lng: el.lon,
-          phone: tags.phone || tags['contact:phone'] || '',
-          status: 'open',
-          isOpen: true,
-          isOnDuty: false
-        };
-      });
-
-      PHARMACIES.length = 0;
-      PHARMACIES.push(...newPharmacies);
-      updatePharmacyDisplay();
-
-    } catch (err) {
-      console.error('OSM fetch error, falling back to Supabase:', err);
-      // Fallback to Supabase if OSM fails
-      if (typeof supabase !== 'undefined') {
-        try {
-          const { data, error } = await supabase.from('pharmacies').select('*');
-          if (data) {
-            PHARMACIES.length = 0;
-            data.forEach(p => PHARMACIES.push({
-              id: p.id,
-              name: p.name,
-              address: p.address,
-              lat: p.lat,
-              lng: p.lng,
-              phone: p.phone,
-              status: p.status,
-              isOpen: p.status === 'open' || p.status === 'guard',
-              isOnDuty: p.status === 'guard'
-            }));
-            updatePharmacyDisplay();
-          }
-        } catch (supabaseErr) {
-          console.error('Supabase fallback error:', supabaseErr);
+  async function loadLocalPharmacies() {
+    PHARMACIES.length = 0;
+    
+    // 1. Charger les pharmacies statiques robustes
+    if (typeof LOCAL_PHARMACIES !== 'undefined') {
+      const mappedLocal = LOCAL_PHARMACIES.map(p => ({
+        ...p,
+        status: 'open',
+        isOpen: true,
+        isOnDuty: false
+      }));
+      PHARMACIES.push(...mappedLocal);
+    }
+    
+    // 2. Ajouter les pharmacies inscrites dynamiquement sur Supabase (sans doublons)
+    if (typeof supabase !== 'undefined') {
+      try {
+        const { data, error } = await supabase.from('pharmacies').select('*');
+        if (data) {
+          data.forEach(p => {
+            // Éviter les doublons par nom (rudimentaire)
+            if (!PHARMACIES.find(existing => existing.name.toLowerCase() === p.name.toLowerCase())) {
+              PHARMACIES.push({
+                id: p.id,
+                name: p.name,
+                address: p.address,
+                lat: p.lat,
+                lng: p.lng,
+                phone: p.phone,
+                status: p.status,
+                isOpen: p.status === 'open' || p.status === 'guard',
+                isOnDuty: p.status === 'guard'
+              });
+            }
+          });
         }
+      } catch (err) {
+        console.error('Erreur chargement Supabase', err);
       }
     }
+    
+    updatePharmacyDisplay();
   }
 
   async function init() {
@@ -290,8 +265,8 @@ const App = (() => {
     PharmMap.setUserMarker(position.lat, position.lng);
     PharmMap.drawRadiusCircle(position, currentRadius);
 
-    // Fetch from OSM
-    await fetchPharmaciesFromOSM(position.lat, position.lng, currentRadius * 1000);
+    // Fetch robust local pharmacies + supabase
+    await loadLocalPharmacies();
 
     showToast(`📍 Position détectée — ${currentCity}`, 'success');
   }
@@ -382,7 +357,7 @@ const App = (() => {
     // Refresh OSM if we have position
     const pos = Geolocation.getPosition();
     if (pos) {
-      await fetchPharmaciesFromOSM(pos.lat, pos.lng, currentRadius * 1000);
+      await loadLocalPharmacies();
     } else {
       updatePharmacyDisplay();
     }
@@ -634,25 +609,71 @@ const App = (() => {
   }
 
   async function processSearch() {
-    // Move to ping step
-    showSearchStep(3);
     const medicineNames = requestedMedicines.join(', ');
-    pingMedicineName.textContent = medicineNames;
     const openPharmacies = Geolocation.getOpenPharmacies(PHARMACIES, currentRadius);
-    pingPharmacyCount.textContent = openPharmacies.length;
-    pingStatus.textContent = 'Envoi aux pharmacies...';
 
-    // Simulate pinging
-    setTimeout(() => {
-      pingStatus.textContent = 'En attente des réponses...';
-    }, 1500);
+    // 1. Fermer la modale
+    closeSearchModal();
 
-    // Get results
-    const results = await Search.pingPharmacies(medicineNames, openPharmacies);
-    searchResults = results;
+    // 2. Vider le panneau latéral (fenêtre avec les boutons verts)
+    pharmaciesList.innerHTML = `
+      <div style="padding: 20px; text-align: center; color: var(--slate-600);">
+        <div class="spinner" style="width:30px;height:30px;margin: 0 auto 15px auto;"></div>
+        <h3 style="font-size: 16px; margin-bottom: 8px;">Recherche en cours...</h3>
+        <p style="font-size: 14px;">En attente des réponses pour <strong>${medicineNames}</strong></p>
+      </div>
+    `;
 
-    // Show results
-    showSearchResults(results, medicineNames);
+    // 3. Clear Map Markers (Optional, but let's keep them so user sees all pharmacies on map, or clear them? The request says "elle doivent etre matérialisée sur la carte". Let's leave markers)
+    // Actually it's better to clear non-responding pharmacies from the list, but keep them on the map (or update map? User says "toutes les pharmacie s'affiche et doivent être matérialisées sur la carte", which means they stay on the map).
+
+    let hasResponded = false;
+
+    // 4. Lancer le ping avec callback
+    const results = await Search.pingPharmacies(medicineNames, openPharmacies, (respondingPharmacy) => {
+      if (!hasResponded) {
+        pharmaciesList.innerHTML = ''; // Vider le message de chargement
+        hasResponded = true;
+      }
+      
+      // Ajouter la pharmacie au panneau latéral avec les badges de médicaments
+      const medsInStock = respondingPharmacy.availableMedicines ? respondingPharmacy.availableMedicines.map(m => `<span class="badge badge-stock" style="margin-right: 4px; display:inline-block; margin-bottom:4px;">✅ ${m}</span>`).join('') : '';
+      
+      const cardHtml = `
+        <div class="card" style="animation: fadeUp 0.3s ease forwards;">
+          <div class="card-header">
+            <div class="card-info">
+              <div class="card-name">${respondingPharmacy.name}</div>
+              <div class="card-address">📍 ${respondingPharmacy.address}</div>
+              <div style="margin-top: 8px;">${medsInStock}</div>
+            </div>
+            <div class="card-distance">
+              <span class="distance-value">${respondingPharmacy.distance || '?'}</span>
+              <span class="distance-unit">km</span>
+            </div>
+          </div>
+          <div class="card-actions">
+            <button class="btn btn-primary" onclick="event.stopPropagation(); PharmMap.drawRoute(Geolocation.getPosition().lat, Geolocation.getPosition().lng, ${respondingPharmacy.lat}, ${respondingPharmacy.lng})">🗺️ Y aller</button>
+            <button class="btn btn-call" onclick="event.stopPropagation(); App.callPharmacy('${respondingPharmacy.phone}')">📞 Appeler</button>
+            <button class="btn btn-whatsapp" onclick="event.stopPropagation(); App.openWhatsApp('${respondingPharmacy.whatsapp}')">💬 WhatsApp</button>
+          </div>
+        </div>
+      `;
+      pharmaciesList.insertAdjacentHTML('beforeend', cardHtml);
+    });
+
+    // Si le temps est écoulé et aucune réponse
+    if (!hasResponded) {
+      pharmaciesList.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">😞</div>
+          <div class="empty-state-text">
+            Aucune pharmacie n'a répondu à votre demande pour le moment.<br><br>
+            <button class="btn btn-primary" onclick="App.updatePharmacyDisplay()" style="margin-top: 15px; width: 100%;">Afficher toutes les pharmacies</button>
+          </div>
+        </div>
+      `;
+    }
   }
 
   // ── Search Results ─────────────────────────────────────
@@ -878,6 +899,7 @@ const App = (() => {
     findPharmacy,
     reserveMedicine,
     showToast,
+    updatePharmacyDisplay
   };
 })();
 

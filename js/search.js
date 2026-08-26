@@ -10,20 +10,22 @@ const Search = (() => {
   let debounceTimeout = null;
 
   /**
-   * Fetch medications from Wikipedia (French)
+   * Fetch medications from local robust list
    * @param {string} query - User input
    * @returns {Promise<Array<string>>} Matching medications
    */
-  async function fetchMedicationsFromWikipedia(query) {
+  async function fetchMedicationsFromLocal(query) {
     if (!query || query.length < 2) return [];
 
     try {
-      const url = `https://fr.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(query)}&limit=10&namespace=0&format=json&origin=*`;
-      const response = await fetch(url);
-      const data = await response.json();
-      return data[1] || []; // Index 1 contains the titles
+      const normalizedQuery = query.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const results = LOCAL_MEDICINES.filter(med => {
+        const normalizedMed = med.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return normalizedMed.includes(normalizedQuery);
+      });
+      return results.slice(0, 10);
     } catch (error) {
-      console.error('Wikipedia search error:', error);
+      console.error('Local search error:', error);
       return [];
     }
   }
@@ -58,7 +60,7 @@ const Search = (() => {
     container.innerHTML = '<div class="autocomplete-item" style="justify-content:center;color:var(--slate-500)"><div class="spinner" style="width:20px;height:20px;border-width:2px;"></div></div>';
     container.classList.add('visible');
 
-    const results = await fetchMedicationsFromWikipedia(query);
+    const results = await fetchMedicationsFromLocal(query);
     autocompleteIndex = -1;
 
     if (results.length === 0) {
@@ -104,7 +106,7 @@ const Search = (() => {
     return items[autocompleteIndex].dataset.value;
   }
 
-  function pingPharmacies(medicineName, pharmacies) {
+  function pingPharmacies(medicineName, pharmacies, onResponse) {
     return new Promise(async (resolve) => {
       currentMedicine = medicineName;
       const requestedMeds = medicineName.split(',').map(m => m.trim()).filter(m => m);
@@ -121,6 +123,8 @@ const Search = (() => {
 
         if (error) throw error;
 
+        let responders = [];
+
         // 2. Écouter les réponses en Temps Réel
         const channel = supabase
           .channel(`request_${request.id}`)
@@ -132,30 +136,26 @@ const Search = (() => {
           }, (payload) => {
             const updatedRequest = payload.new;
             if (updatedRequest.status === 'accepted') {
-               // Le pharmacien a cliqué sur "OUI"
-               const pharmacy = pharmacies.find(p => p.id === updatedRequest.pharmacy_id) || pharmacies[0];
-               if (pharmacy) {
+               // Trouver la pharmacie dans notre base globale ou locale
+               const pharmacy = pharmacies.find(p => p.id === updatedRequest.pharmacy_id) || window.PHARMACIES.find(p => p.id === updatedRequest.pharmacy_id) || pharmacies[0];
+               if (pharmacy && !responders.find(r => r.id === pharmacy.id)) {
                  const respondingPharmacy = {
                     ...pharmacy,
                     responseTime: 5,
                     availableMedicines: requestedMeds
                  };
-                 supabase.removeChannel(channel);
-                 resolve([respondingPharmacy]);
+                 responders.push(respondingPharmacy);
+                 if(onResponse) onResponse(respondingPharmacy);
                }
-            } else if (updatedRequest.status === 'rejected') {
-                 // Continuer d'attendre d'autres pharmacies, ou terminer si c'était la seule
-                 // Pour la démo, on ignore juste
             }
           })
           .subscribe();
 
-        // 3. Timeout après 30 secondes
+        // 3. Fin de la requête après 3 minutes (180s)
         setTimeout(() => {
           supabase.removeChannel(channel);
-          // Pour la démo, on résout avec un tableau vide (aucune pharmacie n'a répondu)
-          resolve([]);
-        }, 30000); 
+          resolve(responders);
+        }, 180000); 
 
       } catch (err) {
         console.error("Erreur de ping Supabase:", err);
