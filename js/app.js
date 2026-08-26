@@ -102,7 +102,8 @@ const App = (() => {
         node["amenity"="pharmacy"](around:${radius},${lat},${lng});
         out body;
       `;
-      const response = await fetch('https://overpass-api.de/api/interpreter', {
+      // Use the French instance which is often more reliable
+      const response = await fetch('https://overpass.openstreetmap.fr/api/interpreter', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded'
@@ -133,11 +134,33 @@ const App = (() => {
 
       PHARMACIES.length = 0;
       PHARMACIES.push(...newPharmacies);
-      
       updatePharmacyDisplay();
+
     } catch (err) {
-      console.error('OSM fetch error:', err);
-      showToast('Erreur de récupération des pharmacies', 'error');
+      console.error('OSM fetch error, falling back to Supabase:', err);
+      // Fallback to Supabase if OSM fails
+      if (typeof supabase !== 'undefined') {
+        try {
+          const { data, error } = await supabase.from('pharmacies').select('*');
+          if (data) {
+            PHARMACIES.length = 0;
+            data.forEach(p => PHARMACIES.push({
+              id: p.id,
+              name: p.name,
+              address: p.address,
+              lat: p.lat,
+              lng: p.lng,
+              phone: p.phone,
+              status: p.status,
+              isOpen: p.status === 'open' || p.status === 'guard',
+              isOnDuty: p.status === 'guard'
+            }));
+            updatePharmacyDisplay();
+          }
+        } catch (supabaseErr) {
+          console.error('Supabase fallback error:', supabaseErr);
+        }
+      }
     }
   }
 
