@@ -3,6 +3,9 @@
  * Orchestrates all modules and manages UI interactions
  */
 
+window.PHARMACIES = [];
+const PHARMACIES = window.PHARMACIES;
+
 const App = (() => {
   // ── State ──────────────────────────────────────────────
   let currentRadius = 5;
@@ -616,7 +619,7 @@ const App = (() => {
     closeSearchModal();
 
     // 2. Vider le panneau latéral (fenêtre avec les boutons verts)
-    pharmaciesList.innerHTML = `
+    pharmacyList.innerHTML = `
       <div style="padding: 20px; text-align: center; color: var(--slate-600);">
         <div class="spinner" style="width:30px;height:30px;margin: 0 auto 15px auto;"></div>
         <h3 style="font-size: 16px; margin-bottom: 8px;">Recherche en cours...</h3>
@@ -632,7 +635,7 @@ const App = (() => {
     // 4. Lancer le ping avec callback
     const results = await Search.pingPharmacies(medicineNames, openPharmacies, (respondingPharmacy) => {
       if (!hasResponded) {
-        pharmaciesList.innerHTML = ''; // Vider le message de chargement
+        pharmacyList.innerHTML = ''; // Vider le message de chargement
         hasResponded = true;
       }
       
@@ -659,12 +662,12 @@ const App = (() => {
           </div>
         </div>
       `;
-      pharmaciesList.insertAdjacentHTML('beforeend', cardHtml);
+      pharmacyList.insertAdjacentHTML('beforeend', cardHtml);
     });
 
     // Si le temps est écoulé et aucune réponse
     if (!hasResponded) {
-      pharmaciesList.innerHTML = `
+      pharmacyList.innerHTML = `
         <div class="empty-state">
           <div class="empty-state-icon">😞</div>
           <div class="empty-state-text">
