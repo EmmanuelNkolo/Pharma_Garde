@@ -527,7 +527,7 @@ const App = (() => {
   }
 
   async function processRealOcr(file) {
-    showToast('Analyse Tesseract de l\'ordonnance en cours...', 'info');
+    showToast('Analyse avancée de l\'ordonnance en cours...', 'info');
     
     // Open modal if not open
     if (!searchModal.classList.contains('active')) {
@@ -535,16 +535,67 @@ const App = (() => {
     }
     
     try {
-      if (typeof Tesseract === 'undefined') {
-        throw new Error("Tesseract.js n'est pas chargé");
+      // Configuration de l'API Google Cloud Vision
+      // ATTENTION: Remplacez cette variable par votre vraie clé générée sur Google Cloud Console.
+      const API_KEY = "GOOGLE_CLOUD_VISION_API_KEY_HERE";
+      
+      if (API_KEY === "GOOGLE_CLOUD_VISION_API_KEY_HERE") {
+        showToast('Erreur: Clé API Google Cloud Vision manquante.', 'error');
+        alert("Développeur : Veuillez remplacer 'GOOGLE_CLOUD_VISION_API_KEY_HERE' dans js/app.js par votre véritable clé API Google Cloud.");
+        return;
       }
-      
-      const result = await Tesseract.recognize(file, 'fra', {
-        logger: m => console.log(m)
+
+      // Convert image file to base64
+      const getBase64 = (f) => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(f);
+          reader.onload = () => resolve(reader.result.split(',')[1]);
+          reader.onerror = error => reject(error);
+        });
+      };
+
+      const base64Image = await getBase64(file);
+
+      // Préparation de la requête pour DOCUMENT_TEXT_DETECTION (optimisé pour le manuscrit)
+      const requestBody = {
+        requests: [
+          {
+            image: {
+              content: base64Image
+            },
+            features: [
+              {
+                type: 'DOCUMENT_TEXT_DETECTION'
+              }
+            ]
+          }
+        ]
+      };
+
+      const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${API_KEY}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
       });
+
+      const result = await response.json();
       
-      const text = result.data.text;
-      console.log('Texte extrait:', text);
+      if (result.error) {
+        throw new Error(result.error.message);
+      }
+
+      // Récupération du texte
+      const annotations = result.responses[0].textAnnotations;
+      if (!annotations || annotations.length === 0) {
+        showToast('Aucun texte reconnu sur l\'image.', 'error');
+        return;
+      }
+
+      const text = annotations[0].description;
+      console.log('Texte extrait par Google Vision:', text);
       
       // Extraction rudimentaire : chercher des correspondances dans LOCAL_MEDICINES
       const words = text.split(/[\s,.\n]+/);
@@ -562,10 +613,7 @@ const App = (() => {
         }
       });
       
-      // Si aucun médicament n'est trouvé, ajouter un mock pour montrer que ça a lu quelque chose
-      // Cela évite que l'utilisateur soit confus si son ordonnance manuscrite est illisible.
       if (detectedCount === 0) {
-        // Optionnel : on peut dire "Aucun médicament identifié de façon certaine"
         showToast('Texte lu, mais aucun médicament reconnu avec certitude.', 'error');
       } else {
         showToast(`${detectedCount} médicament(s) détecté(s)`, 'success');
