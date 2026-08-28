@@ -71,6 +71,12 @@
     bindTabs();
     bindGuardSwitch();
     
+    const btnLogout = $('#btn-logout');
+    if (btnLogout) btnLogout.addEventListener('click', handleLogout);
+    
+    const btnDeregister = $('#btn-deregister');
+    if (btnDeregister) btnDeregister.addEventListener('click', handleDeregister);
+    
     // Si l'utilisateur est déjà dans le dashboard, on charge direct
     if (typeof supabase !== 'undefined') {
       fetchPendingRequests();
@@ -92,7 +98,8 @@
           patientDistance: 'À proximité',
           time: new Date(req.created_at).toLocaleTimeString(),
           urgent: true,
-          phone: req.user_phone
+          phone: req.user_phone,
+          insurance_name: req.insurance_name
         }));
         renderActiveRequests();
       }
@@ -111,7 +118,8 @@
             patientDistance: 'Nouvelle demande',
             time: new Date(req.created_at).toLocaleTimeString(),
             urgent: true,
-            phone: req.user_phone
+            phone: req.user_phone,
+            insurance_name: req.insurance_name
           });
           renderActiveRequests();
           showToast('🔔 Nouvelle demande de patient !', 'info');
@@ -189,6 +197,35 @@
     renderTopMedications();
 
     showToast('✅ Connexion réussie', 'success');
+  }
+
+  function handleLogout() {
+    dashboard.classList.add('hidden');
+    loginScreen.classList.remove('hidden');
+    pharmacyNameInput.value = '';
+    currentPharmacyId = null;
+    showToast('Déconnexion réussie', 'info');
+  }
+
+  async function handleDeregister() {
+    if (!confirm("Êtes-vous sûr de vouloir désinscrire votre pharmacie ? Cela supprimera votre compte et vous ne recevrez plus de demandes.")) {
+      return;
+    }
+    
+    if (currentPharmacyId && typeof supabase !== 'undefined') {
+      try {
+        await supabase
+          .from('pharmacies')
+          .delete()
+          .eq('id', currentPharmacyId);
+        showToast('Pharmacie désinscrite avec succès', 'success');
+      } catch (err) {
+        console.error(err);
+        showToast("Erreur lors de la désinscription", 'error');
+      }
+    }
+    
+    handleLogout();
   }
 
   // ── Tabs ───────────────────────────────────────────────
@@ -293,15 +330,22 @@
             <div class="request-time">${req.time}</div>
             <div class="request-patient-info">
               <span>📍 Patient à ${req.patientDistance}</span>
+              ${req.insurance_name ? `<br><span style="color:var(--green-400); font-weight:bold; font-size:12px;">🛡️ Assurance : ${req.insurance_name}</span>` : ''}
             </div>
           </div>
           <div class="request-products-list">
             ${req.medicines.map((med, idx) => `
-              <div class="request-product-item" id="product-${req.id}-${idx}" style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+              <div class="request-product-item" id="product-${req.id}-${idx}" style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 8px;">
                 <div class="request-medicine" style="font-weight: bold;">💊 ${med}</div>
-                <div class="request-actions" style="display: flex; gap: 8px;">
-                  <button class="btn btn-in-stock" style="padding: 6px 12px; font-size: 12px;" onclick="PharmDash.confirmProductResponse('${req.id}', ${idx}, '${med}', true)">✅ OUI</button>
-                  <button class="btn btn-out-stock" style="padding: 6px 12px; font-size: 12px;" onclick="PharmDash.confirmProductResponse('${req.id}', ${idx}, '${med}', false)">❌ NON</button>
+                <div class="request-actions" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                  ${req.insurance_name ? `
+                    <button class="btn btn-in-stock" style="padding: 6px 10px; font-size: 11px;" onclick="PharmDash.confirmProductResponse('${req.id}', ${idx}, '${med}', 'in_stock_insured')">✅ Disponible & Assuré</button>
+                    <button class="btn btn-outline" style="padding: 6px 10px; font-size: 11px; background:var(--dark-700); border-color:var(--yellow-500); color:var(--yellow-500);" onclick="PharmDash.confirmProductResponse('${req.id}', ${idx}, '${med}', 'in_stock_uninsured')">⚠️ Dispo (Non assuré)</button>
+                    <button class="btn btn-out-stock" style="padding: 6px 10px; font-size: 11px;" onclick="PharmDash.confirmProductResponse('${req.id}', ${idx}, '${med}', 'out_of_stock')">❌ Non disponible</button>
+                  ` : `
+                    <button class="btn btn-in-stock" style="padding: 6px 12px; font-size: 12px;" onclick="PharmDash.confirmProductResponse('${req.id}', ${idx}, '${med}', 'in_stock')">✅ OUI (Disponible)</button>
+                    <button class="btn btn-out-stock" style="padding: 6px 12px; font-size: 12px;" onclick="PharmDash.confirmProductResponse('${req.id}', ${idx}, '${med}', 'out_of_stock')">❌ NON (Rupture)</button>
+                  `}
                 </div>
               </div>
             `).join('')}
@@ -427,10 +471,15 @@
   // ── Handle Product Responses ───────────────────────────
   let pendingAction = null;
 
-  function confirmProductResponse(reqId, pIdx, medName, inStock) {
-    pendingAction = () => respondToProduct(reqId, pIdx, medName, inStock);
-    const actionText = inStock ? "OUI (En stock)" : "NON (Rupture)";
-    if(confirmText) confirmText.textContent = `Confirmez-vous la disponibilité de "${medName}" : ${actionText} ?`;
+  function confirmProductResponse(reqId, pIdx, medName, statusType) {
+    pendingAction = () => respondToProduct(reqId, pIdx, medName, statusType);
+    let actionText = "";
+    if (statusType === 'in_stock_insured') actionText = "Disponible & Assuré";
+    else if (statusType === 'in_stock_uninsured') actionText = "Disponible mais non couvert";
+    else if (statusType === 'in_stock') actionText = "OUI (En stock)";
+    else actionText = "NON (Rupture)";
+    
+    if(confirmText) confirmText.textContent = `Confirmez-vous le statut pour "${medName}" : ${actionText} ?`;
     if(confirmModal) confirmModal.style.display = 'flex';
   }
 
@@ -440,13 +489,19 @@
     pendingAction = null;
   }
 
-  async function respondToProduct(reqId, pIdx, medName, inStock) {
+  async function respondToProduct(reqId, pIdx, medName, statusType) {
     const productEl = $(`#product-${reqId}-${pIdx}`);
     if (!productEl) return;
 
-    if (inStock) {
-      productEl.innerHTML = `<div style="color: var(--green-400); font-weight:bold;">✅ ${medName} (En stock confirmé)</div>`;
-      showToast('✅ Réponse "En stock" envoyée au patient', 'success');
+    if (statusType === 'in_stock' || statusType === 'in_stock_insured' || statusType === 'in_stock_uninsured') {
+      let msg = 'En stock';
+      if (statusType === 'in_stock_insured') msg = 'En stock (Couvert)';
+      if (statusType === 'in_stock_uninsured') msg = 'En stock (Non couvert par l\'assurance)';
+      
+      let color = (statusType === 'in_stock_uninsured') ? 'var(--yellow-500)' : 'var(--green-400)';
+      
+      productEl.innerHTML = `<div style="color: ${color}; font-weight:bold;">✅ ${medName} (${msg})</div>`;
+      showToast(`✅ Réponse "${msg}" envoyée`, 'success');
       
       const responded = parseInt($('#stat-responded').textContent);
       $('#stat-responded').textContent = responded + 1;

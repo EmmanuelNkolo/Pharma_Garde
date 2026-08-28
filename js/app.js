@@ -216,7 +216,42 @@ const App = (() => {
     if (btnValidateRequest) btnValidateRequest.addEventListener('click', goToPaymentStep);
 
     // Payment flow
-    btnProceedPayment.addEventListener('click', goToConfirmStep);
+    btnProceedPayment.addEventListener('click', () => {
+      // Show insurance modal
+      $('#insurance-step-1').style.display = 'flex';
+      $('#insurance-step-2').style.display = 'none';
+      $('#insurance-name-input').value = '';
+      $('#insurance-modal').style.display = 'flex';
+    });
+    
+    // Insurance Flow Logic
+    $('#ins-btn-yes').addEventListener('click', () => {
+      $('#insurance-step-1').style.display = 'none';
+      $('#insurance-step-2').style.display = 'flex';
+    });
+    
+    $('#ins-btn-no').addEventListener('click', () => {
+      window.userInsurance = null;
+      $('#insurance-modal').style.display = 'none';
+      goToConfirmStep();
+    });
+    
+    $('#ins-btn-back').addEventListener('click', () => {
+      $('#insurance-step-1').style.display = 'flex';
+      $('#insurance-step-2').style.display = 'none';
+    });
+    
+    $('#ins-btn-confirm').addEventListener('click', () => {
+      const insName = $('#insurance-name-input').value.trim();
+      if (!insName) {
+        showToast("Veuillez entrer le nom de l'assurance", 'error');
+        return;
+      }
+      window.userInsurance = insName;
+      $('#insurance-modal').style.display = 'none';
+      goToConfirmStep();
+    });
+
     methodMomo.addEventListener('click', () => selectPaymentMethod('momo'));
     methodOm.addEventListener('click', () => selectPaymentMethod('om'));
     phoneInput.addEventListener('input', handlePhoneInput);
@@ -704,7 +739,7 @@ const App = (() => {
     let hasResponded = false;
 
     // 4. Lancer le ping avec callback
-    const results = await Search.pingPharmacies(medicineNames, openPharmacies, (respondingPharmacy) => {
+    const results = await Search.pingPharmacies(medicineNames, openPharmacies, window.userInsurance, (respondingPharmacy) => {
       if (!hasResponded) {
         pharmacyList.innerHTML = ''; // Vider le message de chargement
         hasResponded = true;

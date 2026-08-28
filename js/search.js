@@ -125,7 +125,7 @@ const Search = (() => {
     return items[autocompleteIndex].dataset.value;
   }
 
-  function pingPharmacies(medicineName, pharmacies, onResponse) {
+  function pingPharmacies(medicineName, pharmacies, insuranceName, onResponse) {
     return new Promise(async (resolve) => {
       currentMedicine = medicineName;
       const requestedMeds = medicineName.split(',').map(m => m.trim()).filter(m => m);
@@ -134,9 +134,14 @@ const Search = (() => {
 
       try {
         // 1. Enregistrer la demande dans Supabase
+        const insertData = { user_phone: phone, medicines: requestedMeds, status: 'pending' };
+        if (insuranceName) {
+          insertData.insurance_name = insuranceName;
+        }
+
         const { data: request, error } = await supabase
           .from('requests')
-          .insert([{ user_phone: phone, medicines: requestedMeds, status: 'pending' }])
+          .insert([insertData])
           .select()
           .single();
 
