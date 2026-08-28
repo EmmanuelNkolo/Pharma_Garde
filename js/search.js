@@ -199,7 +199,6 @@ const Search = (() => {
   }
 
   return {
-    filterMedications,
     renderAutocomplete,
     navigateAutocomplete,
     pingPharmacies,
