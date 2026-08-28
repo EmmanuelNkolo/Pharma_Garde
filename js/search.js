@@ -151,11 +151,11 @@ const Search = (() => {
           })
           .subscribe();
 
-        // 3. Fin de la requête après 3 minutes (180s)
+        // 3. Fin de la requête après 30 secondes (30s) au lieu de 3 minutes
         setTimeout(() => {
           supabase.removeChannel(channel);
           resolve(responders);
-        }, 180000); 
+        }, 30000); 
 
       } catch (err) {
         console.error("Erreur de ping Supabase:", err);

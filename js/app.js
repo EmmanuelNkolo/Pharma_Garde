@@ -247,7 +247,12 @@ const App = (() => {
     } catch (error) {
       btnGps.innerHTML = '📍 Détecter ma position';
       btnGps.disabled = false;
-      showToast(error.message, 'error');
+      showToast(error.message + ' - Utilisation de Douala par défaut.', 'error');
+      
+      // Fallback to Douala Center
+      const fallbackPos = Geolocation.setUserPosition(4.0511, 9.7679);
+      currentCity = 'Douala';
+      startApp(fallbackPos);
     }
   }
 
