@@ -42,3 +42,79 @@ const LOCAL_PHARMACIES = [
   { id: 'local-y19', name: 'Pharmacie de Mimboman', address: 'Mimboman, Yaoundé', lat: 3.8651, lng: 11.5551, phone: '+237 600000119' },
   { id: 'local-y20', name: 'Pharmacie Nsam', address: 'Nsam, Yaoundé', lat: 3.8351, lng: 11.5111, phone: '+237 600000120' }
 ];
+
+const CITIES_AND_QUARTERS = {
+  'Douala': {
+    center: { lat: 4.0511, lng: 9.7679 },
+    quarters: [
+      { name: 'Bonanjo', lat: 4.0435, lng: 9.6928 },
+      { name: 'Akwa', lat: 4.0483, lng: 9.7043 },
+      { name: 'Deido', lat: 4.0589, lng: 9.7155 },
+      { name: 'Bonabéri', lat: 4.0697, lng: 9.6777 },
+      { name: 'Bonamoussadi', lat: 4.0715, lng: 9.7358 },
+      { name: 'Makepe', lat: 4.0667, lng: 9.7503 },
+      { name: 'Logpom', lat: 4.0605, lng: 9.7591 },
+      { name: 'Bépanda', lat: 4.0555, lng: 9.7289 },
+      { name: 'New Bell', lat: 4.0289, lng: 9.7131 },
+      { name: 'Bonapriso', lat: 4.0361, lng: 9.6928 },
+      { name: 'Ndokotti', lat: 4.0464, lng: 9.7440 },
+      { name: 'Kotto', lat: 4.0831, lng: 9.7501 },
+      { name: 'Yassa', lat: 4.0233, lng: 9.7873 },
+      { name: 'PK8', lat: 4.0154, lng: 9.7722 },
+      { name: 'Village', lat: 4.0623, lng: 9.7091 },
+      { name: 'Bali', lat: 4.0381, lng: 9.6961 },
+      { name: 'Logbessou', lat: 4.0952, lng: 9.7583 },
+      { name: 'Cité Sic', lat: 4.0583, lng: 9.7408 },
+    ],
+  },
+  'Yaoundé': {
+    center: { lat: 3.8480, lng: 11.5021 },
+    quarters: [
+      { name: 'Bastos', lat: 3.8789, lng: 11.5079 },
+      { name: 'Mfandena', lat: 3.8700, lng: 11.5175 },
+      { name: 'Biyem-Assi', lat: 3.8431, lng: 11.4817 },
+      { name: 'Essos', lat: 3.8717, lng: 11.5369 },
+      { name: 'Mvog-Mbi', lat: 3.8589, lng: 11.5181 },
+      { name: 'Messa', lat: 3.8667, lng: 11.4933 },
+      { name: 'Nsimeyong', lat: 3.8367, lng: 11.4978 },
+      { name: 'Ekounou', lat: 3.8556, lng: 11.5478 },
+      { name: 'Nkolbisson', lat: 3.8778, lng: 11.4633 },
+      { name: 'Mendong', lat: 3.8522, lng: 11.4711 },
+      { name: 'Omnisport', lat: 3.8833, lng: 11.5256 },
+      { name: 'Ngousso', lat: 3.8867, lng: 11.5367 },
+      { name: 'Emana', lat: 3.9033, lng: 11.5156 },
+      { name: 'Mokolo', lat: 3.8622, lng: 11.5078 },
+      { name: 'Soa', lat: 3.9633, lng: 11.5878 },
+      { name: 'Tsinga', lat: 3.8821, lng: 11.5012 },
+      { name: 'Odza', lat: 3.8055, lng: 11.5332 },
+    ],
+  },
+  'Bafoussam': {
+    center: { lat: 5.4833, lng: 10.4167 },
+    quarters: [
+      { name: 'Marché A', lat: 5.4820, lng: 10.4150 },
+      { name: 'Marché B', lat: 5.4833, lng: 10.4167 },
+      { name: 'Djeleng', lat: 5.4900, lng: 10.4200 },
+      { name: 'Tamdem', lat: 5.4750, lng: 10.4100 },
+      { name: 'Kopchou', lat: 5.4700, lng: 10.4250 },
+    ],
+  },
+  'Garoua': {
+    center: { lat: 9.3000, lng: 13.3999 },
+    quarters: [
+      { name: 'Poumpoumre', lat: 9.3000, lng: 13.3999 },
+      { name: 'Djamboutou', lat: 9.3100, lng: 13.4100 },
+      { name: 'Yelwa', lat: 9.2900, lng: 13.3900 },
+      { name: 'Marouare', lat: 9.3200, lng: 13.3800 },
+    ],
+  },
+  'Maroua': {
+    center: { lat: 10.5962, lng: 14.3159 },
+    quarters: [
+      { name: 'Domayo', lat: 10.5962, lng: 14.3159 },
+      { name: 'Hardé', lat: 10.6000, lng: 14.3200 },
+      { name: 'Kakataré', lat: 10.5900, lng: 14.3100 },
+      { name: 'Doualaré', lat: 10.6100, lng: 14.3000 },
+    ],
+  }
+};

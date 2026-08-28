@@ -10,24 +10,40 @@ const Search = (() => {
   let debounceTimeout = null;
 
   /**
-   * Fetch medications from local robust list
+   * Fetch medications from local robust list AND the internet (Wikipedia OpenSearch)
    * @param {string} query - User input
    * @returns {Promise<Array<string>>} Matching medications
    */
-  async function fetchMedicationsFromLocal(query) {
+  async function fetchMedications(query) {
     if (!query || query.length < 2) return [];
 
+    let localResults = [];
     try {
       const normalizedQuery = query.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      const results = LOCAL_MEDICINES.filter(med => {
+      localResults = LOCAL_MEDICINES.filter(med => {
         const normalizedMed = med.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
         return normalizedMed.includes(normalizedQuery);
       });
-      return results.slice(0, 10);
     } catch (error) {
       console.error('Local search error:', error);
-      return [];
     }
+
+    let internetResults = [];
+    try {
+      // Aller chercher sur internet (API publique Wikipedia FR)
+      const res = await fetch(`https://fr.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(query)}&limit=10&namespace=0&format=json&origin=*`);
+      const data = await res.json();
+      if (data && data[1]) {
+        // Nettoyer les résultats (enlever les mots entre parenthèses si on veut, ou juste garder tel quel)
+        internetResults = data[1].filter(item => !item.toLowerCase().includes('homonymie'));
+      }
+    } catch(e) {
+      console.error('Internet search error:', e);
+    }
+
+    // Fusionner (Local en priorité) et dédupliquer, limité à 10 résultats
+    const combined = [...new Set([...localResults, ...internetResults])];
+    return combined.slice(0, 10);
   }
 
   /**
@@ -60,7 +76,7 @@ const Search = (() => {
     container.innerHTML = '<div class="autocomplete-item" style="justify-content:center;color:var(--slate-500)"><div class="spinner" style="width:20px;height:20px;border-width:2px;"></div></div>';
     container.classList.add('visible');
 
-    const results = await fetchMedicationsFromLocal(query);
+    const results = await fetchMedications(query);
     autocompleteIndex = -1;
 
     if (results.length === 0) {
