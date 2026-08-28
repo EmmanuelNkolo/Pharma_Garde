@@ -25,7 +25,7 @@ const App = (() => {
   const locationModal = $('#location-modal');
   const btnGps = $('#btn-gps');
   // Removed manual location variables
-  
+
   const navBack = $('#nav-back');
   const navForward = $('#nav-forward');
   const cameraBtn = $('#camera-btn');
@@ -63,7 +63,7 @@ const App = (() => {
   const searchPharmacyCount = $('#search-pharmacy-count');
   const searchRadiusDisplay = $('#search-radius-display');
   const btnProceedPayment = $('#btn-proceed-payment');
-  
+
   let requestedMedicines = [];
 
   // Payment
@@ -105,7 +105,7 @@ const App = (() => {
   // ── Initialization ─────────────────────────────────────
   async function loadLocalPharmacies() {
     PHARMACIES.length = 0;
-    
+
     // 1. Charger les pharmacies statiques robustes
     if (typeof LOCAL_PHARMACIES !== 'undefined') {
       const mappedLocal = LOCAL_PHARMACIES.map(p => ({
@@ -116,7 +116,7 @@ const App = (() => {
       }));
       PHARMACIES.push(...mappedLocal);
     }
-    
+
     // 2. Ajouter les pharmacies inscrites dynamiquement sur Supabase (sans doublons)
     if (typeof supabase !== 'undefined') {
       try {
@@ -143,7 +143,7 @@ const App = (() => {
         console.error('Erreur chargement Supabase', err);
       }
     }
-    
+
     updatePharmacyDisplay();
   }
 
@@ -209,7 +209,7 @@ const App = (() => {
     medicineInput.addEventListener('input', handleMedicineInput);
     medicineInput.addEventListener('keydown', handleMedicineKeydown);
     if (btnAddMedicine) btnAddMedicine.addEventListener('click', addMedicine);
-    
+
     const btnCancelRequest = $('#btn-cancel-request');
     const btnValidateRequest = $('#btn-validate-request');
     if (btnCancelRequest) btnCancelRequest.addEventListener('click', goToSearchStep);
@@ -271,7 +271,7 @@ const App = (() => {
       btnGps.innerHTML = '📍 Détecter ma position';
       btnGps.disabled = false;
       showToast(error.message + ' - Utilisation de Douala par défaut.', 'error');
-      
+
       // Fallback to Douala Center
       const fallbackPos = Geolocation.setUserPosition(4.0511, 9.7679);
       currentCity = 'Douala';
@@ -518,7 +518,7 @@ const App = (() => {
   function handleOcrInput(e) {
     if (!e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
-    
+
     // Close selection modal
     if (ocrModal) ocrModal.style.display = 'none';
 
@@ -528,17 +528,17 @@ const App = (() => {
 
   async function processRealOcr(file) {
     showToast('Analyse avancée de l\'ordonnance en cours...', 'info');
-    
+
     // Open modal if not open
     if (!searchModal.classList.contains('active')) {
       openSearchModal();
     }
-    
+
     try {
       // Configuration de l'API Google Cloud Vision
       // ATTENTION: Remplacez cette variable par votre vraie clé générée sur Google Cloud Console.
-      const API_KEY = "GOOGLE_CLOUD_VISION_API_KEY_HERE";
-      
+      const API_KEY = "AIzaSyB-9HTwgdOKZLV2yWUXonm5WnQU3TNPIRo";
+
       if (API_KEY === "GOOGLE_CLOUD_VISION_API_KEY_HERE") {
         showToast('Erreur: Clé API Google Cloud Vision manquante.', 'error');
         alert("Développeur : Veuillez remplacer 'GOOGLE_CLOUD_VISION_API_KEY_HERE' dans js/app.js par votre véritable clé API Google Cloud.");
@@ -582,7 +582,7 @@ const App = (() => {
       });
 
       const result = await response.json();
-      
+
       if (result.error) {
         throw new Error(result.error.message);
       }
@@ -596,14 +596,14 @@ const App = (() => {
 
       const text = annotations[0].description;
       console.log('Texte extrait par Google Vision:', text);
-      
+
       // Extraction rudimentaire : chercher des correspondances dans LOCAL_MEDICINES
       const words = text.split(/[\s,.\n]+/);
       let detectedCount = 0;
-      
+
       // Si la variable LOCAL_MEDICINES (venant de data/medicines.js) est disponible
       const localMeds = (typeof LOCAL_MEDICINES !== 'undefined') ? LOCAL_MEDICINES : [];
-      
+
       words.forEach(word => {
         if (word.length < 4) return; // Ignorer les mots très courts
         const match = localMeds.find(med => med.toLowerCase().includes(word.toLowerCase()));
@@ -612,13 +612,13 @@ const App = (() => {
           detectedCount++;
         }
       });
-      
+
       if (detectedCount === 0) {
         showToast('Texte lu, mais aucun médicament reconnu avec certitude.', 'error');
       } else {
         showToast(`${detectedCount} médicament(s) détecté(s)`, 'success');
       }
-      
+
       renderMedicineTags();
     } catch (error) {
       console.error(error);
@@ -629,9 +629,9 @@ const App = (() => {
   // ── Confirmation & Payment Flow ────────────────────────
   function goToConfirmStep() {
     if (requestedMedicines.length === 0) return;
-    
+
     showSearchStep('confirm');
-    
+
     // Render the list of products for confirmation
     const confirmList = $('#confirm-products-list');
     if (confirmList) {
@@ -642,7 +642,7 @@ const App = (() => {
         </div>
       `).join('');
       // Enlever la bordure du dernier élément
-      if(confirmList.lastElementChild) {
+      if (confirmList.lastElementChild) {
         confirmList.lastElementChild.style.borderBottom = 'none';
       }
     }
@@ -650,13 +650,13 @@ const App = (() => {
 
   function goToPaymentStep() {
     showSearchStep(2);
-    
+
     // Always default to 100 FCFA when opening the modal since the input is blank
     const amountToPay = 100;
     const amountVal = $('#payment-amount-val');
-    if(amountVal) amountVal.textContent = amountToPay;
+    if (amountVal) amountVal.textContent = amountToPay;
     btnConfirmPayment.innerHTML = `✅ Confirmer le paiement — ${amountToPay} FCFA`;
-    
+
     phoneInput.value = ''; // Always clear to let user input their own number
     btnConfirmPayment.disabled = true;
   }
@@ -687,7 +687,7 @@ const App = (() => {
     }
 
     const amountVal = $('#payment-amount-val');
-    if(amountVal) amountVal.textContent = amountToPay;
+    if (amountVal) amountVal.textContent = amountToPay;
     btnConfirmPayment.innerHTML = `✅ Confirmer le paiement — ${amountToPay} FCFA`;
   }
 
@@ -760,10 +760,10 @@ const App = (() => {
         pharmacyList.innerHTML = ''; // Vider le message de chargement
         hasResponded = true;
       }
-      
+
       // Ajouter la pharmacie au panneau latéral avec les badges de médicaments
       const medsInStock = respondingPharmacy.availableMedicines ? respondingPharmacy.availableMedicines.map(m => `<span class="badge badge-stock" style="margin-right: 4px; display:inline-block; margin-bottom:4px;">✅ ${m}</span>`).join('') : '';
-      
+
       const cardHtml = `
         <div class="card" style="animation: fadeUp 0.3s ease forwards;">
           <div class="card-header">
