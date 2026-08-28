@@ -195,13 +195,58 @@
   function bindTabs() {
     $$('.dash-tab').forEach((tab) => {
       tab.addEventListener('click', () => {
-        $$('.dash-tab').forEach((t) => t.classList.remove('active'));
-        $$('.dash-tab-content').forEach((c) => c.classList.remove('active'));
-
-        tab.classList.add('active');
-        $(`#tab-${tab.dataset.tab}`).classList.add('active');
+        switchToTab(tab.dataset.tab);
       });
     });
+
+    // Make stats cards act as buttons
+    const statCards = $$('.stat-card');
+    if (statCards.length >= 4) {
+      // 1. Demandes aujourd'hui -> Historique (all)
+      statCards[0].style.cursor = 'pointer';
+      statCards[0].addEventListener('click', () => {
+        switchToTab('history');
+        const filterSelect = $('#history-filter-status');
+        if (filterSelect) {
+          filterSelect.value = 'all';
+          renderHistory('all');
+        }
+      });
+
+      // 2. Répondues -> Historique (responded)
+      statCards[1].style.cursor = 'pointer';
+      statCards[1].addEventListener('click', () => {
+        switchToTab('history');
+        const filterSelect = $('#history-filter-status');
+        if (filterSelect) {
+          filterSelect.value = 'responded';
+          renderHistory('responded');
+        }
+      });
+
+      // 3. En attente -> Demandes actives
+      statCards[2].style.cursor = 'pointer';
+      statCards[2].addEventListener('click', () => {
+        switchToTab('active');
+      });
+
+      // 4. Réservations -> Réservations
+      statCards[3].style.cursor = 'pointer';
+      statCards[3].addEventListener('click', () => {
+        switchToTab('reservations');
+      });
+    }
+  }
+
+  function switchToTab(tabId) {
+    $$('.dash-tab').forEach((t) => t.classList.remove('active'));
+    $$('.dash-tab-content').forEach((c) => c.classList.remove('active'));
+
+    const tabBtn = $(`.dash-tab[data-tab="${tabId}"]`);
+    if (tabBtn) tabBtn.classList.add('active');
+    
+    const tabContent = $(`#tab-${tabId}`);
+    if (tabContent) tabContent.classList.add('active');
   }
 
   // ── Guard Status Switch ────────────────────────────────
