@@ -828,7 +828,7 @@
   max-height: 200px;
   overflow-y: auto;
   display: none;
-  z-index: 5;
+  z-index: 1000;
   box-shadow: var(--shadow-xl);
 }
 

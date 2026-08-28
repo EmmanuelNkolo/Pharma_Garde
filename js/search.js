@@ -31,7 +31,10 @@ const Search = (() => {
     let internetResults = [];
     try {
       // Aller chercher sur internet (API publique Wikipedia FR)
-      const res = await fetch(`https://fr.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(query)}&limit=10&namespace=0&format=json&origin=*`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      const res = await fetch(`https://fr.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(query)}&limit=10&namespace=0&format=json&origin=*`, { signal: controller.signal });
+      clearTimeout(timeoutId);
       const data = await res.json();
       if (data && data[1]) {
         // Nettoyer les résultats (enlever les mots entre parenthèses si on veut, ou juste garder tel quel)
