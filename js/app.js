@@ -52,7 +52,12 @@ const App = (() => {
   const medicineInput = $('#medicine-input');
   const btnAddMedicine = $('#btn-add-medicine');
   const medicinesTagsContainer = $('#medicines-tags-container');
-  const ocrCameraInput = $('#ocr-camera-input');
+  const ocrModal = $('#ocr-modal');
+  const ocrBackdrop = $('#ocr-backdrop');
+  const ocrBtnCamera = $('#ocr-btn-camera');
+  const ocrBtnGallery = $('#ocr-btn-gallery');
+  const ocrInputCamera = $('#ocr-input-camera');
+  const ocrInputGallery = $('#ocr-input-gallery');
   const autocompleteList = $('#autocomplete-list');
   const searchInfo = $('#search-info');
   const searchPharmacyCount = $('#search-pharmacy-count');
@@ -162,11 +167,29 @@ const App = (() => {
     if (navForward) navForward.addEventListener('click', () => history.forward());
     if (cameraBtn) {
       cameraBtn.addEventListener('click', () => {
-        if (ocrCameraInput) ocrCameraInput.click();
+        if (ocrModal) ocrModal.style.display = 'flex';
       });
     }
-    if (ocrCameraInput) {
-      ocrCameraInput.addEventListener('change', handleOcrSimulation);
+    if (ocrBackdrop) {
+      ocrBackdrop.addEventListener('click', () => {
+        ocrModal.style.display = 'none';
+      });
+    }
+    if (ocrBtnCamera) {
+      ocrBtnCamera.addEventListener('click', () => {
+        ocrInputCamera.click();
+      });
+    }
+    if (ocrBtnGallery) {
+      ocrBtnGallery.addEventListener('click', () => {
+        ocrInputGallery.click();
+      });
+    }
+    if (ocrInputCamera) {
+      ocrInputCamera.addEventListener('change', handleOcrInput);
+    }
+    if (ocrInputGallery) {
+      ocrInputGallery.addEventListener('change', handleOcrInput);
     }
 
     // Radius pills
@@ -492,25 +515,67 @@ const App = (() => {
     }
   }
 
-  function handleOcrSimulation(e) {
+  function handleOcrInput(e) {
     if (!e.target.files || e.target.files.length === 0) return;
-    showToast('Analyse de l\'ordonnance en cours...', 'info');
-    setTimeout(() => {
-      // Open modal if not open BEFORE adding tags so it doesn't clear them
-      if (!searchModal.classList.contains('active')) {
-        openSearchModal();
-      }
+    const file = e.target.files[0];
+    
+    // Close selection modal
+    if (ocrModal) ocrModal.style.display = 'none';
 
-      const mocks = ['Paracétamol 500mg', 'Vitamine C'];
-      mocks.forEach(m => {
-        if (!requestedMedicines.includes(m)) requestedMedicines.push(m);
-      });
-      renderMedicineTags();
-      showToast('2 médicaments détectés', 'success');
+    processRealOcr(file);
+    e.target.value = ''; // Reset input
+  }
+
+  async function processRealOcr(file) {
+    showToast('Analyse Tesseract de l\'ordonnance en cours...', 'info');
+    
+    // Open modal if not open
+    if (!searchModal.classList.contains('active')) {
+      openSearchModal();
+    }
+    
+    try {
+      if (typeof Tesseract === 'undefined') {
+        throw new Error("Tesseract.js n'est pas chargé");
+      }
       
-      // Reset input so the same file can be uploaded again
-      e.target.value = '';
-    }, 1500);
+      const result = await Tesseract.recognize(file, 'fra', {
+        logger: m => console.log(m)
+      });
+      
+      const text = result.data.text;
+      console.log('Texte extrait:', text);
+      
+      // Extraction rudimentaire : chercher des correspondances dans LOCAL_MEDICINES
+      const words = text.split(/[\s,.\n]+/);
+      let detectedCount = 0;
+      
+      // Si la variable LOCAL_MEDICINES (venant de data/medicines.js) est disponible
+      const localMeds = (typeof LOCAL_MEDICINES !== 'undefined') ? LOCAL_MEDICINES : [];
+      
+      words.forEach(word => {
+        if (word.length < 4) return; // Ignorer les mots très courts
+        const match = localMeds.find(med => med.toLowerCase().includes(word.toLowerCase()));
+        if (match && !requestedMedicines.includes(match)) {
+          requestedMedicines.push(match);
+          detectedCount++;
+        }
+      });
+      
+      // Si aucun médicament n'est trouvé, ajouter un mock pour montrer que ça a lu quelque chose
+      // Cela évite que l'utilisateur soit confus si son ordonnance manuscrite est illisible.
+      if (detectedCount === 0) {
+        // Optionnel : on peut dire "Aucun médicament identifié de façon certaine"
+        showToast('Texte lu, mais aucun médicament reconnu avec certitude.', 'error');
+      } else {
+        showToast(`${detectedCount} médicament(s) détecté(s)`, 'success');
+      }
+      
+      renderMedicineTags();
+    } catch (error) {
+      console.error(error);
+      showToast("Erreur lors de l'analyse OCR", 'error');
+    }
   }
 
   // ── Confirmation & Payment Flow ────────────────────────
