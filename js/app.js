@@ -527,83 +527,32 @@ const App = (() => {
   }
 
   async function processRealOcr(file) {
-    showToast('Analyse avancée de l\'ordonnance en cours...', 'info');
-
+    showToast('Analyse de l\'ordonnance en cours (Tesseract)...', 'info');
+    
     // Open modal if not open
     if (!searchModal.classList.contains('active')) {
       openSearchModal();
     }
-
+    
     try {
-      // Configuration de l'API Google Cloud Vision
-      // ATTENTION: Remplacez cette variable par votre vraie clé générée sur Google Cloud Console.
-      const API_KEY = "AIzaSyB-9HTwgdOKZLV2yWUXonm5WnQU3TNPIRo";
-
-      if (API_KEY === "GOOGLE_CLOUD_VISION_API_KEY_HERE") {
-        showToast('Erreur: Clé API Google Cloud Vision manquante.', 'error');
-        alert("Développeur : Veuillez remplacer 'GOOGLE_CLOUD_VISION_API_KEY_HERE' dans js/app.js par votre véritable clé API Google Cloud.");
-        return;
+      if (typeof Tesseract === 'undefined') {
+        throw new Error("Tesseract.js n'est pas chargé. Vérifiez votre connexion.");
       }
-
-      // Convert image file to base64
-      const getBase64 = (f) => {
-        return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.readAsDataURL(f);
-          reader.onload = () => resolve(reader.result.split(',')[1]);
-          reader.onerror = error => reject(error);
-        });
-      };
-
-      const base64Image = await getBase64(file);
-
-      // Préparation de la requête pour DOCUMENT_TEXT_DETECTION (optimisé pour le manuscrit)
-      const requestBody = {
-        requests: [
-          {
-            image: {
-              content: base64Image
-            },
-            features: [
-              {
-                type: 'DOCUMENT_TEXT_DETECTION'
-              }
-            ]
-          }
-        ]
-      };
-
-      const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${API_KEY}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
+      
+      const result = await Tesseract.recognize(file, 'fra', {
+        logger: m => console.log(m)
       });
-
-      const result = await response.json();
-
-      if (result.error) {
-        throw new Error(result.error.message);
-      }
-
-      // Récupération du texte
-      const annotations = result.responses[0].textAnnotations;
-      if (!annotations || annotations.length === 0) {
-        showToast('Aucun texte reconnu sur l\'image.', 'error');
-        return;
-      }
-
-      const text = annotations[0].description;
-      console.log('Texte extrait par Google Vision:', text);
-
+      
+      const text = result.data.text;
+      console.log('Texte extrait:', text);
+      
       // Extraction rudimentaire : chercher des correspondances dans LOCAL_MEDICINES
       const words = text.split(/[\s,.\n]+/);
       let detectedCount = 0;
-
+      
       // Si la variable LOCAL_MEDICINES (venant de data/medicines.js) est disponible
       const localMeds = (typeof LOCAL_MEDICINES !== 'undefined') ? LOCAL_MEDICINES : [];
-
+      
       words.forEach(word => {
         if (word.length < 4) return; // Ignorer les mots très courts
         const match = localMeds.find(med => med.toLowerCase().includes(word.toLowerCase()));
