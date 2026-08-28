@@ -496,16 +496,20 @@ const App = (() => {
     if (!e.target.files || e.target.files.length === 0) return;
     showToast('Analyse de l\'ordonnance en cours...', 'info');
     setTimeout(() => {
+      // Open modal if not open BEFORE adding tags so it doesn't clear them
+      if (!searchModal.classList.contains('active')) {
+        openSearchModal();
+      }
+
       const mocks = ['Paracétamol 500mg', 'Vitamine C'];
       mocks.forEach(m => {
         if (!requestedMedicines.includes(m)) requestedMedicines.push(m);
       });
       renderMedicineTags();
       showToast('2 médicaments détectés', 'success');
-      // Open modal if not open
-      if (!searchModal.classList.contains('active')) {
-        openSearchModal();
-      }
+      
+      // Reset input so the same file can be uploaded again
+      e.target.value = '';
     }, 1500);
   }
 
