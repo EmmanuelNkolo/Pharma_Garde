@@ -438,6 +438,11 @@ ul, ol {
   box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15);
 }
 
+select.input-field option {
+  background-color: var(--dark-800, #1f2937);
+  color: white;
+}
+
 .input-group {
   position: relative;
 }
