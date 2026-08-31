@@ -1564,20 +1564,22 @@
 
 .action-btn {
   flex: 1;
-  padding: 4px;
+  padding: 6px 4px;
   border-radius: var(--radius-xl);
-  font-family: 'Comic Sans MS', 'Comic Sans', cursive;
-  font-size: 12px;
+  font-family: var(--font-family);
+  font-size: 11px;
   font-weight: 700;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: 2px;
+  gap: 4px;
   transition: all var(--transition-base);
   height: 56px;
   white-space: nowrap;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .primary-action {
@@ -1599,6 +1601,16 @@
 .secondary-action:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 20px rgba(5, 150, 105, 0.6);
+}
+
+.demo-action {
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  color: white;
+}
+
+.demo-action:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(124, 58, 237, 0.6);
 }
 
 /* ── Location Search List ─────────────────────────────────── */
@@ -1648,5 +1660,241 @@
 .map-mask {
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
+}
+
+/* ── Recenter Button ─────────────────────────────────────── */
+.recenter-btn {
+  position: absolute;
+  bottom: calc(70vh + 16px);
+  right: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-controls);
+  transition: all var(--transition-fast);
+  color: var(--dark-200);
+  box-shadow: var(--shadow-md);
+}
+
+.recenter-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: scale(1.1);
+  color: var(--green-400);
+}
+
+/* ── Demo Modal ──────────────────────────────────────────── */
+#demo-modal {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  opacity: 0;
+  visibility: hidden;
+  transition: all var(--transition-base);
+}
+
+#demo-modal.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.demo-panel {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--dark-900);
+  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+  border-top: 1px solid var(--glass-border);
+  padding: var(--space-6);
+  padding-bottom: max(var(--space-8), env(safe-area-inset-bottom));
+  max-height: 90vh;
+  overflow-y: auto;
+  transform: translateY(100%);
+  transition: transform var(--transition-slow);
+}
+
+#demo-modal.active .demo-panel {
+  transform: translateY(0);
+}
+
+.demo-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.demo-header h2 {
+  font-size: var(--font-xl);
+  font-weight: 800;
+}
+
+.demo-desc {
+  font-size: var(--font-sm);
+  color: var(--dark-400);
+  margin-bottom: var(--space-6);
+}
+
+.demo-video-container {
+  background: var(--dark-800);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  margin-bottom: var(--space-4);
+  min-height: 220px;
+  position: relative;
+}
+
+.demo-slides {
+  padding: var(--space-6);
+}
+
+.demo-slide {
+  display: none;
+  animation: fadeIn var(--transition-base);
+  text-align: center;
+}
+
+.demo-slide.active {
+  display: block;
+}
+
+.demo-slide-icon {
+  font-size: 48px;
+  margin-bottom: var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  margin: 0 auto var(--space-4);
+  background: rgba(5, 150, 105, 0.1);
+  border-radius: 50%;
+  border: 2px solid rgba(5, 150, 105, 0.2);
+}
+
+.demo-slide h3 {
+  font-size: var(--font-lg);
+  font-weight: 700;
+  margin-bottom: var(--space-2);
+  color: var(--green-400);
+}
+
+.demo-slide p {
+  font-size: var(--font-sm);
+  color: var(--dark-300);
+  line-height: 1.6;
+}
+
+.demo-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.demo-progress {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--dark-400);
+}
+
+/* ── Desktop Responsive Improvements ─────────────────────── */
+@media (min-width: 1024px) {
+  #bottom-sheet {
+    max-width: 400px;
+    left: var(--space-4);
+    bottom: var(--space-4);
+    top: 80px;
+    border-radius: var(--radius-2xl);
+    max-height: none;
+    border: 1px solid var(--glass-border);
+  }
+
+  #bottom-sheet.collapsed {
+    transform: translateY(0);
+    top: auto;
+    bottom: var(--space-4);
+    max-height: 240px;
+  }
+
+  .search-panel {
+    max-width: 520px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100%);
+    border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+  }
+
+  #search-modal.active .search-panel {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .detail-panel {
+    max-width: 480px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100%);
+  }
+
+  #detail-modal.active .detail-panel {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .demo-panel {
+    max-width: 600px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100%);
+  }
+
+  #demo-modal.active .demo-panel {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .recenter-btn {
+    bottom: 80px;
+    right: 24px;
+  }
+}
+
+/* ── Tablet Responsive ───────────────────────────────────── */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .action-buttons-row {
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .action-btn {
+    height: 60px;
+    font-size: 12px;
+  }
+}
+
+/* ── Small Mobile ────────────────────────────────────────── */
+@media (max-width: 380px) {
+  .radius-pill {
+    padding: var(--space-1) var(--space-2);
+    font-size: 10px;
+    min-width: 40px;
+  }
+
+  .top-logo-text {
+    display: none;
+  }
+
+  .pharmacist-btn span:not(svg) {
+    display: none;
+  }
+
+  .action-btn {
+    font-size: 10px;
+    height: 50px;
+  }
 }
 

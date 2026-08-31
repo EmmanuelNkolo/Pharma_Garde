@@ -1,12 +1,12 @@
 /**
- * Pharma-Garde — Pharmacist Dashboard Controller
+ * Pharma-Garde — Pharmacist Dashboard Controller (Espace Pharmacie)
  * Manages the pharmacist-facing interface
  */
 
 (function () {
   // ── Mock Data for Dashboard ────────────────────────────
   let ACTIVE_REQUESTS = [];
-  let currentPharmacyId = 'dla-001'; // ID factice pour la démo
+  let currentPharmacyId = null;
 
   const HISTORY_DATA = [
     { medicine: 'Quinine comprimés', status: 'responded', date: 'Auj. 18:30', patient: '4.1 km' },
@@ -63,11 +63,14 @@
 
   // ── Init ───────────────────────────────────────────────
   function init() {
-    btnLogin.addEventListener('click', handleLogin);
+    // Login / Register tab switching
+    bindLoginTabs();
+
+    if (btnLogin) btnLogin.addEventListener('click', handleLogin);
     const btnRegister = $('#btn-register');
     if (btnRegister) btnRegister.addEventListener('click', handleRegister);
 
-    if(btnConfirmOk) btnConfirmOk.addEventListener('click', executeConfirm);
+    if (btnConfirmOk) btnConfirmOk.addEventListener('click', executeConfirm);
     bindTabs();
     bindGuardSwitch();
     
@@ -77,10 +80,34 @@
     const btnDeregister = $('#btn-deregister');
     if (btnDeregister) btnDeregister.addEventListener('click', handleDeregister);
     
-    // Si l'utilisateur est déjà dans le dashboard, on charge direct
+    // If supabase is available, fetch pending requests
     if (typeof supabase !== 'undefined') {
       fetchPendingRequests();
       subscribeToRequests();
+    }
+  }
+
+  // ── Login/Register Tabs ────────────────────────────────
+  function bindLoginTabs() {
+    const tabLogin = $('#tab-login');
+    const tabRegister = $('#tab-register');
+    const formLogin = $('#form-login');
+    const formRegister = $('#form-register');
+
+    if (tabLogin && tabRegister) {
+      tabLogin.addEventListener('click', () => {
+        tabLogin.classList.add('active');
+        tabRegister.classList.remove('active');
+        if (formLogin) formLogin.style.display = 'block';
+        if (formRegister) formRegister.style.display = 'none';
+      });
+
+      tabRegister.addEventListener('click', () => {
+        tabRegister.classList.add('active');
+        tabLogin.classList.remove('active');
+        if (formLogin) formLogin.style.display = 'none';
+        if (formRegister) formRegister.style.display = 'block';
+      });
     }
   }
 
@@ -103,38 +130,48 @@
         }));
         renderActiveRequests();
       }
-    } catch(err) { console.error(err); }
+    } catch(err) { console.error('Fetch requests error:', err); }
   }
 
   function subscribeToRequests() {
-    supabase
-      .channel('public_requests')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'requests' }, payload => {
-        const req = payload.new;
-        if(req.status === 'pending') {
-          ACTIVE_REQUESTS.unshift({
-            id: req.id,
-            medicines: req.medicines,
-            patientDistance: 'Nouvelle demande',
-            time: new Date(req.created_at).toLocaleTimeString(),
-            urgent: true,
-            phone: req.user_phone,
-            insurance_name: req.insurance_name
-          });
-          renderActiveRequests();
-          showToast('🔔 Nouvelle demande de patient !', 'info');
-        }
-      })
-      .subscribe();
+    try {
+      supabase
+        .channel('public_requests')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'requests' }, payload => {
+          const req = payload.new;
+          if (req.status === 'pending') {
+            ACTIVE_REQUESTS.unshift({
+              id: req.id,
+              medicines: req.medicines,
+              patientDistance: 'Nouvelle demande',
+              time: new Date(req.created_at).toLocaleTimeString(),
+              urgent: true,
+              phone: req.user_phone,
+              insurance_name: req.insurance_name
+            });
+            renderActiveRequests();
+            showToast('🔔 Nouvelle demande de patient !', 'info');
+          }
+        })
+        .subscribe();
+    } catch(err) { console.error('Subscribe error:', err); }
   }
 
   // ── Login & Register ─────────────────────────────────────
   async function handleRegister() {
-    const nameInput = document.querySelector('#form-register input[placeholder="Nom de la pharmacie"]').value.trim();
-    const addressInput = document.querySelector('#form-register input[placeholder="Ville et Quartier"]').value.trim();
-    const phoneInput = document.querySelector('#reg-phone-input').value.trim();
+    const nameInput = document.querySelector('#form-register input[placeholder="Nom de la pharmacie"]');
+    const addressInput = document.querySelector('#form-register input[placeholder="Ville et Quartier"]');
+    const phoneInput = $('#reg-phone-input');
+    const whatsappInput = $('#reg-whatsapp-input');
+    const emailInput = $('#reg-email-input');
+    const hourOpen = $('#reg-hour-open');
+    const hourClose = $('#reg-hour-close');
     
-    if (!nameInput || !addressInput) {
+    const name = nameInput ? nameInput.value.trim() : '';
+    const address = addressInput ? addressInput.value.trim() : '';
+    const phone = phoneInput ? phoneInput.value.trim() : '';
+
+    if (!name || !address) {
       showToast('Veuillez remplir le nom et l\'adresse', 'error');
       return;
     }
@@ -145,34 +182,56 @@
     btn.disabled = true;
 
     try {
-      // Simulate geolocation for the new pharmacy (for demo, just take center of Yaoundé)
+      // Generate approximate position
       const lat = 3.8480 + (Math.random() - 0.5) * 0.05;
       const lng = 11.5021 + (Math.random() - 0.5) * 0.05;
 
-      const { data, error } = await supabase
-        .from('pharmacies')
-        .insert([{
-          name: nameInput,
-          address: addressInput,
-          phone: phoneInput,
-          lat: lat,
-          lng: lng,
-          status: 'open'
-        }])
-        .select();
+      const hours = (hourOpen ? hourOpen.value : '08:00') + ' - ' + (hourClose ? hourClose.value : '21:00');
 
-      if (error) throw error;
+      const insertData = {
+        name: name,
+        address: address,
+        phone: phone,
+        lat: lat,
+        lng: lng,
+        status: 'open',
+        hours: hours,
+      };
 
-      showToast('✅ Pharmacie inscrite avec succès !', 'success');
-      
-      // Auto-login
-      currentPharmacyId = data[0].id;
-      pharmacyNameInput.value = nameInput;
-      handleLogin();
+      // Add optional fields
+      if (whatsappInput && whatsappInput.value.trim()) {
+        insertData.whatsapp = whatsappInput.value.trim();
+      }
+      if (emailInput && emailInput.value.trim()) {
+        insertData.email = emailInput.value.trim();
+      }
+
+      if (typeof supabase !== 'undefined') {
+        const { data, error } = await supabase
+          .from('pharmacies')
+          .insert([insertData])
+          .select();
+
+        if (error) throw error;
+
+        showToast('✅ Pharmacie inscrite avec succès !', 'success');
+        
+        // Auto-login
+        if (data && data[0]) {
+          currentPharmacyId = data[0].id;
+        }
+        if (pharmacyNameInput) pharmacyNameInput.value = name;
+        handleLogin();
+      } else {
+        // Offline mode - just login
+        showToast('✅ Inscription simulée (mode hors-ligne)', 'success');
+        if (pharmacyNameInput) pharmacyNameInput.value = name;
+        handleLogin();
+      }
       
     } catch(err) {
       console.error(err);
-      showToast('Erreur lors de l\'inscription', 'error');
+      showToast('Erreur lors de l\'inscription: ' + (err.message || ''), 'error');
     } finally {
       btn.textContent = originalText;
       btn.disabled = false;
@@ -180,15 +239,15 @@
   }
 
   function handleLogin() {
-    const name = pharmacyNameInput.value.trim();
+    const name = pharmacyNameInput ? pharmacyNameInput.value.trim() : '';
     if (!name) {
       showToast('Veuillez entrer le nom de votre pharmacie', 'error');
       return;
     }
 
-    loginScreen.classList.add('hidden');
-    dashboard.classList.remove('hidden');
-    dashPharmacyName.textContent = name;
+    if (loginScreen) loginScreen.classList.add('hidden');
+    if (dashboard) dashboard.classList.remove('hidden');
+    if (dashPharmacyName) dashPharmacyName.textContent = name;
 
     // Render dashboard data
     renderActiveRequests();
@@ -196,13 +255,13 @@
     renderReservations();
     renderTopMedications();
 
-    showToast('✅ Connexion réussie', 'success');
+    showToast('✅ Connexion réussie — Bienvenue !', 'success');
   }
 
   function handleLogout() {
-    dashboard.classList.add('hidden');
-    loginScreen.classList.remove('hidden');
-    pharmacyNameInput.value = '';
+    if (dashboard) dashboard.classList.add('hidden');
+    if (loginScreen) loginScreen.classList.remove('hidden');
+    if (pharmacyNameInput) pharmacyNameInput.value = '';
     currentPharmacyId = null;
     showToast('Déconnexion réussie', 'info');
   }
@@ -236,10 +295,9 @@
       });
     });
 
-    // Make stats cards act as buttons
+    // Make stats cards clickable
     const statCards = $$('.stat-card');
     if (statCards.length >= 4) {
-      // 1. Demandes aujourd'hui -> Historique (all)
       statCards[0].style.cursor = 'pointer';
       statCards[0].addEventListener('click', () => {
         switchToTab('history');
@@ -250,7 +308,6 @@
         }
       });
 
-      // 2. Répondues -> Historique (responded)
       statCards[1].style.cursor = 'pointer';
       statCards[1].addEventListener('click', () => {
         switchToTab('history');
@@ -261,13 +318,11 @@
         }
       });
 
-      // 3. En attente -> Demandes actives
       statCards[2].style.cursor = 'pointer';
       statCards[2].addEventListener('click', () => {
         switchToTab('active');
       });
 
-      // 4. Réservations -> Réservations
       statCards[3].style.cursor = 'pointer';
       statCards[3].addEventListener('click', () => {
         switchToTab('reservations');
@@ -299,7 +354,8 @@
           guard: 'Statut : De garde 🌙',
           closed: 'Statut : Fermé',
         };
-        $('#guard-label').textContent = labels[status];
+        const labelEl = $('#guard-label');
+        if (labelEl) labelEl.textContent = labels[status];
 
         const messages = {
           open: '✅ Votre pharmacie est maintenant marquée comme OUVERTE',
@@ -307,11 +363,18 @@
           closed: '❌ Votre pharmacie est maintenant marquée comme FERMÉE',
         };
         showToast(messages[status], 'success');
+
+        // Update in Supabase if available
+        if (currentPharmacyId && typeof supabase !== 'undefined') {
+          supabase.from('pharmacies').update({ status }).eq('id', currentPharmacyId).then(() => {});
+        }
       });
     });
   }
 
   function renderActiveRequests() {
+    if (!activeRequests) return;
+    
     if (ACTIVE_REQUESTS.length === 0) {
       activeRequests.innerHTML = `
         <div class="empty-state">
@@ -339,12 +402,12 @@
                 <div class="request-medicine" style="font-weight: bold;">💊 ${med}</div>
                 <div class="request-actions" style="display: flex; gap: 8px; flex-wrap: wrap;">
                   ${req.insurance_name ? `
-                    <button class="btn btn-in-stock" style="padding: 6px 10px; font-size: 11px;" onclick="PharmDash.confirmProductResponse('${req.id}', ${idx}, '${med}', 'in_stock_insured')">✅ Disponible & Assuré</button>
-                    <button class="btn btn-outline" style="padding: 6px 10px; font-size: 11px; background:var(--dark-700); border-color:var(--yellow-500); color:var(--yellow-500);" onclick="PharmDash.confirmProductResponse('${req.id}', ${idx}, '${med}', 'in_stock_uninsured')">⚠️ Dispo (Non assuré)</button>
-                    <button class="btn btn-out-stock" style="padding: 6px 10px; font-size: 11px;" onclick="PharmDash.confirmProductResponse('${req.id}', ${idx}, '${med}', 'out_of_stock')">❌ Non disponible</button>
+                    <button class="btn btn-in-stock" style="padding: 6px 10px; font-size: 11px;" onclick="PharmDash.confirmProductResponse('${req.id}', ${idx}, '${med.replace(/'/g, "\\'")}', 'in_stock_insured')">✅ Disponible & Assuré</button>
+                    <button class="btn btn-outline" style="padding: 6px 10px; font-size: 11px; background:var(--dark-700); border-color:var(--gold-500); color:var(--gold-400);" onclick="PharmDash.confirmProductResponse('${req.id}', ${idx}, '${med.replace(/'/g, "\\'")}', 'in_stock_uninsured')">⚠️ Dispo (Non assuré)</button>
+                    <button class="btn btn-out-stock" style="padding: 6px 10px; font-size: 11px;" onclick="PharmDash.confirmProductResponse('${req.id}', ${idx}, '${med.replace(/'/g, "\\'")}', 'out_of_stock')">❌ Non disponible</button>
                   ` : `
-                    <button class="btn btn-in-stock" style="padding: 6px 12px; font-size: 12px;" onclick="PharmDash.confirmProductResponse('${req.id}', ${idx}, '${med}', 'in_stock')">✅ OUI (Disponible)</button>
-                    <button class="btn btn-out-stock" style="padding: 6px 12px; font-size: 12px;" onclick="PharmDash.confirmProductResponse('${req.id}', ${idx}, '${med}', 'out_of_stock')">❌ NON (Rupture)</button>
+                    <button class="btn btn-in-stock" style="padding: 6px 12px; font-size: 12px;" onclick="PharmDash.confirmProductResponse('${req.id}', ${idx}, '${med.replace(/'/g, "\\'")}', 'in_stock')">✅ OUI (Disponible)</button>
+                    <button class="btn btn-out-stock" style="padding: 6px 12px; font-size: 12px;" onclick="PharmDash.confirmProductResponse('${req.id}', ${idx}, '${med.replace(/'/g, "\\'")}', 'out_of_stock')">❌ NON (Rupture)</button>
                   `}
                 </div>
               </div>
@@ -358,6 +421,8 @@
 
   // ── Render History ─────────────────────────────────────
   function renderHistory(filter = 'all') {
+    if (!historyList) return;
+    
     const filtered = filter === 'all' 
       ? HISTORY_DATA 
       : HISTORY_DATA.filter((item) => item.status === filter);
@@ -410,6 +475,8 @@
 
   // ── Render Reservations ────────────────────────────────
   function renderReservations() {
+    if (!reservationsList) return;
+    
     if (RESERVATIONS.length === 0) {
       reservationsList.innerHTML = `
         <div class="empty-state">
@@ -450,6 +517,8 @@
 
   // ── Render Top Medications ─────────────────────────────
   function renderTopMedications() {
+    if (!topMedications) return;
+    
     const maxCount = Math.max(...TOP_MEDICATIONS.map((m) => m.count));
 
     topMedications.innerHTML = TOP_MEDICATIONS
@@ -479,13 +548,13 @@
     else if (statusType === 'in_stock') actionText = "OUI (En stock)";
     else actionText = "NON (Rupture)";
     
-    if(confirmText) confirmText.textContent = `Confirmez-vous le statut pour "${medName}" : ${actionText} ?`;
-    if(confirmModal) confirmModal.style.display = 'flex';
+    if (confirmText) confirmText.textContent = `Confirmez-vous le statut pour "${medName}" : ${actionText} ?`;
+    if (confirmModal) confirmModal.style.display = 'flex';
   }
 
   function executeConfirm() {
     if (pendingAction) pendingAction();
-    if(confirmModal) confirmModal.style.display = 'none';
+    if (confirmModal) confirmModal.style.display = 'none';
     pendingAction = null;
   }
 
@@ -498,13 +567,16 @@
       if (statusType === 'in_stock_insured') msg = 'En stock (Couvert)';
       if (statusType === 'in_stock_uninsured') msg = 'En stock (Non couvert par l\'assurance)';
       
-      let color = (statusType === 'in_stock_uninsured') ? 'var(--yellow-500)' : 'var(--green-400)';
+      let color = (statusType === 'in_stock_uninsured') ? 'var(--gold-400)' : 'var(--green-400)';
       
       productEl.innerHTML = `<div style="color: ${color}; font-weight:bold;">✅ ${medName} (${msg})</div>`;
       showToast(`✅ Réponse "${msg}" envoyée`, 'success');
       
-      const responded = parseInt($('#stat-responded').textContent);
-      $('#stat-responded').textContent = responded + 1;
+      const respondedEl = $('#stat-responded');
+      if (respondedEl) {
+        const responded = parseInt(respondedEl.textContent);
+        respondedEl.textContent = responded + 1;
+      }
 
       // Update Supabase
       if (typeof supabase !== 'undefined' && reqId && !reqId.toString().startsWith('req-')) {
@@ -513,7 +585,7 @@
             .from('requests')
             .update({ status: 'accepted', pharmacy_id: currentPharmacyId })
             .eq('id', reqId);
-        } catch(e) { console.error(e) }
+        } catch(e) { console.error(e); }
       }
 
     } else {
@@ -532,9 +604,16 @@
           setTimeout(() => reqCard.remove(), 300);
         }, 1500);
         
-        const pending = parseInt($('#stat-pending').textContent);
-        $('#stat-pending').textContent = Math.max(0, pending - 1);
-        $('#active-badge').textContent = Math.max(0, pending - 1);
+        const pendingEl = $('#stat-pending');
+        const activeBadge = $('#active-badge');
+        if (pendingEl) {
+          const pending = parseInt(pendingEl.textContent);
+          pendingEl.textContent = Math.max(0, pending - 1);
+        }
+        if (activeBadge) {
+          const pending = parseInt(activeBadge.textContent);
+          activeBadge.textContent = Math.max(0, pending - 1);
+        }
       }
     }
   }
@@ -543,25 +622,41 @@
     showToast('✅ Médicament récupéré par le patient. Réservation terminée.', 'success');
     RESERVATIONS.splice(index, 1);
     renderReservations();
-    const reserved = parseInt($('#stat-reserved').textContent);
-    $('#stat-reserved').textContent = Math.max(0, reserved - 1);
-    $('#reserve-badge').textContent = Math.max(0, reserved - 1);
+    const reservedEl = $('#stat-reserved');
+    const reserveBadge = $('#reserve-badge');
+    if (reservedEl) {
+      const reserved = parseInt(reservedEl.textContent);
+      reservedEl.textContent = Math.max(0, reserved - 1);
+    }
+    if (reserveBadge) {
+      const reserved = parseInt(reserveBadge.textContent);
+      reserveBadge.textContent = Math.max(0, reserved - 1);
+    }
   }
 
   function cancelReservation(index) {
     showToast('❌ Réservation annulée.', 'info');
     RESERVATIONS.splice(index, 1);
     renderReservations();
-    const reserved = parseInt($('#stat-reserved').textContent);
-    $('#stat-reserved').textContent = Math.max(0, reserved - 1);
-    $('#reserve-badge').textContent = Math.max(0, reserved - 1);
+    const reservedEl = $('#stat-reserved');
+    const reserveBadge = $('#reserve-badge');
+    if (reservedEl) {
+      const reserved = parseInt(reservedEl.textContent);
+      reservedEl.textContent = Math.max(0, reserved - 1);
+    }
+    if (reserveBadge) {
+      const reserved = parseInt(reserveBadge.textContent);
+      reserveBadge.textContent = Math.max(0, reserved - 1);
+    }
   }
 
   // ── Toast ──────────────────────────────────────────────
   function showToast(message, type = 'success') {
-    toast.className = `toast toast-${type} show`;
-    toastMessage.textContent = message;
-    setTimeout(() => toast.classList.remove('show'), 3500);
+    if (toast && toastMessage) {
+      toast.className = `toast toast-${type} show`;
+      toastMessage.textContent = message;
+      setTimeout(() => toast.classList.remove('show'), 3500);
+    }
   }
 
   // ── Public API ─────────────────────────────────────────

@@ -161,7 +161,7 @@ const Search = (() => {
             const updatedRequest = payload.new;
             if (updatedRequest.status === 'accepted') {
                // Trouver la pharmacie dans notre base globale ou locale
-               const pharmacy = pharmacies.find(p => p.id === updatedRequest.pharmacy_id) || window.PHARMACIES.find(p => p.id === updatedRequest.pharmacy_id) || pharmacies[0];
+               const pharmacy = pharmacies.find(p => p.id === updatedRequest.pharmacy_id) || (typeof LOCAL_PHARMACIES !== 'undefined' ? LOCAL_PHARMACIES.find(p => p.id === updatedRequest.pharmacy_id) : null) || pharmacies[0];
                if (pharmacy && !responders.find(r => r.id === pharmacy.id)) {
                  const respondingPharmacy = {
                     ...pharmacy,

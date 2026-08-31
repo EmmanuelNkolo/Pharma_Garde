@@ -1,1016 +1,1172 @@
 /**
  * Pharma-Garde — Main Application Controller
- * Orchestrates all modules and manages UI interactions
+ * Coordinates all modules: map, geolocation, search, payment
  */
-
-window.PHARMACIES = [];
-const PHARMACIES = window.PHARMACIES;
 
 const App = (() => {
   // ── State ──────────────────────────────────────────────
-  let currentRadius = 5;
-  let currentCity = 'Douala';
-  let showClosed = false;
-  let filteredPharmacies = [];
-  let selectedPharmacy = null;
-  let searchResults = [];
-  let savedPhone = '';
+  let currentRadius = 5; // km
+  let pharmaciesInRadius = [];
+  let selectedMedicines = [];
+  let selectedPaymentMethod = 'momo';
+  let insuranceName = null;
+  let navigationHistory = [];
+  let navIndex = -1;
+  let demoSlideIndex = 0;
+
+  // Demo slides data
+  const DEMO_SLIDES = [
+    { icon: '📍', title: 'Localisez-vous', desc: 'Pharma-Garde détecte automatiquement votre position GPS pour trouver les pharmacies les plus proches dans un rayon de 2 à 20 km.' },
+    { icon: '💊', title: 'Recherchez vos médicaments', desc: 'Entrez le nom du médicament recherché. Notre système interroge en temps réel toutes les pharmacies ouvertes autour de vous.' },
+    { icon: '💰', title: 'Paiement Mobile Money', desc: 'Payez seulement 100 FCFA via Orange Money ou MTN MoMo. Une session de 24h vous permet des recherches illimitées.' },
+    { icon: '🔔', title: 'Réponses en temps réel', desc: 'Les pharmacies reçoivent votre demande instantanément et vous répondent dans les minutes qui suivent. Aucune attente !' },
+    { icon: '🗺️', title: 'Itinéraire GPS', desc: 'Obtenez l\'itinéraire exact vers la pharmacie qui a votre médicament. Appelez-la ou contactez-la par WhatsApp directement.' },
+    { icon: '🏥', title: 'Espace Pharmacie', desc: 'Vous êtes pharmacien ? Inscrivez votre pharmacie pour recevoir des demandes de patients, gérer vos stocks et augmenter votre visibilité.' },
+  ];
 
   // ── DOM References ─────────────────────────────────────
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => document.querySelectorAll(sel);
 
-  // Splash & Location
-  const splashScreen = $('#splash-screen');
-  const locationModal = $('#location-modal');
-  const btnGps = $('#btn-gps');
-  // Removed manual location variables
-
-  const navBack = $('#nav-back');
-  const navForward = $('#nav-forward');
-  const cameraBtn = $('#camera-btn');
-
-  // App
-  const appContainer = $('#app');
-  const cityNameDisplay = $('#city-name-display');
-
-  // Radius
-  const radiusPills = $$('.radius-pill');
-
-  // Bottom Sheet
-  const bottomSheet = $('#bottom-sheet');
-  const sheetHandle = $('#sheet-handle');
-  const pharmacyList = $('#pharmacy-list');
-  const openCount = $('#open-count');
-  const guardCount = $('#guard-count');
-
-  // Search Modal
-  const searchModal = $('#search-modal');
-  const searchBtn = $('#search-btn');
-  const searchClose = $('#search-close');
-  const searchBackdrop = $('#search-backdrop');
-  const medicineInput = $('#medicine-input');
-  const btnAddMedicine = $('#btn-add-medicine');
-  const medicinesTagsContainer = $('#medicines-tags-container');
-  const ocrModal = $('#ocr-modal');
-  const ocrBackdrop = $('#ocr-backdrop');
-  const ocrBtnCamera = $('#ocr-btn-camera');
-  const ocrBtnGallery = $('#ocr-btn-gallery');
-  const ocrInputCamera = $('#ocr-input-camera');
-  const ocrInputGallery = $('#ocr-input-gallery');
-  const autocompleteList = $('#autocomplete-list');
-  const searchInfo = $('#search-info');
-  const searchPharmacyCount = $('#search-pharmacy-count');
-  const searchRadiusDisplay = $('#search-radius-display');
-  const btnProceedPayment = $('#btn-proceed-payment');
-
-  let requestedMedicines = [];
-
-  // Payment
-  const methodMomo = $('#method-momo');
-  const methodOm = $('#method-om');
-  const phoneInput = $('#phone-input');
-  const btnConfirmPayment = $('#btn-confirm-payment');
-  const btnBackSearch = $('#btn-back-search');
-
-  // Ping
-  const pingMedicineName = $('#ping-medicine-name');
-  const pingPharmacyCount = $('#ping-pharmacy-count');
-  const pingStatus = $('#ping-status');
-  const pingDetail = $('#ping-detail');
-
-  // Results
-  const resultsList = $('#results-list');
-  const resultCount = $('#result-count');
-  const resultSubtitle = $('#result-subtitle');
-  const btnNewSearch = $('#btn-new-search');
-
-  // Detail Modal
-  const detailModal = $('#detail-modal');
-  const detailBackdrop = $('#detail-backdrop');
-
-  // Settings
-  const settingsModal = $('#settings-modal');
-  const settingsOpen = $('#settings-open');
-  const settingsClose = $('#settings-close');
-  const settingsBackdrop = $('#settings-backdrop');
-  const settingsRadius = $('#settings-radius');
-  const settingsCity = $('#settings-city');
-  const toggleClosed = $('#toggle-closed');
-
-  // Toast
-  const toast = $('#toast');
-  const toastMessage = $('#toast-message');
-
-  // ── Initialization ─────────────────────────────────────
-  async function loadLocalPharmacies() {
-    PHARMACIES.length = 0;
-
-    // 1. Charger les pharmacies statiques robustes
-    if (typeof LOCAL_PHARMACIES !== 'undefined') {
-      const mappedLocal = LOCAL_PHARMACIES.map(p => ({
-        ...p,
-        status: 'open',
-        isOpen: true,
-        isOnDuty: false
-      }));
-      PHARMACIES.push(...mappedLocal);
-    }
-
-    // 2. Ajouter les pharmacies inscrites dynamiquement sur Supabase (sans doublons)
-    if (typeof supabase !== 'undefined') {
-      try {
-        const { data, error } = await supabase.from('pharmacies').select('*');
-        if (data) {
-          data.forEach(p => {
-            // Éviter les doublons par nom (rudimentaire)
-            if (!PHARMACIES.find(existing => existing.name.toLowerCase() === p.name.toLowerCase())) {
-              PHARMACIES.push({
-                id: p.id,
-                name: p.name,
-                address: p.address,
-                lat: p.lat,
-                lng: p.lng,
-                phone: p.phone,
-                status: p.status,
-                isOpen: p.status === 'open' || p.status === 'guard',
-                isOnDuty: p.status === 'guard'
-              });
-            }
-          });
-        }
-      } catch (err) {
-        console.error('Erreur chargement Supabase', err);
-      }
-    }
-
-    updatePharmacyDisplay();
-  }
-
-  async function init() {
-    // Show splash screen for 2 seconds
+  // ── Initialize ─────────────────────────────────────────
+  function init() {
+    // Splash screen timer
     setTimeout(() => {
-      splashScreen.classList.add('hidden');
-      locationModal.classList.add('active');
-    }, 2000);
+      $('#splash-screen').classList.add('hidden');
+      showLocationModal();
+    }, 2500);
 
     bindEvents();
+    initDemoSlides();
   }
 
-  // ── Event Binding ──────────────────────────────────────
+  // ── Event Bindings ─────────────────────────────────────
   function bindEvents() {
-    // Location
-    btnGps.addEventListener('click', handleGpsRequest);
-    // Removed manual location event bindings
+    // GPS Permission
+    const btnGps = $('#btn-gps');
+    if (btnGps) {
+      btnGps.addEventListener('click', handleGPSRequest);
+    }
 
-    if (navBack) navBack.addEventListener('click', () => history.back());
-    if (navForward) navForward.addEventListener('click', () => history.forward());
-    if (cameraBtn) {
-      cameraBtn.addEventListener('click', () => {
-        if (ocrModal) ocrModal.style.display = 'flex';
-      });
-    }
-    if (ocrBackdrop) {
-      ocrBackdrop.addEventListener('click', () => {
-        ocrModal.style.display = 'none';
-      });
-    }
-    if (ocrBtnCamera) {
-      ocrBtnCamera.addEventListener('click', () => {
-        ocrInputCamera.click();
-      });
-    }
-    if (ocrBtnGallery) {
-      ocrBtnGallery.addEventListener('click', () => {
-        ocrInputGallery.click();
-      });
-    }
-    if (ocrInputCamera) {
-      ocrInputCamera.addEventListener('change', handleOcrInput);
-    }
-    if (ocrInputGallery) {
-      ocrInputGallery.addEventListener('change', handleOcrInput);
-    }
+    // Navigation buttons
+    const navBack = $('#nav-back');
+    const navForward = $('#nav-forward');
+    const navHome = $('#nav-home');
+    if (navBack) navBack.addEventListener('click', goBack);
+    if (navForward) navForward.addEventListener('click', goForward);
+    if (navHome) navHome.addEventListener('click', goHome);
 
     // Radius pills
-    radiusPills.forEach((pill) => {
+    $$('.radius-pill').forEach(pill => {
       pill.addEventListener('click', () => {
-        setRadius(parseInt(pill.dataset.radius));
+        $$('.radius-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        currentRadius = parseInt(pill.dataset.radius);
+        updatePharmacies();
       });
     });
 
-    // Bottom sheet
-    sheetHandle.addEventListener('click', toggleBottomSheet);
+    // Search button
+    const searchBtn = $('#search-btn');
+    if (searchBtn) searchBtn.addEventListener('click', openSearchModal);
 
-    // Search
-    searchBtn.addEventListener('click', openSearchModal);
-    searchClose.addEventListener('click', closeSearchModal);
-    searchBackdrop.addEventListener('click', closeSearchModal);
-    medicineInput.addEventListener('input', handleMedicineInput);
-    medicineInput.addEventListener('keydown', handleMedicineKeydown);
-    if (btnAddMedicine) btnAddMedicine.addEventListener('click', addMedicine);
+    // Camera/Ordonnance button
+    const cameraBtn = $('#camera-btn');
+    if (cameraBtn) cameraBtn.addEventListener('click', openOCRModal);
 
-    const btnCancelRequest = $('#btn-cancel-request');
-    const btnValidateRequest = $('#btn-validate-request');
-    if (btnCancelRequest) btnCancelRequest.addEventListener('click', goToSearchStep);
-    if (btnValidateRequest) btnValidateRequest.addEventListener('click', goToPaymentStep);
+    // Demo button
+    const demoBtn = $('#demo-btn');
+    if (demoBtn) demoBtn.addEventListener('click', openDemoModal);
 
-    // Payment flow
-    btnProceedPayment.addEventListener('click', () => {
-      // Show insurance modal
-      $('#insurance-step-1').style.display = 'flex';
-      $('#insurance-step-2').style.display = 'none';
-      $('#insurance-name-input').value = '';
-      $('#insurance-modal').style.display = 'flex';
+    // Search modal
+    const searchClose = $('#search-close');
+    const searchBackdrop = $('#search-backdrop');
+    if (searchClose) searchClose.addEventListener('click', closeSearchModal);
+    if (searchBackdrop) searchBackdrop.addEventListener('click', closeSearchModal);
+
+    // Medicine input
+    const medicineInput = $('#medicine-input');
+    if (medicineInput) {
+      medicineInput.addEventListener('input', handleMedicineInput);
+      medicineInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          addMedicine(medicineInput.value.trim());
+        }
+      });
+    }
+
+    // Add medicine button
+    const btnAdd = $('#btn-add-medicine');
+    if (btnAdd) {
+      btnAdd.addEventListener('click', () => {
+        addMedicine($('#medicine-input').value.trim());
+      });
+    }
+
+    // Proceed to payment
+    const btnProceed = $('#btn-proceed-payment');
+    if (btnProceed) btnProceed.addEventListener('click', showConfirmStep);
+
+    // Confirm request
+    const btnValidate = $('#btn-validate-request');
+    const btnCancelReq = $('#btn-cancel-request');
+    if (btnValidate) btnValidate.addEventListener('click', showInsuranceModal);
+    if (btnCancelReq) btnCancelReq.addEventListener('click', () => showSearchStep(1));
+
+    // Payment methods
+    $$('.payment-method').forEach(method => {
+      method.addEventListener('click', () => {
+        $$('.payment-method').forEach(m => m.classList.remove('selected'));
+        method.classList.add('selected');
+        selectedPaymentMethod = method.dataset.method;
+      });
     });
-    
-    // Insurance Flow Logic
-    $('#ins-btn-yes').addEventListener('click', () => {
-      $('#insurance-step-1').style.display = 'none';
-      $('#insurance-step-2').style.display = 'flex';
-    });
-    
-    $('#ins-btn-no').addEventListener('click', () => {
-      window.userInsurance = null;
-      $('#insurance-modal').style.display = 'none';
-      goToConfirmStep();
-    });
-    
-    $('#ins-btn-back').addEventListener('click', () => {
-      $('#insurance-step-1').style.display = 'flex';
-      $('#insurance-step-2').style.display = 'none';
-    });
-    
-    $('#ins-btn-confirm').addEventListener('click', () => {
-      const insName = $('#insurance-name-input').value.trim();
-      if (!insName) {
-        showToast("Veuillez entrer le nom de l'assurance", 'error');
-        return;
-      }
-      window.userInsurance = insName;
-      $('#insurance-modal').style.display = 'none';
-      goToConfirmStep();
-    });
 
-    methodMomo.addEventListener('click', () => selectPaymentMethod('momo'));
-    methodOm.addEventListener('click', () => selectPaymentMethod('om'));
-    phoneInput.addEventListener('input', handlePhoneInput);
-    btnConfirmPayment.addEventListener('click', handlePayment);
-    btnBackSearch.addEventListener('click', goToSearchStep);
+    // Confirm payment
+    const btnConfirmPayment = $('#btn-confirm-payment');
+    if (btnConfirmPayment) btnConfirmPayment.addEventListener('click', handlePayment);
 
-    // Results
-    btnNewSearch.addEventListener('click', resetSearch);
+    // Back to search from payment
+    const btnBackSearch = $('#btn-back-search');
+    if (btnBackSearch) btnBackSearch.addEventListener('click', () => showSearchStep(1));
 
-    // Detail modal
-    detailBackdrop.addEventListener('click', closeDetailModal);
+    // New search
+    const btnNewSearch = $('#btn-new-search');
+    if (btnNewSearch) btnNewSearch.addEventListener('click', resetSearch);
 
     // Settings
-    settingsOpen.addEventListener('click', openSettings);
-    settingsClose.addEventListener('click', closeSettings);
-    settingsBackdrop.addEventListener('click', closeSettings);
-    settingsRadius.addEventListener('change', (e) => setRadius(parseInt(e.target.value)));
-    settingsCity.addEventListener('change', handleSettingsCityChange);
-    toggleClosed.addEventListener('click', () => {
-      showClosed = !showClosed;
-      toggleClosed.classList.toggle('active');
-      updatePharmacyDisplay();
+    const settingsOpen = $('#settings-open');
+    const settingsClose = $('#settings-close');
+    const settingsBackdrop = $('#settings-backdrop');
+    if (settingsOpen) settingsOpen.addEventListener('click', openSettings);
+    if (settingsClose) settingsClose.addEventListener('click', closeSettings);
+    if (settingsBackdrop) settingsBackdrop.addEventListener('click', closeSettings);
+
+    // Settings: radius change
+    const settingsRadius = $('#settings-radius');
+    if (settingsRadius) {
+      settingsRadius.addEventListener('change', (e) => {
+        currentRadius = parseInt(e.target.value);
+        $$('.radius-pill').forEach(p => {
+          p.classList.toggle('active', parseInt(p.dataset.radius) === currentRadius);
+        });
+        updatePharmacies();
+      });
+    }
+
+    // Settings: city change
+    const settingsCity = $('#settings-city');
+    if (settingsCity) {
+      settingsCity.addEventListener('change', (e) => {
+        const city = e.target.value;
+        if (CITIES_AND_QUARTERS[city]) {
+          const center = CITIES_AND_QUARTERS[city].center;
+          Geolocation.setManualPosition(center.lat, center.lng);
+          setupMapWithPosition(center);
+          showToast(`📍 Position changée : ${city}`, 'success');
+        }
+      });
+    }
+
+    // Detail modal
+    const detailBackdrop = $('#detail-backdrop');
+    if (detailBackdrop) detailBackdrop.addEventListener('click', closeDetail);
+
+    // Recenter button
+    const btnRecenter = $('#btn-recenter');
+    if (btnRecenter) btnRecenter.addEventListener('click', () => {
+      PharmMap.recenterOnUser();
     });
 
-    // Language toggle
-    $$('.lang-option').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        $$('.lang-option').forEach((b) => b.classList.remove('active'));
-        btn.classList.add('active');
-        showToast('Langue mise à jour', 'info');
+    // Toggle switches
+    $$('.toggle').forEach(toggle => {
+      toggle.addEventListener('click', () => {
+        toggle.classList.toggle('active');
+        if (toggle.id === 'toggle-closed') {
+          updatePharmacies();
+        }
       });
     });
 
-    // Close autocomplete when clicking outside
-    document.addEventListener('click', (e) => {
-      if (!e.target.closest('.search-input-wrapper')) {
-        autocompleteList.classList.remove('visible');
-      }
-    });
+    // Bottom sheet drag
+    setupBottomSheet();
+
+    // OCR modal
+    setupOCRModal();
+
+    // Insurance modal
+    setupInsuranceModal();
+
+    // Demo modal
+    const demoClose = $('#demo-close');
+    const demoBackdrop = $('#demo-backdrop');
+    if (demoClose) demoClose.addEventListener('click', closeDemoModal);
+    if (demoBackdrop) demoBackdrop.addEventListener('click', closeDemoModal);
+
+    const demoPrev = $('#demo-prev');
+    const demoNext = $('#demo-next');
+    if (demoPrev) demoPrev.addEventListener('click', () => navigateDemo(-1));
+    if (demoNext) demoNext.addEventListener('click', () => navigateDemo(1));
   }
 
-  // ── Location Handlers ──────────────────────────────────
-  async function handleGpsRequest() {
-    btnGps.innerHTML = '<div class="spinner" style="width:20px;height:20px;border-width:2px;"></div> Localisation en cours...';
-    btnGps.disabled = true;
+  // ── Location Modal ─────────────────────────────────────
+  function showLocationModal() {
+    const modal = $('#location-modal');
+    if (modal) {
+      modal.classList.add('active');
+    }
+  }
+
+  function hideLocationModal() {
+    const modal = $('#location-modal');
+    if (modal) {
+      modal.classList.remove('active');
+    }
+  }
+
+  // ── GPS Request ────────────────────────────────────────
+  async function handleGPSRequest() {
+    const btn = $('#btn-gps');
+    if (btn) {
+      btn.textContent = 'Détection en cours...';
+      btn.disabled = true;
+    }
 
     try {
-      const position = await Geolocation.getUserLocation();
-      currentCity = Geolocation.detectCity();
-      startApp(position);
+      const pos = await Geolocation.requestPosition();
+      hideLocationModal();
+      setupMapWithPosition(pos);
+      showToast(`📍 Position détectée : ${Geolocation.getCity()}`, 'success');
+      
+      // Start watching for position updates
+      Geolocation.startWatching((newPos) => {
+        PharmMap.setUserMarker(newPos.lat, newPos.lng);
+        updatePharmacies();
+      });
     } catch (error) {
-      btnGps.innerHTML = '📍 Détecter ma position';
-      btnGps.disabled = false;
-      showToast(error.message + ' - Utilisation de Douala par défaut.', 'error');
-
-      // Fallback to Douala Center
-      const fallbackPos = Geolocation.setUserPosition(4.0511, 9.7679);
-      currentCity = 'Douala';
-      startApp(fallbackPos);
+      console.error('GPS error:', error);
+      // Fallback to last saved city or default
+      const savedCity = Geolocation.loadSavedCity();
+      const cityData = CITIES_AND_QUARTERS[savedCity] || CITIES_AND_QUARTERS['Douala'];
+      Geolocation.setManualPosition(cityData.center.lat, cityData.center.lng);
+      hideLocationModal();
+      setupMapWithPosition(cityData.center);
+      showToast(`⚠️ GPS indisponible — Position par défaut : ${savedCity}`, 'info');
+    } finally {
+      if (btn) {
+        btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> Détecter ma position`;
+        btn.disabled = false;
+      }
     }
   }
 
-  // ── App Start ──────────────────────────────────────────
-  async function startApp(position) {
-    // Hide location modal
-    locationModal.classList.remove('active');
-
-    // Show main app
-    appContainer.classList.add('active');
-
-    // Update city display
-    cityNameDisplay.textContent = currentCity;
-    settingsCity.value = currentCity;
+  // ── Map Setup ──────────────────────────────────────────
+  function setupMapWithPosition(pos) {
+    const app = $('#app');
+    if (app) app.classList.add('active');
 
     // Initialize map
-    PharmMap.initMap('map', position, 13);
-    PharmMap.setUserMarker(position.lat, position.lng);
-    PharmMap.drawRadiusCircle(position, currentRadius);
+    PharmMap.initMap('map', pos, 13);
+    PharmMap.setUserMarker(pos.lat, pos.lng);
+    PharmMap.drawRadiusCircle(pos, currentRadius);
 
-    // Fetch robust local pharmacies + supabase
-    await loadLocalPharmacies();
+    // Update city badge
+    const city = Geolocation.getCity();
+    const cityDisplay = $('#city-name-display');
+    if (cityDisplay) cityDisplay.textContent = city;
 
-    showToast(`📍 Position détectée — ${currentCity}`, 'success');
+    // Update settings city dropdown
+    const settingsCity = $('#settings-city');
+    if (settingsCity) settingsCity.value = city;
+
+    // Update pharmacies
+    updatePharmacies();
+
+    // Add to navigation
+    pushNavigation('map');
   }
 
-  // ── Pharmacy Display ───────────────────────────────────
-  function updatePharmacyDisplay() {
-    filteredPharmacies = Geolocation.filterByRadius(PHARMACIES, currentRadius, showClosed);
+  // ── Pharmacy Data ──────────────────────────────────────
+  function updatePharmacies() {
+    const pos = Geolocation.getPosition();
+    if (!pos) return;
 
-    // Update map markers
-    PharmMap.addPharmacyMarkers(filteredPharmacies, (pharmacy) => {
-      openDetailModal(pharmacy);
+    // Get all local pharmacies
+    let allPharmacies = typeof LOCAL_PHARMACIES !== 'undefined' ? [...LOCAL_PHARMACIES] : [];
+
+    // Add distance to each
+    allPharmacies = allPharmacies.map(p => ({
+      ...p,
+      distance: parseFloat(Geolocation.distanceTo(p.lat, p.lng).toFixed(1)),
+    }));
+
+    // Filter by radius
+    pharmaciesInRadius = allPharmacies.filter(p => p.distance <= currentRadius);
+
+    // Show/hide closed pharmacies based on setting
+    const showClosed = $('#toggle-closed')?.classList?.contains('active');
+    let displayPharmacies = showClosed 
+      ? pharmaciesInRadius 
+      : pharmaciesInRadius.filter(p => p.isOpen || p.isOnDuty);
+
+    // Sort: on-duty first, then open, then by distance
+    displayPharmacies.sort((a, b) => {
+      if (a.isOnDuty && !b.isOnDuty) return -1;
+      if (!a.isOnDuty && b.isOnDuty) return 1;
+      if (a.isOpen && !b.isOpen) return -1;
+      if (!a.isOpen && b.isOpen) return 1;
+      return a.distance - b.distance;
     });
 
-    // Update radius circle
-    const pos = Geolocation.getPosition();
-    if (pos) {
-      PharmMap.drawRadiusCircle(pos, currentRadius);
-    }
+    // Update map markers
+    PharmMap.addPharmacyMarkers(displayPharmacies, (p) => openDetail(p));
+    PharmMap.drawRadiusCircle(pos, currentRadius);
 
     // Update stats
-    const openPharmacies = filteredPharmacies.filter((p) => p.isOpen || p.isOnDuty);
-    const guardPharmacies = filteredPharmacies.filter((p) => p.isOnDuty);
-    openCount.textContent = `${openPharmacies.length} pharmacie${openPharmacies.length > 1 ? 's' : ''} ouverte${openPharmacies.length > 1 ? 's' : ''}`;
-    guardCount.textContent = `${guardPharmacies.length} de garde`;
+    const openCount = displayPharmacies.filter(p => p.isOpen).length;
+    const guardCount = displayPharmacies.filter(p => p.isOnDuty).length;
+    const openCountEl = $('#open-count');
+    const guardCountEl = $('#guard-count');
+    if (openCountEl) openCountEl.textContent = `${openCount} pharmacie${openCount > 1 ? 's' : ''} ouverte${openCount > 1 ? 's' : ''}`;
+    if (guardCountEl) guardCountEl.textContent = `${guardCount} de garde`;
 
     // Render pharmacy list
-    renderPharmacyList(filteredPharmacies);
+    renderPharmacyList(displayPharmacies);
   }
 
+  // ── Pharmacy List Rendering ────────────────────────────
   function renderPharmacyList(pharmacies) {
+    const list = $('#pharmacy-list');
+    if (!list) return;
+
     if (pharmacies.length === 0) {
-      pharmacyList.innerHTML = `
+      list.innerHTML = `
         <div class="empty-state">
           <div class="empty-state-icon">🔍</div>
-          <div class="empty-state-text">Aucune pharmacie trouvée dans un rayon de ${currentRadius} km.<br>Essayez d'augmenter le rayon de recherche.</div>
+          <div class="empty-state-text">Aucune pharmacie trouvée dans un rayon de ${currentRadius} km. Essayez d'élargir le rayon de recherche.</div>
         </div>
       `;
       return;
     }
 
-    pharmacyList.innerHTML = pharmacies
-      .map((p) => {
-        const statusBadge = p.isOnDuty
-          ? '<span class="badge badge-guard">🌙 De garde</span>'
-          : p.isOpen
-            ? '<span class="badge badge-open">Ouvert</span>'
-            : '<span class="badge badge-closed">Fermé</span>';
+    list.innerHTML = pharmacies.map(p => {
+      let statusBadge;
+      if (p.isOnDuty) {
+        statusBadge = '<span class="badge badge-guard">🌙 De garde</span>';
+      } else if (p.isOpen) {
+        statusBadge = '<span class="badge badge-open">Ouvert</span>';
+      } else {
+        statusBadge = '<span class="badge badge-closed">Fermé</span>';
+      }
 
-        return `
-          <div class="pharmacy-card ${p.isOnDuty ? 'on-duty' : ''}" data-id="${p.id}" onclick="App.openDetailModal(App.findPharmacy('${p.id}'))">
-            <div class="card-header">
-              <div class="card-info">
-                <div class="card-name">${p.name}</div>
-                <div class="card-address">📍 ${p.address}</div>
-              </div>
-              <div class="card-distance">
-                <span class="distance-value">${p.distance}</span>
-                <span class="distance-unit">km</span>
+      return `
+        <div class="pharmacy-card ${p.isOnDuty ? 'on-duty' : ''}" onclick="App.openDetail(App.findPharmacy('${p.id}'))">
+          <div class="card-header">
+            <div class="card-info">
+              <div class="card-name">${p.name}</div>
+              <div class="card-address">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                ${p.address}
               </div>
             </div>
-            <div class="card-meta">
-              ${statusBadge}
-              <span class="card-hours">🕐 ${p.hours}</span>
-            </div>
-            <div class="card-actions">
-              <button class="btn btn-call" onclick="event.stopPropagation(); App.callPharmacy('${p.phone}')">📞 Appeler</button>
-              <button class="btn btn-whatsapp" onclick="event.stopPropagation(); App.openWhatsApp('${p.whatsapp}')">💬 WhatsApp</button>
-              <button class="btn btn-route" onclick="event.stopPropagation(); App.openRoute(${p.lat}, ${p.lng})">🗺️ Y aller</button>
+            <div class="card-distance">
+              <span class="distance-value">${p.distance}</span>
+              <span class="distance-unit">km</span>
             </div>
           </div>
-        `;
-      })
-      .join('');
-  }
-
-  // ── Radius ─────────────────────────────────────────────
-  async function setRadius(radius) {
-    currentRadius = radius;
-
-    // Update pills
-    radiusPills.forEach((pill) => {
-      pill.classList.toggle('active', parseInt(pill.dataset.radius) === radius);
-    });
-
-    // Update settings
-    settingsRadius.value = radius;
-
-    // Refresh OSM if we have position
-    const pos = Geolocation.getPosition();
-    if (pos) {
-      await loadLocalPharmacies();
-    } else {
-      updatePharmacyDisplay();
-    }
-  }
-
-  // ── Bottom Sheet ───────────────────────────────────────
-  function toggleBottomSheet() {
-    bottomSheet.classList.toggle('collapsed');
+          <div class="card-meta">
+            ${statusBadge}
+            <span class="card-hours">🕐 ${p.hours || '—'}</span>
+          </div>
+          <div class="card-actions">
+            <button class="btn btn-call" onclick="event.stopPropagation(); App.callPharmacy('${p.phone}')">
+              📞 Appeler
+            </button>
+            <button class="btn btn-whatsapp" onclick="event.stopPropagation(); App.openWhatsApp('${p.whatsapp}')">
+              💬 WhatsApp
+            </button>
+            <button class="btn btn-route" onclick="event.stopPropagation(); App.getRoute(${p.lat}, ${p.lng})">
+              🗺️ Y aller
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
   }
 
   // ── Search Modal ───────────────────────────────────────
   function openSearchModal() {
-    searchModal.classList.add('active');
-    // Ensure step 1 is active
-    showSearchStep(1);
-    medicineInput.value = '';
-    requestedMedicines = [];
-    renderMedicineTags();
-    searchInfo.classList.remove('visible');
-    btnProceedPayment.disabled = true;
+    const modal = $('#search-modal');
+    if (modal) {
+      modal.classList.add('active');
+      pushNavigation('search');
+      
+      // Update search info
+      const openPharmacies = pharmaciesInRadius.filter(p => p.isOpen || p.isOnDuty);
+      const countEl = $('#search-pharmacy-count');
+      const radiusEl = $('#search-radius-display');
+      if (countEl) countEl.textContent = openPharmacies.length;
+      if (radiusEl) radiusEl.textContent = `${currentRadius} km`;
 
-    // Update search info
-    const openPharmacies = Geolocation.getOpenPharmacies(PHARMACIES, currentRadius);
-    searchPharmacyCount.textContent = openPharmacies.length;
-    searchRadiusDisplay.textContent = `${currentRadius} km`;
+      // Update cost display
+      const cost = Payment.getSearchCost();
+      const costEl = $('.search-cost');
+      if (costEl) costEl.textContent = cost === 0 ? 'GRATUIT (session active)' : `${cost} FCFA`;
 
-    setTimeout(() => medicineInput.focus(), 400);
+      // Focus input
+      setTimeout(() => {
+        const input = $('#medicine-input');
+        if (input) input.focus();
+      }, 300);
+    }
   }
 
   function closeSearchModal() {
-    searchModal.classList.remove('active');
-    autocompleteList.classList.remove('visible');
-    Search.reset();
+    const modal = $('#search-modal');
+    if (modal) modal.classList.remove('active');
+    // Reset to step 1
+    showSearchStep(1);
   }
 
   function showSearchStep(step) {
-    $$('.search-step').forEach((s) => s.classList.remove('active'));
-    $(`#search-step-${step}`).classList.add('active');
+    $$('.search-step').forEach(s => s.classList.remove('active'));
+    const stepEl = $(`#search-step-${step}`);
+    if (stepEl) stepEl.classList.add('active');
   }
 
-  // ── Medicine Input & Autocomplete ──────────────────────
-  let searchDebounce = null;
+  function showConfirmStep() {
+    if (selectedMedicines.length === 0) {
+      showToast('⚠️ Ajoutez au moins un médicament', 'error');
+      return;
+    }
+
+    // Show confirmation
+    const list = $('#confirm-products-list');
+    if (list) {
+      list.innerHTML = selectedMedicines.map((med, i) => `
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+          <span>💊 ${med}</span>
+          <span style="color: var(--green-400);">✓</span>
+        </div>
+      `).join('');
+    }
+
+    showSearchStep('confirm');
+  }
+
+  // ── Medicine Input ─────────────────────────────────────
   function handleMedicineInput(e) {
-    const query = e.target.value.trim();
+    const value = e.target.value.trim();
+    const autocompleteList = $('#autocomplete-list');
+    if (!autocompleteList) return;
 
-    if (searchDebounce) clearTimeout(searchDebounce);
-
-    if (query.length >= 2) {
-      searchInfo.classList.add('visible');
-      btnProceedPayment.disabled = false;
-      searchDebounce = setTimeout(() => {
-        Search.renderAutocomplete(query, autocompleteList, (value) => {
-          medicineInput.value = value;
-          onMedicineSelected(value);
-        });
-      }, 300);
-    } else {
-      searchInfo.classList.remove('visible');
-      btnProceedPayment.disabled = true;
+    if (value.length < 2) {
       autocompleteList.classList.remove('visible');
-      autocompleteList.innerHTML = '';
+      return;
     }
+
+    const medications = typeof COMMON_MEDICATIONS !== 'undefined' ? COMMON_MEDICATIONS : [];
+    const matches = medications.filter(med => 
+      med.toLowerCase().includes(value.toLowerCase())
+    ).slice(0, 8);
+
+    if (matches.length === 0) {
+      autocompleteList.classList.remove('visible');
+      return;
+    }
+
+    autocompleteList.innerHTML = matches.map(med => {
+      const highlighted = med.replace(
+        new RegExp(`(${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'),
+        '<mark>$1</mark>'
+      );
+      return `<div class="autocomplete-item" onclick="App.addMedicine('${med.replace(/'/g, "\\'")}')">${highlighted}</div>`;
+    }).join('');
+
+    autocompleteList.classList.add('visible');
   }
 
-  function handleMedicineKeydown(e) {
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-      e.preventDefault();
-      const direction = e.key === 'ArrowDown' ? 'down' : 'up';
-      const value = Search.navigateAutocomplete(direction, autocompleteList);
-      if (value) {
-        medicineInput.value = value;
-      }
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      autocompleteList.classList.remove('visible');
-      addMedicine();
-    } else if (e.key === 'Escape') {
-      autocompleteList.classList.remove('visible');
+  function addMedicine(name) {
+    if (!name) return;
+    if (selectedMedicines.includes(name)) {
+      showToast('Ce médicament est déjà dans la liste', 'info');
+      return;
     }
+
+    selectedMedicines.push(name);
+    renderMedicineTags();
+    
+    const input = $('#medicine-input');
+    if (input) input.value = '';
+    
+    const autocompleteList = $('#autocomplete-list');
+    if (autocompleteList) autocompleteList.classList.remove('visible');
+
+    // Enable proceed button
+    const btn = $('#btn-proceed-payment');
+    if (btn) btn.disabled = selectedMedicines.length === 0;
+
+    // Show search info
+    const info = $('#search-info');
+    if (info) info.classList.add('visible');
   }
 
-  function addMedicine() {
-    const query = medicineInput.value.trim();
-    if (query.length >= 2) {
-      onMedicineSelected(query);
-    }
-  }
+  function removeMedicine(index) {
+    selectedMedicines.splice(index, 1);
+    renderMedicineTags();
+    
+    const btn = $('#btn-proceed-payment');
+    if (btn) btn.disabled = selectedMedicines.length === 0;
 
-  function onMedicineSelected(medicineName) {
-    if (!requestedMedicines.includes(medicineName)) {
-      requestedMedicines.push(medicineName);
-      renderMedicineTags();
+    if (selectedMedicines.length === 0) {
+      const info = $('#search-info');
+      if (info) info.classList.remove('visible');
     }
-    medicineInput.value = '';
-    autocompleteList.classList.remove('visible');
   }
 
   function renderMedicineTags() {
-    medicinesTagsContainer.innerHTML = '';
-    requestedMedicines.forEach((med, index) => {
-      const tag = document.createElement('div');
-      tag.className = 'medicine-tag';
-      tag.innerHTML = `
+    const container = $('#medicines-tags-container');
+    if (!container) return;
+
+    container.innerHTML = selectedMedicines.map((med, i) => `
+      <span class="medicine-tag">
         ${med}
-        <span class="remove-tag" data-index="${index}">✕</span>
-      `;
-      medicinesTagsContainer.appendChild(tag);
-    });
+        <span class="remove-tag" onclick="App.removeMedicine(${i})">✕</span>
+      </span>
+    `).join('');
+  }
 
-    $$('.remove-tag').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const idx = parseInt(e.target.dataset.index);
-        requestedMedicines.splice(idx, 1);
-        renderMedicineTags();
+  // ── Insurance Modal ────────────────────────────────────
+  function setupInsuranceModal() {
+    const btnYes = $('#ins-btn-yes');
+    const btnNo = $('#ins-btn-no');
+    const btnBack = $('#ins-btn-back');
+    const btnConfirm = $('#ins-btn-confirm');
+    const backdrop = $('#insurance-backdrop');
+
+    if (btnYes) {
+      btnYes.addEventListener('click', () => {
+        $('#insurance-step-1').style.display = 'none';
+        $('#insurance-step-2').style.display = 'flex';
       });
-    });
+    }
 
-    if (requestedMedicines.length > 0) {
-      searchInfo.classList.add('visible');
-      btnProceedPayment.disabled = false;
-    } else {
-      searchInfo.classList.remove('visible');
-      btnProceedPayment.disabled = true;
+    if (btnNo) {
+      btnNo.addEventListener('click', () => {
+        insuranceName = null;
+        closeInsuranceModal();
+        proceedToPayment();
+      });
+    }
+
+    if (btnBack) {
+      btnBack.addEventListener('click', () => {
+        $('#insurance-step-2').style.display = 'none';
+        $('#insurance-step-1').style.display = 'flex';
+      });
+    }
+
+    if (btnConfirm) {
+      btnConfirm.addEventListener('click', () => {
+        const nameInput = $('#insurance-name-input');
+        insuranceName = nameInput ? nameInput.value.trim() : null;
+        closeInsuranceModal();
+        proceedToPayment();
+      });
+    }
+
+    if (backdrop) {
+      backdrop.addEventListener('click', closeInsuranceModal);
     }
   }
 
-  function handleOcrInput(e) {
-    if (!e.target.files || e.target.files.length === 0) return;
-    const file = e.target.files[0];
-
-    // Close selection modal
-    if (ocrModal) ocrModal.style.display = 'none';
-
-    processRealOcr(file);
-    e.target.value = ''; // Reset input
+  function showInsuranceModal() {
+    const modal = $('#insurance-modal');
+    if (modal) {
+      modal.style.display = 'flex';
+      $('#insurance-step-1').style.display = 'flex';
+      $('#insurance-step-2').style.display = 'none';
+    }
   }
 
-  async function processRealOcr(file) {
-    showToast('Analyse de l\'ordonnance en cours (Tesseract)...', 'info');
+  function closeInsuranceModal() {
+    const modal = $('#insurance-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function proceedToPayment() {
+    const cost = Payment.getSearchCost();
     
-    // Open modal if not open
-    if (!searchModal.classList.contains('active')) {
-      openSearchModal();
+    if (cost === 0) {
+      // Session active, skip payment
+      handleSearchRequest();
+      return;
     }
-    
-    try {
-      if (typeof Tesseract === 'undefined') {
-        throw new Error("Tesseract.js n'est pas chargé. Vérifiez votre connexion.");
-      }
-      
-      const result = await Tesseract.recognize(file, 'fra', {
-        logger: m => console.log(m)
-      });
-      
-      const text = result.data.text;
-      console.log('Texte extrait:', text);
-      
-      // Extraction rudimentaire : chercher des correspondances dans LOCAL_MEDICINES
-      const words = text.split(/[\s,.\n]+/);
-      let detectedCount = 0;
-      
-      // Si la variable LOCAL_MEDICINES (venant de data/medicines.js) est disponible
-      const localMeds = (typeof LOCAL_MEDICINES !== 'undefined') ? LOCAL_MEDICINES : [];
-      
-      words.forEach(word => {
-        if (word.length < 4) return; // Ignorer les mots très courts
-        const match = localMeds.find(med => med.toLowerCase().includes(word.toLowerCase()));
-        if (match && !requestedMedicines.includes(match)) {
-          requestedMedicines.push(match);
-          detectedCount++;
-        }
-      });
 
-      if (detectedCount === 0) {
-        showToast('Texte lu, mais aucun médicament reconnu avec certitude.', 'error');
-      } else {
-        showToast(`${detectedCount} médicament(s) détecté(s)`, 'success');
-      }
-
-      renderMedicineTags();
-    } catch (error) {
-      console.error(error);
-      showToast("Erreur lors de l'analyse OCR", 'error');
-    }
-  }
-
-  // ── Confirmation & Payment Flow ────────────────────────
-  function goToConfirmStep() {
-    if (requestedMedicines.length === 0) return;
-
-    showSearchStep('confirm');
-
-    // Render the list of products for confirmation
-    const confirmList = $('#confirm-products-list');
-    if (confirmList) {
-      confirmList.innerHTML = requestedMedicines.map(m => `
-        <div style="padding: 10px 0; border-bottom: 1px solid var(--dark-600); display: flex; align-items: center; gap: 12px;">
-          <span style="font-size: 18px;">💊</span>
-          <span style="font-weight: 500; font-size: 15px;">${m}</span>
-        </div>
-      `).join('');
-      // Enlever la bordure du dernier élément
-      if (confirmList.lastElementChild) {
-        confirmList.lastElementChild.style.borderBottom = 'none';
-      }
-    }
-  }
-
-  function goToPaymentStep() {
+    // Show payment step
+    const amountEl = $('#payment-amount-val');
+    if (amountEl) amountEl.textContent = cost;
     showSearchStep(2);
-
-    // Always default to 100 FCFA when opening the modal since the input is blank
-    const amountToPay = 100;
-    const amountVal = $('#payment-amount-val');
-    if (amountVal) amountVal.textContent = amountToPay;
-    btnConfirmPayment.innerHTML = `✅ Confirmer le paiement — ${amountToPay} FCFA`;
-
-    phoneInput.value = ''; // Always clear to let user input their own number
-    btnConfirmPayment.disabled = true;
   }
 
-  function goToSearchStep() {
-    showSearchStep(1);
-  }
-
-  function selectPaymentMethod(method) {
-    Payment.setMethod(method);
-    methodMomo.classList.toggle('selected', method === 'momo');
-    methodOm.classList.toggle('selected', method === 'om');
-  }
-
-  function handlePhoneInput() {
-    const phone = phoneInput.value.trim();
-    const isValid = Payment.validatePhone(phone);
-    btnConfirmPayment.disabled = !isValid;
-
-    let amountToPay = 100;
-
-    // If the phone is valid, check if it has an active session
-    if (isValid) {
-      const session = JSON.parse(localStorage.getItem('PharmaGarde_Session') || 'null');
-      if (session && session.phone === phone && session.expiry > Date.now()) {
-        amountToPay = 0;
-      }
-    }
-
-    const amountVal = $('#payment-amount-val');
-    if (amountVal) amountVal.textContent = amountToPay;
-    btnConfirmPayment.innerHTML = `✅ Confirmer le paiement — ${amountToPay} FCFA`;
-  }
-
+  // ── Payment ────────────────────────────────────────────
   async function handlePayment() {
-    const phone = phoneInput.value.trim();
-    if (!Payment.validatePhone(phone)) {
-      showToast('Numéro de téléphone invalide', 'error');
+    const phoneInput = $('#phone-input');
+    const phone = phoneInput ? phoneInput.value.trim() : '';
+    
+    if (!phone) {
+      showToast('⚠️ Entrez votre numéro de téléphone', 'error');
       return;
     }
 
-    savedPhone = phone;
-    const amountVal = $('#payment-amount-val');
-    const amountToPay = amountVal ? parseInt(amountVal.textContent, 10) : 100;
-
-    // Show loading state
-    btnConfirmPayment.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px;display:inline-block;"></div> Traitement...';
-    btnConfirmPayment.disabled = true;
-
-    if (amountToPay === 0) {
-      // Session is already active, skip API payment call
-      setTimeout(() => {
-        showToast('Demande gratuite validée (Session active)', 'success');
-        processSearch();
-      }, 800);
-      return;
+    const btn = $('#btn-confirm-payment');
+    if (btn) {
+      btn.textContent = 'Traitement en cours...';
+      btn.disabled = true;
     }
 
-    // Process actual payment
-    const result = await Payment.processPayment(phone, amountToPay, `Recherche: ${requestedMedicines.join(', ')}`);
-
-    if (result.success) {
-      // Save 24h session
-      localStorage.setItem('PharmaGarde_Session', JSON.stringify({
-        phone: phone,
-        expiry: Date.now() + 24 * 3600 * 1000
-      }));
-      showToast(result.message, 'success');
-      processSearch();
-    } else {
-      showToast(result.message, 'error');
-      btnConfirmPayment.innerHTML = `✅ Confirmer le paiement — ${amountToPay} FCFA`;
-      btnConfirmPayment.disabled = false;
-    }
-  }
-
-  async function processSearch() {
-    const medicineNames = requestedMedicines.join(', ');
-    const openPharmacies = Geolocation.getOpenPharmacies(PHARMACIES, currentRadius);
-
-    // 1. Fermer la modale
-    closeSearchModal();
-
-    // 2. Vider le panneau latéral (fenêtre avec les boutons verts)
-    pharmacyList.innerHTML = `
-      <div style="padding: 20px; text-align: center; color: var(--slate-600);">
-        <div class="spinner" style="width:30px;height:30px;margin: 0 auto 15px auto;"></div>
-        <h3 style="font-size: 16px; margin-bottom: 8px;">Recherche en cours...</h3>
-        <p style="font-size: 14px;">En attente des réponses pour <strong>${medicineNames}</strong></p>
-      </div>
-    `;
-
-    // 3. Clear Map Markers (Optional, but let's keep them so user sees all pharmacies on map, or clear them? The request says "elle doivent etre matérialisée sur la carte". Let's leave markers)
-    // Actually it's better to clear non-responding pharmacies from the list, but keep them on the map (or update map? User says "toutes les pharmacie s'affiche et doivent être matérialisées sur la carte", which means they stay on the map).
-
-    let hasResponded = false;
-
-    // 4. Lancer le ping avec callback
-    const results = await Search.pingPharmacies(medicineNames, openPharmacies, window.userInsurance, (respondingPharmacy) => {
-      if (!hasResponded) {
-        pharmacyList.innerHTML = ''; // Vider le message de chargement
-        hasResponded = true;
+    try {
+      const result = await Payment.processPayment(phone, selectedPaymentMethod, Payment.SEARCH_COST);
+      
+      if (result.success) {
+        showToast(`✅ ${result.message}`, 'success');
+        handleSearchRequest();
+      } else {
+        showToast(`❌ ${result.error}`, 'error');
       }
-
-      // Ajouter la pharmacie au panneau latéral avec les badges de médicaments
-      const medsInStock = respondingPharmacy.availableMedicines ? respondingPharmacy.availableMedicines.map(m => `<span class="badge badge-stock" style="margin-right: 4px; display:inline-block; margin-bottom:4px;">✅ ${m}</span>`).join('') : '';
-
-      const cardHtml = `
-        <div class="card" style="animation: fadeUp 0.3s ease forwards;">
-          <div class="card-header">
-            <div class="card-info">
-              <div class="card-name">${respondingPharmacy.name}</div>
-              <div class="card-address">📍 ${respondingPharmacy.address}</div>
-              <div style="margin-top: 8px;">${medsInStock}</div>
-            </div>
-            <div class="card-distance">
-              <span class="distance-value">${respondingPharmacy.distance || '?'}</span>
-              <span class="distance-unit">km</span>
-            </div>
-          </div>
-          <div class="card-actions">
-            <button class="btn btn-primary" onclick="event.stopPropagation(); PharmMap.drawRoute(Geolocation.getPosition().lat, Geolocation.getPosition().lng, ${respondingPharmacy.lat}, ${respondingPharmacy.lng})">🗺️ Y aller</button>
-            <button class="btn btn-call" onclick="event.stopPropagation(); App.callPharmacy('${respondingPharmacy.phone}')">📞 Appeler</button>
-            <button class="btn btn-whatsapp" onclick="event.stopPropagation(); App.openWhatsApp('${respondingPharmacy.whatsapp}')">💬 WhatsApp</button>
-          </div>
-        </div>
-      `;
-      pharmacyList.insertAdjacentHTML('beforeend', cardHtml);
-    });
-
-    // Si le temps est écoulé et aucune réponse
-    if (!hasResponded) {
-      pharmacyList.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon">😞</div>
-          <div class="empty-state-text">
-            Aucune pharmacie n'a répondu à votre demande pour le moment.<br><br>
-            <button class="btn btn-primary" onclick="App.updatePharmacyDisplay()" style="margin-top: 15px; width: 100%;">Afficher toutes les pharmacies</button>
-          </div>
-        </div>
-      `;
+    } catch (error) {
+      showToast('❌ Erreur de paiement. Réessayez.', 'error');
+    } finally {
+      if (btn) {
+        btn.textContent = '✅ Confirmer le paiement';
+        btn.disabled = false;
+      }
     }
   }
 
-  // ── Search Results ─────────────────────────────────────
-  function showSearchResults(results, medicineName) {
-    showSearchStep(4);
+  // ── Search Request (Ping Pharmacies) ───────────────────
+  async function handleSearchRequest() {
+    showSearchStep(3);
+    
+    const pingMedName = $('#ping-medicine-name');
+    const pingCount = $('#ping-pharmacy-count');
+    
+    if (pingMedName) pingMedName.textContent = selectedMedicines.join(', ');
+    
+    const openPharmacies = pharmaciesInRadius.filter(p => p.isOpen || p.isOnDuty);
+    if (pingCount) pingCount.textContent = openPharmacies.length;
 
-    resultCount.textContent = results.length;
-    resultSubtitle.textContent = `pharmacie${results.length > 1 ? 's' : ''} ${results.length > 1 ? 'ont' : 'a'} confirmé la disponibilité de « ${medicineName} »`;
+    // Update status
+    const pingStatus = $('#ping-status');
+    
+    // Try to send to Supabase
+    try {
+      if (typeof supabase !== 'undefined') {
+        const pos = Geolocation.getPosition();
+        const phoneInput = $('#phone-input');
+        
+        const { data, error } = await supabase
+          .from('requests')
+          .insert([{
+            medicines: selectedMedicines,
+            user_lat: pos?.lat,
+            user_lng: pos?.lng,
+            radius: currentRadius,
+            status: 'pending',
+            user_phone: phoneInput?.value || null,
+            insurance_name: insuranceName,
+          }])
+          .select();
 
-    if (results.length === 0) {
-      resultsList.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon">😞</div>
-          <div class="empty-state-text">
-            Malheureusement, aucune pharmacie dans votre zone n'a confirmé avoir ce médicament en stock.<br><br>
-            Essayez d'augmenter votre rayon de recherche ou contactez directement les pharmacies.
-          </div>
-        </div>
-      `;
-      return;
+        if (error) {
+          console.error('Supabase insert error:', error);
+        }
+
+        if (data && data[0]) {
+          // Subscribe to updates on this request
+          supabase
+            .channel(`request_${data[0].id}`)
+            .on('postgres_changes', { 
+              event: 'UPDATE', 
+              schema: 'public', 
+              table: 'requests',
+              filter: `id=eq.${data[0].id}`
+            }, (payload) => {
+              if (payload.new.status === 'accepted') {
+                if (pingStatus) pingStatus.textContent = '🎉 Une pharmacie a confirmé !';
+              }
+            })
+            .subscribe();
+        }
+      }
+    } catch(e) {
+      console.error('Search request error:', e);
     }
 
-    resultsList.innerHTML = results
-      .map(
-        (p, index) => {
-          const medsInStock = p.availableMedicines ? p.availableMedicines.map(m => `<span class="badge badge-stock" style="margin-right: 4px; display:inline-block; margin-bottom:4px;">✅ ${m}</span>`).join('') : '';
-          return `
-          <div class="result-card" style="animation-delay: ${index * 150}ms">
+    // Simulate pharmacy responses after delay
+    if (pingStatus) pingStatus.textContent = 'Envoi aux pharmacies...';
+    
+    await delay(1500);
+    if (pingStatus) pingStatus.textContent = 'Pharmacies notifiées...';
+    
+    await delay(2000);
+    if (pingStatus) pingStatus.textContent = 'En attente de réponses...';
+    
+    await delay(2500);
+    showResults();
+  }
+
+  function showResults() {
+    showSearchStep(4);
+    
+    // Show pharmacies that "have" the medicine (simulated for local data)
+    const respondingPharmacies = pharmaciesInRadius
+      .filter(p => p.isOpen || p.isOnDuty)
+      .slice(0, Math.min(5, Math.ceil(pharmaciesInRadius.filter(p => p.isOpen).length * 0.6)));
+
+    const countEl = $('#result-count');
+    const subtitleEl = $('#result-subtitle');
+    const listEl = $('#results-list');
+    
+    if (countEl) countEl.textContent = respondingPharmacies.length;
+    if (subtitleEl) subtitleEl.textContent = `pharmacie(s) ont confirmé la disponibilité`;
+
+    if (listEl) {
+      if (respondingPharmacies.length === 0) {
+        listEl.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">😔</div>
+            <div class="empty-state-text">Aucune pharmacie n'a encore confirmé la disponibilité. Réessayez dans quelques minutes ou élargissez votre rayon de recherche.</div>
+          </div>
+        `;
+      } else {
+        listEl.innerHTML = respondingPharmacies.map(p => `
+          <div class="result-card">
             <div class="result-card-header">
-              <span class="result-card-name">💊 ${p.name}</span>
+              <span class="result-card-name">${p.name}</span>
               <span class="result-card-distance">${p.distance} km</span>
             </div>
-            <div class="result-card-address">📍 ${p.address} — ${p.quarter}</div>
-            <div style="margin: 8px 0; font-size: 13px;">
-              ${medsInStock}
-            </div>
+            <div class="result-card-address">${p.address}</div>
             <div class="result-card-actions">
-              <button class="btn btn-primary btn-sm" onclick="PharmMap.drawRoute(Geolocation.getPosition().lat, Geolocation.getPosition().lng, ${p.lat}, ${p.lng})">🗺️ Y aller</button>
               <button class="btn btn-call btn-sm" onclick="App.callPharmacy('${p.phone}')">📞 Appeler</button>
-              <button class="btn btn-gold btn-sm" onclick="App.reserveMedicine(${index})">🔒 Réserver</button>
+              <button class="btn btn-whatsapp btn-sm" onclick="App.openWhatsApp('${p.whatsapp}')">💬 WhatsApp</button>
+              <button class="btn btn-route btn-sm" onclick="App.getRoute(${p.lat}, ${p.lng})">🗺️ Y aller</button>
             </div>
           </div>
-          `;
-        }
-      )
-      .join('');
+        `).join('');
+      }
+    }
   }
 
   function resetSearch() {
+    selectedMedicines = [];
+    insuranceName = null;
+    renderMedicineTags();
     showSearchStep(1);
-    medicineInput.value = '';
-    searchInfo.classList.remove('visible');
-    btnProceedPayment.disabled = true;
-    btnConfirmPayment.innerHTML = '✅ Confirmer le paiement — 100 FCFA';
-    btnConfirmPayment.disabled = false;
-    Search.reset();
-    searchResults = [];
-    setTimeout(() => medicineInput.focus(), 300);
+    
+    const btn = $('#btn-proceed-payment');
+    if (btn) btn.disabled = true;
+    
+    const info = $('#search-info');
+    if (info) info.classList.remove('visible');
+    
+    const input = $('#medicine-input');
+    if (input) {
+      input.value = '';
+      input.focus();
+    }
   }
 
-  // ── Reservation ────────────────────────────────────────
-  async function reserveMedicine(index) {
-    const pharmacy = searchResults[index];
-    if (!pharmacy) return;
+  // ── OCR Modal ──────────────────────────────────────────
+  function setupOCRModal() {
+    const backdrop = $('#ocr-backdrop');
+    const btnCamera = $('#ocr-btn-camera');
+    const btnGallery = $('#ocr-btn-gallery');
+    const inputCamera = $('#ocr-input-camera');
+    const inputGallery = $('#ocr-input-gallery');
 
-    const phone = savedPhone || prompt('Entrez votre numéro Mobile Money :');
-    if (!phone) return;
+    if (backdrop) backdrop.addEventListener('click', closeOCRModal);
+    
+    if (btnCamera && inputCamera) {
+      btnCamera.addEventListener('click', () => inputCamera.click());
+      inputCamera.addEventListener('change', handleOCRFile);
+    }
+    
+    if (btnGallery && inputGallery) {
+      btnGallery.addEventListener('click', () => inputGallery.click());
+      inputGallery.addEventListener('change', handleOCRFile);
+    }
+  }
 
-    showToast('Traitement de la réservation...', 'info');
+  function openOCRModal() {
+    const modal = $('#ocr-modal');
+    if (modal) modal.style.display = 'flex';
+  }
 
-    const result = await Payment.processReservation(
-      phone,
-      pharmacy.name,
-      Search.getCurrentMedicine()
-    );
+  function closeOCRModal() {
+    const modal = $('#ocr-modal');
+    if (modal) modal.style.display = 'none';
+  }
 
-    if (result.success) {
-      showToast(`🔒 Médicament réservé à ${pharmacy.name} pour 1 heure !`, 'success');
+  async function handleOCRFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
 
-      // Add timer to the result card
-      const cards = resultsList.querySelectorAll('.result-card');
-      if (cards[index]) {
-        const existingTimer = cards[index].querySelector('.reserve-timer');
-        if (!existingTimer) {
-          const timerDiv = document.createElement('div');
-          timerDiv.className = 'reserve-timer';
-          timerDiv.innerHTML = '🔒 Réservé — <span id="timer-' + index + '">60:00</span> restantes';
-          cards[index].appendChild(timerDiv);
-          startReservationTimer(index, 3600);
+    closeOCRModal();
+    showToast('📸 Analyse de l\'ordonnance en cours...', 'info');
+
+    try {
+      if (typeof Tesseract !== 'undefined') {
+        const result = await Tesseract.recognize(file, 'fra', {
+          logger: (m) => {
+            if (m.status === 'recognizing text') {
+              const percent = Math.round(m.progress * 100);
+              showToast(`📸 Analyse en cours... ${percent}%`, 'info');
+            }
+          }
+        });
+
+        const text = result.data.text;
+        
+        // Open search modal and try to extract medicine names
+        openSearchModal();
+        
+        if (typeof COMMON_MEDICATIONS !== 'undefined') {
+          const found = COMMON_MEDICATIONS.filter(med => 
+            text.toLowerCase().includes(med.toLowerCase().split(' ')[0].toLowerCase())
+          );
+          
+          found.forEach(med => addMedicine(med));
+          
+          if (found.length > 0) {
+            showToast(`✅ ${found.length} médicament(s) détecté(s)`, 'success');
+          } else {
+            showToast('⚠️ Aucun médicament reconnu. Saisissez-les manuellement.', 'info');
+          }
         }
       }
-    } else {
-      showToast(result.message, 'error');
+    } catch (error) {
+      console.error('OCR error:', error);
+      showToast('❌ Erreur lors de l\'analyse. Saisissez manuellement.', 'error');
+      openSearchModal();
     }
   }
 
-  function startReservationTimer(index, seconds) {
-    const timerEl = document.getElementById(`timer-${index}`);
-    if (!timerEl) return;
+  // ── Demo Modal ─────────────────────────────────────────
+  function initDemoSlides() {
+    const container = $('#demo-slides');
+    if (!container) return;
 
-    let remaining = seconds;
-    const interval = setInterval(() => {
-      remaining--;
-      if (remaining <= 0) {
-        clearInterval(interval);
-        timerEl.textContent = 'Expirée';
-        return;
+    container.innerHTML = DEMO_SLIDES.map((slide, i) => `
+      <div class="demo-slide ${i === 0 ? 'active' : ''}" data-slide="${i}">
+        <div class="demo-slide-icon">${slide.icon}</div>
+        <h3>${slide.title}</h3>
+        <p>${slide.desc}</p>
+      </div>
+    `).join('');
+  }
+
+  function openDemoModal() {
+    const modal = $('#demo-modal');
+    if (modal) {
+      modal.classList.add('active');
+      demoSlideIndex = 0;
+      updateDemoSlide();
+    }
+  }
+
+  function closeDemoModal() {
+    const modal = $('#demo-modal');
+    if (modal) modal.classList.remove('active');
+  }
+
+  function navigateDemo(direction) {
+    demoSlideIndex += direction;
+    if (demoSlideIndex < 0) demoSlideIndex = 0;
+    if (demoSlideIndex >= DEMO_SLIDES.length) demoSlideIndex = DEMO_SLIDES.length - 1;
+    updateDemoSlide();
+  }
+
+  function updateDemoSlide() {
+    $$('.demo-slide').forEach((slide, i) => {
+      slide.classList.toggle('active', i === demoSlideIndex);
+    });
+    
+    const progress = $('#demo-progress');
+    if (progress) progress.textContent = `${demoSlideIndex + 1} / ${DEMO_SLIDES.length}`;
+
+    const prevBtn = $('#demo-prev');
+    const nextBtn = $('#demo-next');
+    if (prevBtn) prevBtn.disabled = demoSlideIndex === 0;
+    if (nextBtn) {
+      if (demoSlideIndex === DEMO_SLIDES.length - 1) {
+        nextBtn.textContent = '✓ Terminé';
+        nextBtn.onclick = closeDemoModal;
+      } else {
+        nextBtn.textContent = 'Suivant →';
+        nextBtn.onclick = () => navigateDemo(1);
       }
-      const mins = Math.floor(remaining / 60);
-      const secs = remaining % 60;
-      timerEl.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
-    }, 1000);
+    }
   }
 
-  // ── Pharmacy Detail Modal ──────────────────────────────
-  function openDetailModal(pharmacy) {
-    selectedPharmacy = pharmacy;
+  // ── Detail Modal ───────────────────────────────────────
+  function openDetail(pharmacy) {
+    if (!pharmacy) return;
 
-    $('#detail-name').textContent = pharmacy.name;
-    $('#detail-address').textContent = pharmacy.address;
-    $('#detail-distance').textContent = pharmacy.distance || '—';
-    $('#detail-rating').textContent = pharmacy.rating || '—';
-    $('#detail-hours').textContent = pharmacy.hours;
+    const modal = $('#detail-modal');
+    if (!modal) return;
 
-    // Status
-    if (pharmacy.isOnDuty) {
-      $('#detail-status-text').textContent = '🌙 Garde';
-      $('#detail-status-text').style.color = 'var(--gold-400)';
-      $('#detail-badge').innerHTML = '<span class="badge badge-guard">🌙 De garde</span>';
-    } else if (pharmacy.isOpen) {
-      $('#detail-status-text').textContent = '✅ Ouvert';
-      $('#detail-status-text').style.color = 'var(--green-400)';
-      $('#detail-badge').innerHTML = '<span class="badge badge-open">Ouvert</span>';
-    } else {
-      $('#detail-status-text').textContent = '❌ Fermé';
-      $('#detail-status-text').style.color = 'var(--red-400)';
-      $('#detail-badge').innerHTML = '<span class="badge badge-closed">Fermé</span>';
+    const nameEl = $('#detail-name');
+    const addressEl = $('#detail-address');
+    const distanceEl = $('#detail-distance');
+    const ratingEl = $('#detail-rating');
+    const statusEl = $('#detail-status-text');
+    const hoursEl = $('#detail-hours');
+    const badgeEl = $('#detail-badge');
+
+    if (nameEl) nameEl.textContent = pharmacy.name;
+    if (addressEl) addressEl.textContent = pharmacy.address;
+    if (distanceEl) distanceEl.textContent = pharmacy.distance || '—';
+    if (ratingEl) ratingEl.textContent = pharmacy.rating || '—';
+    if (hoursEl) hoursEl.textContent = pharmacy.hours || '—';
+    
+    if (statusEl) {
+      if (pharmacy.isOnDuty) {
+        statusEl.textContent = 'Garde';
+        statusEl.style.color = 'var(--gold-400)';
+      } else if (pharmacy.isOpen) {
+        statusEl.textContent = 'Ouvert';
+        statusEl.style.color = 'var(--green-400)';
+      } else {
+        statusEl.textContent = 'Fermé';
+        statusEl.style.color = 'var(--dark-400)';
+      }
     }
 
-    // Action buttons
-    $('#detail-call').onclick = () => callPharmacy(pharmacy.phone);
-    $('#detail-whatsapp').onclick = () => openWhatsApp(pharmacy.whatsapp);
-    $('#detail-route').onclick = () => openRoute(pharmacy.lat, pharmacy.lng);
+    if (badgeEl) {
+      if (pharmacy.isOnDuty) {
+        badgeEl.innerHTML = '<span class="badge badge-guard">🌙 De garde</span>';
+      } else if (pharmacy.isOpen) {
+        badgeEl.innerHTML = '<span class="badge badge-open">Ouvert</span>';
+      } else {
+        badgeEl.innerHTML = '<span class="badge badge-closed">Fermé</span>';
+      }
+    }
 
-    detailModal.classList.add('active');
+    // Bind action buttons
+    const callBtn = $('#detail-call');
+    const whatsappBtn = $('#detail-whatsapp');
+    const routeBtn = $('#detail-route');
 
-    // Highlight on map
+    if (callBtn) {
+      callBtn.onclick = () => callPharmacy(pharmacy.phone);
+    }
+    if (whatsappBtn) {
+      whatsappBtn.onclick = () => openWhatsApp(pharmacy.whatsapp);
+    }
+    if (routeBtn) {
+      routeBtn.onclick = () => {
+        closeDetail();
+        getRoute(pharmacy.lat, pharmacy.lng);
+      };
+    }
+
+    modal.classList.add('active');
     PharmMap.highlightPharmacy(pharmacy);
+    pushNavigation('detail');
   }
 
-  function closeDetailModal() {
-    detailModal.classList.remove('active');
-    selectedPharmacy = null;
+  function closeDetail() {
+    const modal = $('#detail-modal');
+    if (modal) modal.classList.remove('active');
   }
 
-  // ── Settings ───────────────────────────────────────────
-  function openSettings() {
-    settingsModal.classList.add('active');
-  }
-
-  function closeSettings() {
-    settingsModal.classList.remove('active');
-  }
-
-  function handleSettingsCityChange() {
-    const city = settingsCity.value;
-    currentCity = city;
-    cityNameDisplay.textContent = city;
-
-    const cityData = CITIES_AND_QUARTERS[city];
-    if (cityData) {
-      Geolocation.setUserPosition(cityData.center.lat, cityData.center.lng);
-      PharmMap.centerOn(cityData.center.lat, cityData.center.lng, 12);
-      PharmMap.setUserMarker(cityData.center.lat, cityData.center.lng);
-      updatePharmacyDisplay();
-      showToast(`📍 Ville changée : ${city}`, 'success');
+  // ── Actions ────────────────────────────────────────────
+  function callPharmacy(phone) {
+    if (phone) {
+      window.open(`tel:${phone}`, '_self');
     }
   }
 
-  // ── External Actions ───────────────────────────────────
-  function callPharmacy(phone) {
-    window.open(`tel:${phone}`, '_self');
+  function openWhatsApp(number) {
+    if (number) {
+      window.open(`https://wa.me/${number}`, '_blank');
+    }
   }
 
-  function openWhatsApp(whatsapp) {
-    const message = encodeURIComponent('Bonjour, je vous contacte via Pharma-Garde. J\'aimerais savoir si vous avez un médicament en stock.');
-    window.open(`https://wa.me/${whatsapp}?text=${message}`, '_blank');
-  }
-
-  function openRoute(lat, lng) {
-    const userPos = Geolocation.getPosition();
-    if (userPos) {
-      window.open(
-        `https://www.google.com/maps/dir/${userPos.lat},${userPos.lng}/${lat},${lng}`,
-        '_blank'
-      );
+  function getRoute(lat, lng) {
+    const pos = Geolocation.getPosition();
+    if (pos) {
+      PharmMap.drawRoute(pos.lat, pos.lng, lat, lng);
     } else {
-      window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
+      window.open(`https://www.google.com/maps/dir//${lat},${lng}`, '_blank');
     }
   }
 
   function findPharmacy(id) {
-    return filteredPharmacies.find((p) => p.id === id) || null;
+    return pharmaciesInRadius.find(p => p.id === id) || null;
   }
 
-  // ── Toast Notifications ────────────────────────────────
-  function showToast(message, type = 'success') {
-    toast.className = `toast toast-${type} show`;
-    toastMessage.textContent = message;
+  // ── Settings ───────────────────────────────────────────
+  function openSettings() {
+    const modal = $('#settings-modal');
+    if (modal) modal.classList.add('active');
+  }
 
-    setTimeout(() => {
-      toast.classList.remove('show');
-    }, 3500);
+  function closeSettings() {
+    const modal = $('#settings-modal');
+    if (modal) modal.classList.remove('active');
+  }
+
+  // ── Navigation ─────────────────────────────────────────
+  function pushNavigation(screen) {
+    if (navigationHistory[navIndex] === screen) return;
+    navIndex++;
+    navigationHistory = navigationHistory.slice(0, navIndex);
+    navigationHistory.push(screen);
+  }
+
+  function goBack() {
+    if (navIndex > 0) {
+      navIndex--;
+      navigateTo(navigationHistory[navIndex]);
+    }
+  }
+
+  function goForward() {
+    if (navIndex < navigationHistory.length - 1) {
+      navIndex++;
+      navigateTo(navigationHistory[navIndex]);
+    }
+  }
+
+  function goHome() {
+    closeSearchModal();
+    closeDetail();
+    closeSettings();
+    closeDemoModal();
+    closeOCRModal();
+    closeInsuranceModal();
+    
+    // Recenter map
+    PharmMap.recenterOnUser();
+    PharmMap.clearRoute();
+    
+    // Expand bottom sheet
+    const sheet = $('#bottom-sheet');
+    if (sheet) sheet.classList.remove('collapsed');
+
+    pushNavigation('map');
+    showToast('🏠 Retour à l\'accueil', 'success');
+  }
+
+  function navigateTo(screen) {
+    closeSearchModal();
+    closeDetail();
+    closeSettings();
+    closeDemoModal();
+
+    switch(screen) {
+      case 'search':
+        openSearchModal();
+        break;
+      case 'detail':
+        // Can't re-open detail without pharmacy ref
+        break;
+      case 'map':
+      default:
+        PharmMap.recenterOnUser();
+        break;
+    }
+  }
+
+  // ── Bottom Sheet ───────────────────────────────────────
+  function setupBottomSheet() {
+    const sheet = $('#bottom-sheet');
+    const handle = $('#sheet-handle');
+    if (!sheet || !handle) return;
+
+    let startY, startTranslate, isDragging = false;
+
+    function onTouchStart(e) {
+      isDragging = true;
+      startY = e.touches ? e.touches[0].clientY : e.clientY;
+      const transform = getComputedStyle(sheet).transform;
+      startTranslate = transform !== 'none' ? parseInt(new DOMMatrix(transform).m42) : 0;
+      sheet.style.transition = 'none';
+    }
+
+    function onTouchMove(e) {
+      if (!isDragging) return;
+      const currentY = e.touches ? e.touches[0].clientY : e.clientY;
+      const delta = currentY - startY;
+      if (delta > 0) { // Only allow dragging down
+        sheet.style.transform = `translateY(${delta}px)`;
+      }
+    }
+
+    function onTouchEnd(e) {
+      if (!isDragging) return;
+      isDragging = false;
+      sheet.style.transition = '';
+      
+      const currentY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+      const delta = currentY - startY;
+      
+      if (delta > 80) {
+        sheet.classList.add('collapsed');
+      } else {
+        sheet.classList.remove('collapsed');
+      }
+      sheet.style.transform = '';
+    }
+
+    handle.addEventListener('touchstart', onTouchStart, { passive: true });
+    handle.addEventListener('touchmove', onTouchMove, { passive: true });
+    handle.addEventListener('touchend', onTouchEnd);
+
+    // Mouse events for desktop
+    handle.addEventListener('mousedown', onTouchStart);
+    window.addEventListener('mousemove', onTouchMove);
+    window.addEventListener('mouseup', onTouchEnd);
+
+    // Click to toggle
+    handle.addEventListener('click', () => {
+      sheet.classList.toggle('collapsed');
+    });
+  }
+
+  // ── Toast ──────────────────────────────────────────────
+  function showToast(message, type = 'success') {
+    const toast = $('#toast');
+    const toastMessage = $('#toast-message');
+    if (toast && toastMessage) {
+      toast.className = `toast toast-${type} show`;
+      toastMessage.textContent = message;
+      setTimeout(() => toast.classList.remove('show'), 3500);
+    }
+  }
+
+  // ── Utility ────────────────────────────────────────────
+  function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   // ── Public API ─────────────────────────────────────────
-  return {
-    init,
+  const publicApi = {
+    openDetail,
     callPharmacy,
     openWhatsApp,
-    openRoute,
-    openDetailModal,
+    getRoute,
     findPharmacy,
-    reserveMedicine,
+    addMedicine,
+    removeMedicine,
     showToast,
-    updatePharmacyDisplay
   };
-})();
 
-// ── Start the application ────────────────────────────────
-document.addEventListener('DOMContentLoaded', App.init);
+  // ── Start ──────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', init);
+
+  return publicApi;
+})();

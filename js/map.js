@@ -10,12 +10,15 @@ const PharmMap = (() => {
   let maskLayer = null;
   let userMarker = null;
   let currentPharmacies = [];
-
   let routingControl = null;
 
-  // Google Maps tile
-  const TILE_URL = 'http://mt0.google.com/vt/lyrs=m&hl=fr&x={x}&y={y}&z={z}';
+  // HTTPS tiles to avoid mixed-content issues
+  const TILE_URL = 'https://mt0.google.com/vt/lyrs=m&hl=fr&x={x}&y={y}&z={z}';
   const TILE_ATTRIBUTION = '&copy; Google Maps';
+
+  // Fallback OSM tiles if Google is blocked
+  const OSM_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+  const OSM_ATTRIBUTION = '&copy; OpenStreetMap contributors';
 
   /**
    * Create a custom pharmacy marker icon
@@ -59,9 +62,6 @@ const PharmMap = (() => {
 
   /**
    * Initialize the Leaflet map
-   * @param {string} containerId - HTML element ID for the map
-   * @param {{lat: number, lng: number}} center - Initial center coordinates
-   * @param {number} zoom - Initial zoom level
    */
   function initMap(containerId, center, zoom = 13) {
     if (map) {
@@ -78,12 +78,18 @@ const PharmMap = (() => {
     // Position zoom controls on the right
     map.zoomControl.setPosition('topright');
 
-    // Add dark tile layer
-    L.tileLayer(TILE_URL, {
+    // Try Google tiles first, fallback to OSM
+    const tileLayer = L.tileLayer(TILE_URL, {
       attribution: TILE_ATTRIBUTION,
       maxZoom: 19,
-      subdomains: 'abcd',
-    }).addTo(map);
+    });
+
+    tileLayer.on('tileerror', function() {
+      // Fallback to OSM if Google tiles fail
+      tileLayer.setUrl(OSM_TILE_URL);
+    });
+
+    tileLayer.addTo(map);
 
     // Create markers layer group
     markersLayer = L.layerGroup().addTo(map);
@@ -144,38 +150,35 @@ const PharmMap = (() => {
 
     radiusCircle = L.circle([center.lat, center.lng], {
       radius: radiusKm * 1000,
-      color: '#38bdf8', /* Sky blue 400 */
+      color: '#38bdf8',
       fillColor: '#38bdf8',
-      fillOpacity: 0.1,
+      fillOpacity: 0.08,
       weight: 2,
-      opacity: 0.8,
+      opacity: 0.6,
+      dashArray: '6, 8',
     }).addTo(map);
 
     // Draw inverted mask to dim the outside
     const outerRing = [
-      [90, -180],
-      [90, 180],
-      [-90, 180],
-      [-90, -180],
-      [90, -180]
+      [90, -180], [90, 180], [-90, 180], [-90, -180], [90, -180]
     ];
     const innerRing = getCirclePolygon(center, radiusKm);
 
     maskLayer = L.polygon([outerRing, innerRing], {
       color: 'transparent',
       fillColor: '#0f172a',
-      fillOpacity: 0.6,
+      fillOpacity: 0.5,
       className: 'map-mask'
     }).addTo(map);
+
+    // Fit map to circle bounds
+    map.fitBounds(radiusCircle.getBounds(), { padding: [30, 30], maxZoom: 15 });
   }
 
   /**
    * Add pharmacy markers to the map
-   * @param {Array} pharmacies - Pharmacies with distance property
-   * @param {Function} onClickCallback - Called when a marker is clicked
    */
   function addPharmacyMarkers(pharmacies, onClickCallback) {
-    // Clear existing markers
     markersLayer.clearLayers();
     currentPharmacies = pharmacies;
 
@@ -184,7 +187,6 @@ const PharmMap = (() => {
         icon: createMarkerIcon(pharmacy),
       });
 
-      // Create popup content
       const statusBadge = pharmacy.isOnDuty
         ? '<span class="badge badge-guard">🌙 De garde</span>'
         : pharmacy.isOpen
@@ -261,6 +263,16 @@ const PharmMap = (() => {
   }
 
   /**
+   * Center map on user position
+   */
+  function recenterOnUser() {
+    const pos = Geolocation.getPosition();
+    if (pos && map) {
+      map.setView([pos.lat, pos.lng], 14, { animate: true });
+    }
+  }
+
+  /**
    * Get the map instance
    */
   function getMap() {
@@ -278,24 +290,43 @@ const PharmMap = (() => {
       map.removeControl(routingControl);
     }
 
-    routingControl = L.Routing.control({
-      waypoints: [
-        L.latLng(startLat, startLng),
-        L.latLng(endLat, endLng)
-      ],
-      routeWhileDragging: false,
-      lineOptions: {
-        styles: [{color: '#2563EB', opacity: 0.8, weight: 6}] // Blue line
-      },
-      createMarker: function() { return null; }, // Hide default markers
-      show: false, // Hide itinerary instructions panel
-      addWaypoints: false,
-    }).addTo(map);
+    try {
+      routingControl = L.Routing.control({
+        waypoints: [
+          L.latLng(startLat, startLng),
+          L.latLng(endLat, endLng)
+        ],
+        routeWhileDragging: false,
+        lineOptions: {
+          styles: [{color: '#2563EB', opacity: 0.8, weight: 6}]
+        },
+        createMarker: function() { return null; },
+        show: false,
+        addWaypoints: false,
+      }).addTo(map);
+    } catch(e) {
+      console.error('Routing error:', e);
+      // Fallback: open Google Maps
+      window.open(
+        `https://www.google.com/maps/dir/${startLat},${startLng}/${endLat},${endLng}`,
+        '_blank'
+      );
+    }
 
-    // Hide bottom sheet if we want full map view
+    // Hide bottom sheet for full map view
     const bottomSheet = document.getElementById('bottom-sheet');
     if (bottomSheet && !bottomSheet.classList.contains('collapsed')) {
       bottomSheet.classList.add('collapsed');
+    }
+  }
+
+  /**
+   * Remove the current route from the map
+   */
+  function clearRoute() {
+    if (routingControl && map) {
+      map.removeControl(routingControl);
+      routingControl = null;
     }
   }
 
@@ -307,7 +338,9 @@ const PharmMap = (() => {
     highlightPharmacy,
     fitToMarkers,
     centerOn,
+    recenterOnUser,
     getMap,
     drawRoute,
+    clearRoute,
   };
 })();

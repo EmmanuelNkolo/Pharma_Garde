@@ -1,166 +1,206 @@
 /**
  * Pharma-Garde — Payment Module
- * Handles Mobile Money payment simulation (MoMo & Orange Money)
+ * Handles Mobile Money payments (Orange Money & MTN MoMo)
+ * Architecture ready for CamPay / Monetbil integration
+ * 
+ * IMPORTANT: The merchant account (694929909) is NEVER exposed client-side.
+ * It is configured server-side in Supabase Edge Functions.
  */
 
 const Payment = (() => {
-  let selectedMethod = 'momo';
-  let lastTransactionId = null;
+  // ── Constants ──────────────────────────────────────────
+  const SEARCH_COST = 100; // FCFA
+  const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24h in ms
+  const SESSION_KEY = 'pharmagarde_payment_session';
 
-  const SEARCH_COST = 200;     // FCFA
-  const RESERVE_COST = 100;    // FCFA
+  // Payment gateway config
+  // In production, these calls go through Supabase Edge Functions
+  const PAYMENT_ENDPOINT = null; // Will be set when Edge Function is deployed
+
+  // ── Phone number validation ────────────────────────────
+  const PHONE_PATTERNS = {
+    momo: /^6[5678]\d{7}$/, // MTN: 65x, 66x, 67x, 68x
+    om: /^6[59]\d{7}$/,     // Orange: 65x, 69x
+  };
 
   /**
-   * Set the selected payment method
-   * @param {'momo' | 'om'} method
+   * Validate phone number for the selected operator
    */
-  function setMethod(method) {
-    selectedMethod = method;
+  function validatePhone(phone, method) {
+    const cleaned = phone.replace(/\s+/g, '').replace(/^\+?237/, '');
+    
+    if (cleaned.length !== 9) return { valid: false, error: 'Le numéro doit contenir 9 chiffres' };
+    
+    // Check operator match
+    if (method === 'momo') {
+      if (!PHONE_PATTERNS.momo.test(cleaned)) {
+        return { valid: false, error: 'Ce numéro ne semble pas être un numéro MTN (67x, 65x, 68x)' };
+      }
+    } else if (method === 'om') {
+      if (!PHONE_PATTERNS.om.test(cleaned)) {
+        return { valid: false, error: 'Ce numéro ne semble pas être un numéro Orange (69x, 65x)' };
+      }
+    }
+    
+    return { valid: true, cleaned: cleaned };
   }
 
   /**
-   * Get the currently selected payment method
+   * Check if user has an active payment session (24h window)
    */
-  function getMethod() {
-    return selectedMethod;
-  }
-
-  /**
-   * Get the display name for a payment method
-   */
-  function getMethodName(method) {
-    return method === 'momo' ? 'MTN Mobile Money' : 'Orange Money';
-  }
-
-  /**
-   * Validate a Cameroonian phone number
-   * @param {string} phone
-   * @returns {boolean}
-   */
-  function validatePhone(phone) {
-    // Remove spaces and dashes
-    const cleaned = phone.replace(/[\s-]/g, '');
-
-    // Cameroon phone numbers: start with 6, 9 digits total
-    // Or with +237, then 9 digits
-    if (/^6\d{8}$/.test(cleaned)) return true;
-    if (/^\+?237\s?6\d{8}$/.test(cleaned)) return true;
-
+  function hasActiveSession() {
+    try {
+      const session = JSON.parse(localStorage.getItem(SESSION_KEY));
+      if (session && (Date.now() - session.timestamp < SESSION_DURATION)) {
+        return true;
+      }
+    } catch(e) { /* ignore */ }
     return false;
   }
 
   /**
-   * Validate phone number against selected payment method
-   * MTN: 67x, 65x, 68x
-   * Orange: 69x, 66x, 655, 656, 657, 658, 659
+   * Create a new payment session
    */
-  function validatePhoneForMethod(phone, method) {
-    const cleaned = phone.replace(/[\s\-+237]/g, '');
-    if (cleaned.length < 2) return true; // Not enough digits to validate yet
-
-    // Basic validation for demo - in production, use operator prefixes
-    return true;
+  function createSession(transactionId) {
+    try {
+      localStorage.setItem(SESSION_KEY, JSON.stringify({
+        transactionId,
+        timestamp: Date.now(),
+        expiresAt: Date.now() + SESSION_DURATION,
+      }));
+    } catch(e) { /* ignore */ }
   }
 
   /**
-   * Format a phone number for display
+   * Get the session expiry time remaining (ms)
    */
-  function formatPhone(phone) {
-    const cleaned = phone.replace(/[\s-]/g, '');
-    if (cleaned.length === 9) {
-      return `${cleaned.slice(0, 3)} ${cleaned.slice(3, 6)} ${cleaned.slice(6)}`;
+  function getSessionTimeRemaining() {
+    try {
+      const session = JSON.parse(localStorage.getItem(SESSION_KEY));
+      if (session) {
+        const remaining = session.expiresAt - Date.now();
+        return Math.max(0, remaining);
+      }
+    } catch(e) { /* ignore */ }
+    return 0;
+  }
+
+  /**
+   * Get the cost for a search (0 if session is active)
+   */
+  function getSearchCost() {
+    return hasActiveSession() ? 0 : SEARCH_COST;
+  }
+
+  /**
+   * Process a payment via CamPay / Mobile Money
+   * In production, this calls a Supabase Edge Function
+   * The Edge Function handles the actual API call with the merchant credentials
+   */
+  async function processPayment(phone, method, amount) {
+    const validation = validatePhone(phone, method);
+    if (!validation.valid) {
+      return { success: false, error: validation.error };
     }
-    return phone;
-  }
 
-  /**
-   * Simulate a Mobile Money payment
-   * In production, this would call CamPay / Monetbil API
-   * @param {string} phone - User's phone number
-   * @param {number} amount - Amount in FCFA
-   * @param {string} description - Transaction description
-   * @returns {Promise<{success: boolean, transactionId: string, message: string}>}
-   */
-  function processPayment(phone, amount, description) {
-    return new Promise((resolve) => {
-      // Simulate payment processing (1.5-3 seconds)
-      // En production, on utilise un agrégateur de paiement (Campay, Monetbil) pour 
-      // prélever le compte MOMO ou OM de l'utilisateur et créditer le compte OM 694929909
-      console.log(`[PAIEMENT] Prélevement de ${amount} FCFA sur le numéro ${phone} (${selectedMethod.toUpperCase()})`);
-      console.log(`[PAIEMENT] Transfert des fonds vers le compte marchand OM masqué : 694929909`);
+    // If session is active, no payment needed
+    if (hasActiveSession()) {
+      return { 
+        success: true, 
+        transactionId: 'SESSION_ACTIVE',
+        message: 'Session active — Recherche gratuite',
+        amount: 0
+      };
+    }
 
-      const delay = 1500 + Math.random() * 1500;
+    // ── Production path: Supabase Edge Function ──
+    if (PAYMENT_ENDPOINT) {
+      try {
+        const response = await fetch(PAYMENT_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phone: validation.cleaned,
+            amount: amount,
+            method: method, // 'momo' or 'om'
+            description: 'Pharma-Garde - Recherche Express',
+          }),
+        });
 
-      setTimeout(() => {
-        // Generate a fake transaction ID
-        const transactionId = 'PG-' + Date.now().toString(36).toUpperCase() + '-' + 
-                              Math.random().toString(36).slice(2, 6).toUpperCase();
+        const result = await response.json();
         
-        lastTransactionId = transactionId;
-
-        // 95% success rate for simulation
-        const success = Math.random() > 0.05;
-
-        if (success) {
-          resolve({
+        if (result.success) {
+          createSession(result.transactionId);
+          return {
             success: true,
-            transactionId,
-            message: `Paiement de ${amount} FCFA via ${getMethodName(selectedMethod)} réussi !`,
-            method: selectedMethod,
-            amount,
-            phone: formatPhone(phone),
-            timestamp: new Date().toISOString(),
-          });
+            transactionId: result.transactionId,
+            message: 'Paiement confirmé',
+            amount: amount
+          };
         } else {
-          resolve({
+          return {
             success: false,
-            transactionId: null,
-            message: 'Échec du paiement. Veuillez vérifier votre solde et réessayer.',
-            method: selectedMethod,
-          });
+            error: result.error || 'Paiement refusé. Veuillez réessayer.',
+          };
         }
-      }, delay);
+      } catch (error) {
+        console.error('Payment API error:', error);
+        return {
+          success: false,
+          error: 'Erreur de connexion. Vérifiez votre connexion internet.',
+        };
+      }
+    }
+
+    // ── Development path: Simulation ──
+    // This simulates the payment flow for development/testing
+    return new Promise((resolve) => {
+      const operatorName = method === 'momo' ? 'MTN MoMo' : 'Orange Money';
+      
+      console.log(`[DEV] Simulation paiement ${operatorName}: ${amount} FCFA → ${validation.cleaned}`);
+      console.log(`[DEV] Merchant account: ***HIDDEN*** (configured server-side)`);
+
+      // Simulate processing delay
+      setTimeout(() => {
+        const txId = 'TX-' + Date.now() + '-' + Math.random().toString(36).substr(2, 8);
+        
+        createSession(txId);
+        
+        resolve({
+          success: true,
+          transactionId: txId,
+          message: `Paiement ${operatorName} simulé avec succès`,
+          amount: amount,
+          simulated: true
+        });
+      }, 2000);
     });
   }
 
   /**
-   * Process a reservation payment
+   * Check payment status (for async payment confirmations)
    */
-  function processReservation(phone, pharmacyName, medicineName) {
-    return processPayment(
-      phone,
-      RESERVE_COST,
-      `Réservation de ${medicineName} à ${pharmacyName}`
-    );
-  }
+  async function checkPaymentStatus(transactionId) {
+    if (!PAYMENT_ENDPOINT) {
+      // Dev mode
+      return { status: 'SUCCESS', transactionId };
+    }
 
-  /**
-   * Get the last transaction ID
-   */
-  function getLastTransactionId() {
-    return lastTransactionId;
-  }
-
-  /**
-   * Get pricing constants
-   */
-  function getPricing() {
-    return {
-      search: SEARCH_COST,
-      reserve: RESERVE_COST,
-    };
+    try {
+      const response = await fetch(`${PAYMENT_ENDPOINT}/status/${transactionId}`);
+      return await response.json();
+    } catch (error) {
+      return { status: 'ERROR', error: error.message };
+    }
   }
 
   return {
-    setMethod,
-    getMethod,
-    getMethodName,
+    SEARCH_COST,
     validatePhone,
-    validatePhoneForMethod,
-    formatPhone,
+    hasActiveSession,
+    getSearchCost,
+    getSessionTimeRemaining,
     processPayment,
-    processReservation,
-    getLastTransactionId,
-    getPricing,
+    checkPaymentStatus,
   };
 })();
