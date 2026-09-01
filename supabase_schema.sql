@@ -3,6 +3,11 @@
 -- Run this SQL in Supabase Dashboard > SQL Editor
 -- ================================================================
 
+-- DROP existing tables to ensure clean state (Warning: This deletes existing data)
+DROP TABLE IF EXISTS responses CASCADE;
+DROP TABLE IF EXISTS requests CASCADE;
+DROP TABLE IF EXISTS pharmacies CASCADE;
+
 -- 1. Table des pharmacies (avec mot de passe)
 CREATE TABLE IF NOT EXISTS pharmacies (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
