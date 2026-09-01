@@ -645,113 +645,158 @@ const App = (() => {
     }
   }
 
-  // ── Search Request (Ping Pharmacies) ───────────────────
+  // ── Search Request (REAL — Supabase) ────────────────────
+  let currentRequestId = null;
+  let responseChannel = null;
+  let realResponses = [];
+
   async function handleSearchRequest() {
     showSearchStep(3);
+    realResponses = [];
     
     const pingMedName = $('#ping-medicine-name');
     const pingCount = $('#ping-pharmacy-count');
-    
-    if (pingMedName) pingMedName.textContent = selectedMedicines.join(', ');
-    
-    const openPharmacies = pharmaciesInRadius.filter(p => p.isOpen || p.isOnDuty);
-    if (pingCount) pingCount.textContent = openPharmacies.length;
-
-    // Update status
     const pingStatus = $('#ping-status');
     
-    // Try to send to Supabase
+    if (pingMedName) pingMedName.textContent = selectedMedicines.join(', ');
+
+    // Count pharmacies in radius that are open/on-duty from Supabase
+    let pharmacyCount = 0;
     try {
-      if (typeof supabase !== 'undefined') {
-        const pos = Geolocation.getPosition();
-        const phoneInput = $('#phone-input');
-        
-        const { data, error } = await supabase
-          .from('requests')
-          .insert([{
-            medicines: selectedMedicines,
-            user_lat: pos?.lat,
-            user_lng: pos?.lng,
-            radius: currentRadius,
-            status: 'pending',
-            user_phone: phoneInput?.value || null,
-            insurance_name: insuranceName,
-          }])
-          .select();
+      const pos = Geolocation.getPosition();
+      // Query real pharmacies from Supabase
+      const { data: dbPharmacies } = await supabase
+        .from('pharmacies')
+        .select('id, name, phone, address, lat, lng, status, is_open, is_on_duty')
+        .or('is_open.eq.true,is_on_duty.eq.true');
 
-        if (error) {
-          console.error('Supabase insert error:', error);
-        }
-
-        if (data && data[0]) {
-          // Subscribe to updates on this request
-          supabase
-            .channel(`request_${data[0].id}`)
-            .on('postgres_changes', { 
-              event: 'UPDATE', 
-              schema: 'public', 
-              table: 'requests',
-              filter: `id=eq.${data[0].id}`
-            }, (payload) => {
-              if (payload.new.status === 'accepted') {
-                if (pingStatus) pingStatus.textContent = '🎉 Une pharmacie a confirmé !';
-              }
-            })
-            .subscribe();
-        }
+      if (dbPharmacies) {
+        // Filter by radius
+        const inRadius = dbPharmacies.filter(p => {
+          if (!pos) return true;
+          const dist = Geolocation.haversine(pos.lat, pos.lng, p.lat, p.lng);
+          return dist <= currentRadius;
+        });
+        pharmacyCount = inRadius.length;
       }
     } catch(e) {
-      console.error('Search request error:', e);
+      console.error('Pharmacy count error:', e);
     }
 
-    // Simulate pharmacy responses after delay
-    if (pingStatus) pingStatus.textContent = 'Envoi aux pharmacies...';
-    
-    await delay(1500);
-    if (pingStatus) pingStatus.textContent = 'Pharmacies notifiées...';
-    
-    await delay(2000);
-    if (pingStatus) pingStatus.textContent = 'En attente de réponses...';
-    
-    await delay(2500);
-    showResults();
+    // Add local pharmacies count too
+    const localOpen = pharmaciesInRadius.filter(p => p.isOpen || p.isOnDuty);
+    pharmacyCount = Math.max(pharmacyCount, localOpen.length);
+    if (pingCount) pingCount.textContent = pharmacyCount;
+
+    if (pingStatus) pingStatus.textContent = 'Envoi de la demande...';
+
+    // INSERT the request in Supabase (REAL)
+    try {
+      const pos = Geolocation.getPosition();
+      const phoneInput = $('#phone-input');
+      
+      const { data, error } = await supabase
+        .from('requests')
+        .insert([{
+          medicines: selectedMedicines,
+          user_lat: pos?.lat,
+          user_lng: pos?.lng,
+          radius: currentRadius,
+          status: 'pending',
+          user_phone: phoneInput?.value || null,
+          insurance_name: insuranceName,
+          created_at: new Date().toISOString(),
+        }])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Request insert error:', error);
+        if (pingStatus) pingStatus.textContent = '⚠️ Erreur d\'envoi. Veuillez réessayer.';
+        return;
+      }
+
+      currentRequestId = data.id;
+      if (pingStatus) pingStatus.textContent = `✅ Demande envoyée à ${pharmacyCount} pharmacie(s)...`;
+
+      // Subscribe to REAL responses from pharmacists
+      if (responseChannel) {
+        supabase.removeChannel(responseChannel);
+      }
+
+      responseChannel = supabase
+        .channel(`responses_for_${currentRequestId}`)
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'responses',
+          filter: `request_id=eq.${currentRequestId}`
+        }, (payload) => {
+          const resp = payload.new;
+          if (resp.status === 'accepted') {
+            realResponses.push(resp);
+            // Update the waiting screen
+            if (pingStatus) {
+              pingStatus.textContent = `🎉 ${realResponses.length} pharmacie(s) ont confirmé la disponibilité !`;
+            }
+            // Auto-show results after first response
+            showResults();
+          }
+        })
+        .subscribe();
+
+      // Wait for responses (max 60 seconds)
+      if (pingStatus) pingStatus.textContent = 'En attente des réponses des pharmacies...';
+      
+      // Show results after 60s timeout even if no responses
+      setTimeout(() => {
+        if (realResponses.length === 0) {
+          showResults();
+        }
+      }, 60000);
+
+    } catch(e) {
+      console.error('Search request error:', e);
+      if (pingStatus) pingStatus.textContent = '❌ Erreur. Vérifiez votre connexion.';
+    }
   }
 
   function showResults() {
     showSearchStep(4);
     
-    // Show pharmacies that "have" the medicine (simulated for local data)
-    const respondingPharmacies = pharmaciesInRadius
-      .filter(p => p.isOpen || p.isOnDuty)
-      .slice(0, Math.min(5, Math.ceil(pharmaciesInRadius.filter(p => p.isOpen).length * 0.6)));
-
     const countEl = $('#result-count');
     const subtitleEl = $('#result-subtitle');
     const listEl = $('#results-list');
     
-    if (countEl) countEl.textContent = respondingPharmacies.length;
-    if (subtitleEl) subtitleEl.textContent = `pharmacie(s) ont confirmé la disponibilité`;
-
-    if (listEl) {
-      if (respondingPharmacies.length === 0) {
+    if (countEl) countEl.textContent = realResponses.length;
+    
+    if (realResponses.length === 0) {
+      if (subtitleEl) subtitleEl.textContent = 'Aucune pharmacie n\'a encore confirmé';
+      if (listEl) {
         listEl.innerHTML = `
           <div class="empty-state">
-            <div class="empty-state-icon">😔</div>
-            <div class="empty-state-text">Aucune pharmacie n'a encore confirmé la disponibilité. Réessayez dans quelques minutes ou élargissez votre rayon de recherche.</div>
-          </div>
-        `;
-      } else {
-        listEl.innerHTML = respondingPharmacies.map(p => `
+            <div class="empty-state-icon">⏳</div>
+            <div class="empty-state-text">
+              Votre demande a été envoyée aux pharmacies. Les réponses arrivent en temps réel.
+              <br><br>
+              <strong>Restez sur cette page</strong> — les réponses apparaîtront automatiquement dès qu'une pharmacie confirmera la disponibilité.
+            </div>
+          </div>`;
+      }
+    } else {
+      if (subtitleEl) subtitleEl.textContent = `pharmacie(s) ont confirmé la disponibilité`;
+      if (listEl) {
+        listEl.innerHTML = realResponses.map(resp => `
           <div class="result-card">
             <div class="result-card-header">
-              <span class="result-card-name">${p.name}</span>
-              <span class="result-card-distance">${p.distance} km</span>
+              <span class="result-card-name">${resp.pharmacy_name || 'Pharmacie'}</span>
             </div>
-            <div class="result-card-address">${p.address}</div>
+            <div class="result-card-address">${resp.pharmacy_address || ''}</div>
             <div class="result-card-actions">
-              <button class="btn btn-call btn-sm" onclick="App.callPharmacy('${p.phone}')">📞 Appeler</button>
-              <button class="btn btn-whatsapp btn-sm" onclick="App.openWhatsApp('${p.whatsapp}')">💬 WhatsApp</button>
-              <button class="btn btn-route btn-sm" onclick="App.getRoute(${p.lat}, ${p.lng})">🗺️ Y aller</button>
+              ${resp.pharmacy_phone ? `
+                <button class="btn btn-call btn-sm" onclick="App.callPharmacy('${resp.pharmacy_phone}')">📞 Appeler</button>
+                <button class="btn btn-whatsapp btn-sm" onclick="App.openWhatsApp('237${resp.pharmacy_phone}')">💬 WhatsApp</button>
+              ` : ''}
             </div>
           </div>
         `).join('');

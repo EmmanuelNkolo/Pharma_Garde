@@ -1,351 +1,703 @@
 /**
- * Pharma-Garde — Pharmacist Dashboard Controller (Espace Pharmacie)
- * Manages the pharmacist-facing interface
+ * Pharma-Garde — Pharmacist Dashboard Controller
+ * 100% REAL — No simulation. All data from Supabase.
  */
 
 (function () {
-  // ── Mock Data for Dashboard ────────────────────────────
-  let ACTIVE_REQUESTS = [];
-  let currentPharmacyId = null;
+  // ── State ──────────────────────────────────────────────
+  let currentPharmacy = null; // { id, name, phone, ... }
+  let activeRequests = [];
+  let realtimeChannel = null;
 
-  const HISTORY_DATA = [
-    { medicine: 'Quinine comprimés', status: 'responded', date: 'Auj. 18:30', patient: '4.1 km' },
-    { medicine: 'Oméprazole 20mg', status: 'responded', date: 'Auj. 16:15', patient: '2.3 km' },
-    { medicine: 'Insuline Mixte', status: 'rupture', date: 'Auj. 14:42', patient: '7.8 km' },
-    { medicine: 'Fer + Acide Folique', status: 'responded', date: 'Auj. 12:10', patient: '3.5 km' },
-    { medicine: 'Salbutamol Inhalateur', status: 'ignored', date: 'Auj. 10:05', patient: '9.2 km' },
-    { medicine: 'Azithromycine 500mg', status: 'responded', date: 'Hier 22:30', patient: '1.8 km' },
-    { medicine: 'Diclofénac Injectable', status: 'responded', date: 'Hier 20:15', patient: '5.6 km' },
-    { medicine: 'Sérum physiologique', status: 'rupture', date: 'Hier 17:40', patient: '2.1 km' },
-    { medicine: 'Metformine 500mg', status: 'responded', date: 'Hier 15:00', patient: '4.4 km' },
-    { medicine: 'Prednisolone 5mg', status: 'responded', date: 'Hier 11:20', patient: '6.3 km' },
-  ];
-
-  const RESERVATIONS = [
-    {
-      medicine: 'Artésunate Injectable',
-      patient: 'Patient à 3.2 km',
-      time: '47:23',
-      amount: '100 FCFA',
-      phone: '6XX XXX XXX',
-    },
-  ];
-
-  const TOP_MEDICATIONS = [
-    { name: 'Paracétamol 500mg', count: 45 },
-    { name: 'Amoxicilline 500mg', count: 32 },
-    { name: 'Artésunate Injectable', count: 28 },
-    { name: 'Oméprazole 20mg', count: 19 },
-    { name: 'Diclofénac 50mg', count: 15 },
-  ];
-
-  // ── DOM References ─────────────────────────────────────
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => document.querySelectorAll(sel);
 
-  const loginScreen = $('#login-screen');
-  const dashboard = $('#dashboard');
-  const btnLogin = $('#btn-login');
-  const pharmacyNameInput = $('#pharmacy-name-input');
-  const dashPharmacyName = $('#dash-pharmacy-name');
-
-  const activeRequests = $('#active-requests');
-  const historyList = $('#history-list');
-  const reservationsList = $('#reservations-list');
-  const topMedications = $('#top-medications');
-
-  const toast = $('#toast');
-  const toastMessage = $('#toast-message');
-
-  const confirmModal = $('#confirm-modal');
-  const confirmText = $('#confirm-text');
-  const btnConfirmOk = $('#btn-confirm-ok');
+  const SESSION_KEY = 'pharmagarde_pharmacy_session';
 
   // ── Init ───────────────────────────────────────────────
   function init() {
-    // Login / Register tab switching
     bindLoginTabs();
+    bindEvents();
+
+    // Check if already logged in
+    const saved = loadSession();
+    if (saved) {
+      currentPharmacy = saved;
+      showDashboard();
+    }
+  }
+
+  // ── Simple password hash (SHA-256) ─────────────────────
+  async function hashPassword(password) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password + '_pharmagarde_salt_2024');
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  // ── Session persistence ────────────────────────────────
+  function saveSession(pharmacy) {
+    try {
+      localStorage.setItem(SESSION_KEY, JSON.stringify({
+        id: pharmacy.id,
+        name: pharmacy.name,
+        phone: pharmacy.phone,
+        address: pharmacy.address,
+      }));
+    } catch (e) { /* ignore */ }
+  }
+
+  function loadSession() {
+    try {
+      const saved = localStorage.getItem(SESSION_KEY);
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) { return null; }
+  }
+
+  function clearSession() {
+    try { localStorage.removeItem(SESSION_KEY); } catch (e) { /* ignore */ }
+  }
+
+  // ── Login/Register/Reset Tab Switching ─────────────────
+  function bindLoginTabs() {
+    const tabs = { login: 'form-login', register: 'form-register', reset: 'form-reset' };
+    
+    $$('.login-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        $$('.login-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        Object.values(tabs).forEach(fid => {
+          const el = $(`#${fid}`);
+          if (el) el.style.display = 'none';
+        });
+        const formId = tabs[tab.dataset.form];
+        const el = $(`#${formId}`);
+        if (el) el.style.display = 'block';
+      });
+    });
+
+    // "Mot de passe oublié?" link
+    const linkForgot = $('#link-forgot');
+    if (linkForgot) {
+      linkForgot.addEventListener('click', (e) => {
+        e.preventDefault();
+        $$('.login-tab').forEach(t => t.classList.remove('active'));
+        $('#tab-reset').classList.add('active');
+        $('#form-login').style.display = 'none';
+        $('#form-register').style.display = 'none';
+        $('#form-reset').style.display = 'block';
+      });
+    }
+  }
+
+  // ── Event Bindings ─────────────────────────────────────
+  function bindEvents() {
+    const btnLogin = $('#btn-login');
+    const btnRegister = $('#btn-register');
+    const btnResetPw = $('#btn-reset-password');
+    const btnLogout = $('#btn-logout');
+    const btnConfirmOk = $('#btn-confirm-ok');
 
     if (btnLogin) btnLogin.addEventListener('click', handleLogin);
-    const btnRegister = $('#btn-register');
     if (btnRegister) btnRegister.addEventListener('click', handleRegister);
-
+    if (btnResetPw) btnResetPw.addEventListener('click', handlePasswordReset);
+    if (btnLogout) btnLogout.addEventListener('click', handleLogout);
     if (btnConfirmOk) btnConfirmOk.addEventListener('click', executeConfirm);
+
     bindTabs();
     bindGuardSwitch();
-    
-    const btnLogout = $('#btn-logout');
-    if (btnLogout) btnLogout.addEventListener('click', handleLogout);
-    
-    const btnDeregister = $('#btn-deregister');
-    if (btnDeregister) btnDeregister.addEventListener('click', handleDeregister);
-    
-    // If supabase is available, fetch pending requests
-    if (typeof supabase !== 'undefined') {
-      fetchPendingRequests();
-      subscribeToRequests();
-    }
   }
 
-  // ── Login/Register Tabs ────────────────────────────────
-  function bindLoginTabs() {
-    const tabLogin = $('#tab-login');
-    const tabRegister = $('#tab-register');
-    const formLogin = $('#form-login');
-    const formRegister = $('#form-register');
+  // ══════════════════════════════════════════════════════
+  //  LOGIN — Real Supabase authentication
+  // ══════════════════════════════════════════════════════
+  async function handleLogin() {
+    const phone = $('#login-phone')?.value?.trim().replace(/\s+/g, '');
+    const password = $('#login-password')?.value;
 
-    if (tabLogin && tabRegister) {
-      tabLogin.addEventListener('click', () => {
-        tabLogin.classList.add('active');
-        tabRegister.classList.remove('active');
-        if (formLogin) formLogin.style.display = 'block';
-        if (formRegister) formRegister.style.display = 'none';
-      });
-
-      tabRegister.addEventListener('click', () => {
-        tabRegister.classList.add('active');
-        tabLogin.classList.remove('active');
-        if (formLogin) formLogin.style.display = 'none';
-        if (formRegister) formRegister.style.display = 'block';
-      });
-    }
-  }
-
-  async function fetchPendingRequests() {
-    try {
-      const { data, error } = await supabase
-        .from('requests')
-        .select('*')
-        .eq('status', 'pending');
-        
-      if (data) {
-        ACTIVE_REQUESTS = data.map(req => ({
-          id: req.id,
-          medicines: req.medicines,
-          patientDistance: 'À proximité',
-          time: new Date(req.created_at).toLocaleTimeString(),
-          urgent: true,
-          phone: req.user_phone,
-          insurance_name: req.insurance_name
-        }));
-        renderActiveRequests();
-      }
-    } catch(err) { console.error('Fetch requests error:', err); }
-  }
-
-  function subscribeToRequests() {
-    try {
-      supabase
-        .channel('public_requests')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'requests' }, payload => {
-          const req = payload.new;
-          if (req.status === 'pending') {
-            ACTIVE_REQUESTS.unshift({
-              id: req.id,
-              medicines: req.medicines,
-              patientDistance: 'Nouvelle demande',
-              time: new Date(req.created_at).toLocaleTimeString(),
-              urgent: true,
-              phone: req.user_phone,
-              insurance_name: req.insurance_name
-            });
-            renderActiveRequests();
-            showToast('🔔 Nouvelle demande de patient !', 'info');
-          }
-        })
-        .subscribe();
-    } catch(err) { console.error('Subscribe error:', err); }
-  }
-
-  // ── Login & Register ─────────────────────────────────────
-  async function handleRegister() {
-    const nameInput = document.querySelector('#form-register input[placeholder="Nom de la pharmacie"]');
-    const addressInput = document.querySelector('#form-register input[placeholder="Ville et Quartier"]');
-    const phoneInput = $('#reg-phone-input');
-    const whatsappInput = $('#reg-whatsapp-input');
-    const emailInput = $('#reg-email-input');
-    const hourOpen = $('#reg-hour-open');
-    const hourClose = $('#reg-hour-close');
-    
-    const name = nameInput ? nameInput.value.trim() : '';
-    const address = addressInput ? addressInput.value.trim() : '';
-    const phone = phoneInput ? phoneInput.value.trim() : '';
-
-    if (!name || !address) {
-      showToast('Veuillez remplir le nom et l\'adresse', 'error');
+    if (!phone || !password) {
+      showToast('Veuillez remplir tous les champs', 'error');
       return;
     }
 
-    const btn = $('#btn-register');
-    const originalText = btn.textContent;
-    btn.textContent = 'Création en cours...';
+    const btn = $('#btn-login');
+    btn.textContent = 'Connexion...';
     btn.disabled = true;
 
     try {
-      // Generate approximate position
-      const lat = 3.8480 + (Math.random() - 0.5) * 0.05;
-      const lng = 11.5021 + (Math.random() - 0.5) * 0.05;
+      const passwordHash = await hashPassword(password);
 
-      const hours = (hourOpen ? hourOpen.value : '08:00') + ' - ' + (hourClose ? hourClose.value : '21:00');
+      // Query Supabase for pharmacy with matching phone and password
+      const { data, error } = await supabase
+        .from('pharmacies')
+        .select('*')
+        .eq('phone', phone)
+        .eq('password_hash', passwordHash)
+        .single();
 
-      const insertData = {
-        name: name,
-        address: address,
-        phone: phone,
-        lat: lat,
-        lng: lng,
-        status: 'open',
-        hours: hours,
-      };
-
-      // Add optional fields
-      if (whatsappInput && whatsappInput.value.trim()) {
-        insertData.whatsapp = whatsappInput.value.trim();
-      }
-      if (emailInput && emailInput.value.trim()) {
-        insertData.email = emailInput.value.trim();
+      if (error || !data) {
+        showToast('❌ Numéro ou mot de passe incorrect', 'error');
+        return;
       }
 
-      if (typeof supabase !== 'undefined') {
-        const { data, error } = await supabase
-          .from('pharmacies')
-          .insert([insertData])
-          .select();
+      currentPharmacy = data;
+      saveSession(data);
+      showDashboard();
+      showToast(`✅ Bienvenue, ${data.name} !`, 'success');
 
-        if (error) throw error;
-
-        showToast('✅ Pharmacie inscrite avec succès !', 'success');
-        
-        // Auto-login
-        if (data && data[0]) {
-          currentPharmacyId = data[0].id;
-        }
-        if (pharmacyNameInput) pharmacyNameInput.value = name;
-        handleLogin();
-      } else {
-        // Offline mode - just login
-        showToast('✅ Inscription simulée (mode hors-ligne)', 'success');
-        if (pharmacyNameInput) pharmacyNameInput.value = name;
-        handleLogin();
-      }
-      
-    } catch(err) {
-      console.error(err);
-      showToast('Erreur lors de l\'inscription: ' + (err.message || ''), 'error');
+    } catch (err) {
+      console.error('Login error:', err);
+      showToast('❌ Erreur de connexion. Vérifiez votre internet.', 'error');
     } finally {
-      btn.textContent = originalText;
+      btn.textContent = 'Se connecter';
       btn.disabled = false;
     }
   }
 
-  function handleLogin() {
-    const name = pharmacyNameInput ? pharmacyNameInput.value.trim() : '';
-    if (!name) {
-      showToast('Veuillez entrer le nom de votre pharmacie', 'error');
+  // ══════════════════════════════════════════════════════
+  //  REGISTER — Real Supabase insertion
+  // ══════════════════════════════════════════════════════
+  async function handleRegister() {
+    const name = $('#reg-name')?.value?.trim();
+    const city = $('#reg-city')?.value;
+    const quarter = $('#reg-quarter')?.value?.trim();
+    const phone = $('#reg-phone')?.value?.trim().replace(/\s+/g, '');
+    const password = $('#reg-password')?.value;
+    const passwordConfirm = $('#reg-password-confirm')?.value;
+    const whatsapp = $('#reg-whatsapp')?.value?.trim();
+    const email = $('#reg-email')?.value?.trim();
+    const hourOpen = $('#reg-hour-open')?.value || '08:00';
+    const hourClose = $('#reg-hour-close')?.value || '21:00';
+
+    // Validation
+    if (!name || !city || !quarter || !phone) {
+      showToast('Veuillez remplir les champs obligatoires (*)', 'error');
+      return;
+    }
+    if (!password || password.length < 6) {
+      showToast('Le mot de passe doit contenir au moins 6 caractères', 'error');
+      return;
+    }
+    if (password !== passwordConfirm) {
+      showToast('Les mots de passe ne correspondent pas', 'error');
       return;
     }
 
-    if (loginScreen) loginScreen.classList.add('hidden');
-    if (dashboard) dashboard.classList.remove('hidden');
-    if (dashPharmacyName) dashPharmacyName.textContent = name;
+    const btn = $('#btn-register');
+    btn.textContent = 'Inscription en cours...';
+    btn.disabled = true;
 
-    // Render dashboard data
-    renderActiveRequests();
-    renderHistory();
-    renderReservations();
-    renderTopMedications();
+    try {
+      // Check if phone already registered
+      const { data: existing } = await supabase
+        .from('pharmacies')
+        .select('id')
+        .eq('phone', phone)
+        .single();
 
-    showToast('✅ Connexion réussie — Bienvenue !', 'success');
+      if (existing) {
+        showToast('❌ Ce numéro de téléphone est déjà inscrit', 'error');
+        btn.textContent = 'Inscrire ma pharmacie';
+        btn.disabled = false;
+        return;
+      }
+
+      const passwordHash = await hashPassword(password);
+
+      // Get approximate coordinates for the city
+      const cityCoords = getCityCoords(city);
+      const lat = cityCoords.lat + (Math.random() - 0.5) * 0.02;
+      const lng = cityCoords.lng + (Math.random() - 0.5) * 0.02;
+
+      // Collect services
+      const services = [];
+      if ($('#reg-service-garde')?.checked) services.push('garde_nuit');
+      if ($('#reg-service-livraison')?.checked) services.push('livraison');
+      if ($('#reg-service-assurance')?.checked) services.push('assurance');
+      if ($('#reg-service-conseil')?.checked) services.push('conseil');
+
+      const insertData = {
+        name: name,
+        address: `${quarter}, ${city}`,
+        city: city,
+        quarter: quarter,
+        phone: phone,
+        password_hash: passwordHash,
+        whatsapp: whatsapp || null,
+        email: email || null,
+        lat: lat,
+        lng: lng,
+        status: 'open',
+        hours: `${hourOpen} - ${hourClose}`,
+        services: services,
+        is_on_duty: false,
+        is_open: true,
+        rating: 4.5,
+        created_at: new Date().toISOString(),
+      };
+
+      const { data, error } = await supabase
+        .from('pharmacies')
+        .insert([insertData])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      showToast('✅ Pharmacie inscrite avec succès !', 'success');
+      currentPharmacy = data;
+      saveSession(data);
+      showDashboard();
+
+    } catch (err) {
+      console.error('Registration error:', err);
+      showToast('❌ Erreur lors de l\'inscription: ' + (err.message || ''), 'error');
+    } finally {
+      btn.textContent = 'Inscrire ma pharmacie';
+      btn.disabled = false;
+    }
+  }
+
+  // ══════════════════════════════════════════════════════
+  //  PASSWORD RESET — Real Supabase update
+  // ══════════════════════════════════════════════════════
+  async function handlePasswordReset() {
+    const phone = $('#reset-phone')?.value?.trim().replace(/\s+/g, '');
+    const email = $('#reset-email')?.value?.trim();
+    const newPassword = $('#reset-new-password')?.value;
+
+    if (!phone || !email || !newPassword) {
+      showToast('Veuillez remplir tous les champs', 'error');
+      return;
+    }
+    if (newPassword.length < 6) {
+      showToast('Le nouveau mot de passe doit contenir au moins 6 caractères', 'error');
+      return;
+    }
+
+    const btn = $('#btn-reset-password');
+    btn.textContent = 'Réinitialisation...';
+    btn.disabled = true;
+
+    try {
+      // Verify phone + email match
+      const { data: pharmacy, error: findError } = await supabase
+        .from('pharmacies')
+        .select('id, name')
+        .eq('phone', phone)
+        .eq('email', email)
+        .single();
+
+      if (findError || !pharmacy) {
+        showToast('❌ Aucune pharmacie trouvée avec ce numéro et cet email', 'error');
+        return;
+      }
+
+      const newHash = await hashPassword(newPassword);
+
+      const { error: updateError } = await supabase
+        .from('pharmacies')
+        .update({ password_hash: newHash })
+        .eq('id', pharmacy.id);
+
+      if (updateError) throw updateError;
+
+      showToast(`✅ Mot de passe réinitialisé pour "${pharmacy.name}". Connectez-vous.`, 'success');
+      
+      // Switch to login tab
+      $$('.login-tab').forEach(t => t.classList.remove('active'));
+      $('#tab-login').classList.add('active');
+      $('#form-reset').style.display = 'none';
+      $('#form-login').style.display = 'block';
+      $('#login-phone').value = phone;
+
+    } catch (err) {
+      console.error('Reset error:', err);
+      showToast('❌ Erreur lors de la réinitialisation', 'error');
+    } finally {
+      btn.textContent = 'Réinitialiser le mot de passe';
+      btn.disabled = false;
+    }
+  }
+
+  // ── City Coordinates helper ────────────────────────────
+  function getCityCoords(city) {
+    const coords = {
+      'Douala': { lat: 4.0511, lng: 9.7679 },
+      'Yaoundé': { lat: 3.8480, lng: 11.5021 },
+      'Bafoussam': { lat: 5.4764, lng: 10.4175 },
+      'Bamenda': { lat: 5.9631, lng: 10.1591 },
+      'Garoua': { lat: 9.3014, lng: 13.3977 },
+      'Maroua': { lat: 10.5956, lng: 14.3157 },
+      'Kribi': { lat: 2.9405, lng: 9.9076 },
+      'Limbé': { lat: 4.0247, lng: 9.2032 },
+      'Buéa': { lat: 4.1560, lng: 9.2632 },
+      'Bertoua': { lat: 4.5763, lng: 13.6846 },
+      'Ngaoundéré': { lat: 7.3219, lng: 13.5847 },
+      'Ebolowa': { lat: 2.9000, lng: 11.1500 },
+    };
+    return coords[city] || coords['Douala'];
+  }
+
+  // ══════════════════════════════════════════════════════
+  //  DASHBOARD — Real data from Supabase
+  // ══════════════════════════════════════════════════════
+  function showDashboard() {
+    $('#login-screen').classList.add('hidden');
+    $('#dashboard').classList.remove('hidden');
+    $('#dash-pharmacy-name').textContent = currentPharmacy.name;
+
+    // Load real data
+    loadActiveRequests();
+    loadHistory();
+    loadStats();
+    subscribeToRealTimeRequests();
   }
 
   function handleLogout() {
-    if (dashboard) dashboard.classList.add('hidden');
-    if (loginScreen) loginScreen.classList.remove('hidden');
-    if (pharmacyNameInput) pharmacyNameInput.value = '';
-    currentPharmacyId = null;
+    // Unsubscribe from realtime
+    if (realtimeChannel) {
+      supabase.removeChannel(realtimeChannel);
+      realtimeChannel = null;
+    }
+    currentPharmacy = null;
+    clearSession();
+    activeRequests = [];
+    
+    $('#dashboard').classList.add('hidden');
+    $('#login-screen').classList.remove('hidden');
     showToast('Déconnexion réussie', 'info');
   }
 
-  async function handleDeregister() {
-    if (!confirm("Êtes-vous sûr de vouloir désinscrire votre pharmacie ? Cela supprimera votre compte et vous ne recevrez plus de demandes.")) {
+  // ══════════════════════════════════════════════════════
+  //  REAL-TIME: Load active requests from Supabase
+  // ══════════════════════════════════════════════════════
+  async function loadActiveRequests() {
+    try {
+      const { data, error } = await supabase
+        .from('requests')
+        .select('*')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      activeRequests = data || [];
+      renderActiveRequests();
+      updateStats();
+
+    } catch (err) {
+      console.error('Load requests error:', err);
+    }
+  }
+
+  // ══════════════════════════════════════════════════════
+  //  REAL-TIME: Subscribe to new requests
+  // ══════════════════════════════════════════════════════
+  function subscribeToRealTimeRequests() {
+    if (realtimeChannel) {
+      supabase.removeChannel(realtimeChannel);
+    }
+
+    realtimeChannel = supabase
+      .channel('pharmacy_requests_live')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'requests',
+      }, (payload) => {
+        const req = payload.new;
+        if (req.status === 'pending') {
+          activeRequests.unshift(req);
+          renderActiveRequests();
+          updateStats();
+          showToast('🔔 Nouvelle demande de patient !', 'info');
+          // Play notification sound
+          try { new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=').play(); } catch(e) {}
+        }
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'requests',
+      }, (payload) => {
+        // Update the request in our list
+        const idx = activeRequests.findIndex(r => r.id === payload.new.id);
+        if (idx >= 0) {
+          activeRequests[idx] = payload.new;
+          if (payload.new.status !== 'pending') {
+            activeRequests.splice(idx, 1);
+          }
+          renderActiveRequests();
+          updateStats();
+        }
+      })
+      .subscribe();
+  }
+
+  // ══════════════════════════════════════════════════════
+  //  RENDER ACTIVE REQUESTS (Real data)
+  // ══════════════════════════════════════════════════════
+  function renderActiveRequests() {
+    const container = $('#active-requests');
+    if (!container) return;
+
+    const pending = activeRequests.filter(r => r.status === 'pending');
+
+    if (pending.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📭</div>
+          <div class="empty-state-text">Aucune demande en cours. Les demandes de patients apparaîtront ici en temps réel.</div>
+        </div>`;
       return;
     }
-    
-    if (currentPharmacyId && typeof supabase !== 'undefined') {
-      try {
-        await supabase
-          .from('pharmacies')
-          .delete()
-          .eq('id', currentPharmacyId);
-        showToast('Pharmacie désinscrite avec succès', 'success');
-      } catch (err) {
-        console.error(err);
-        showToast("Erreur lors de la désinscription", 'error');
-      }
-    }
-    
-    handleLogout();
+
+    container.innerHTML = pending.map(req => {
+      const meds = Array.isArray(req.medicines) ? req.medicines : [req.medicines];
+      const timeAgo = getTimeAgo(req.created_at);
+      
+      return `
+        <div class="request-card urgent" id="request-${req.id}">
+          <div class="request-header">
+            <div class="request-medicine">💊 ${meds.join(', ')}</div>
+            <div class="request-time">${timeAgo}</div>
+          </div>
+          <div class="request-patient-info">
+            ${req.user_phone ? `📱 ${req.user_phone}` : '📱 Anonyme'}
+            ${req.insurance_name ? ` • 🛡️ Assurance: ${req.insurance_name}` : ''}
+            ${req.radius ? ` • 📍 Rayon: ${req.radius} km` : ''}
+          </div>
+          <div class="request-actions">
+            <button class="btn btn-in-stock" onclick="PharmDash.respondToRequest('${req.id}', 'accepted')">
+              ✅ EN STOCK
+            </button>
+            <button class="btn btn-out-stock" onclick="PharmDash.respondToRequest('${req.id}', 'out_of_stock')">
+              ❌ RUPTURE
+            </button>
+          </div>
+        </div>`;
+    }).join('');
   }
 
-  // ── Tabs ───────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════
+  //  RESPOND TO REQUEST — Real Supabase update + insert response
+  // ══════════════════════════════════════════════════════
+  let pendingAction = null;
+
+  async function respondToRequest(requestId, responseStatus) {
+    if (!currentPharmacy) return;
+
+    // Insert response record
+    try {
+      const { error: respError } = await supabase
+        .from('responses')
+        .insert([{
+          request_id: requestId,
+          pharmacy_id: currentPharmacy.id,
+          pharmacy_name: currentPharmacy.name,
+          pharmacy_phone: currentPharmacy.phone,
+          pharmacy_address: currentPharmacy.address,
+          status: responseStatus,
+          created_at: new Date().toISOString(),
+        }]);
+
+      if (respError) {
+        console.error('Response insert error:', respError);
+      }
+
+      // Update the request status
+      if (responseStatus === 'accepted') {
+        await supabase
+          .from('requests')
+          .update({ 
+            status: 'accepted',
+            pharmacy_id: currentPharmacy.id,
+          })
+          .eq('id', requestId);
+      }
+
+      // Remove from active list
+      activeRequests = activeRequests.filter(r => r.id !== requestId);
+      renderActiveRequests();
+      updateStats();
+
+      const msg = responseStatus === 'accepted' 
+        ? '✅ Réponse "En stock" envoyée au patient' 
+        : '❌ Réponse "Rupture" enregistrée';
+      showToast(msg, responseStatus === 'accepted' ? 'success' : 'info');
+
+      // Reload history
+      loadHistory();
+
+    } catch (err) {
+      console.error('Respond error:', err);
+      showToast('❌ Erreur lors de l\'envoi de la réponse', 'error');
+    }
+  }
+
+  function confirmAction(reqId, status) {
+    const actionText = status === 'accepted' ? 'EN STOCK' : 'RUPTURE';
+    pendingAction = () => respondToRequest(reqId, status);
+    const confirmText = $('#confirm-text');
+    if (confirmText) confirmText.textContent = `Confirmez : "${actionText}" pour cette demande ?`;
+    const confirmModal = $('#confirm-modal');
+    if (confirmModal) confirmModal.style.display = 'flex';
+  }
+
+  function executeConfirm() {
+    if (pendingAction) pendingAction();
+    const confirmModal = $('#confirm-modal');
+    if (confirmModal) confirmModal.style.display = 'none';
+    pendingAction = null;
+  }
+
+  // ══════════════════════════════════════════════════════
+  //  HISTORY — Real data from Supabase
+  // ══════════════════════════════════════════════════════
+  async function loadHistory() {
+    if (!currentPharmacy) return;
+    const container = $('#history-list');
+    if (!container) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('responses')
+        .select('*')
+        .eq('pharmacy_id', currentPharmacy.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📋</div>
+            <div class="empty-state-text">Aucun historique. Vos réponses aux demandes s'afficheront ici.</div>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = data.map(item => {
+        const statusBadge = item.status === 'accepted'
+          ? '<span class="badge badge-stock">✅ En stock</span>'
+          : '<span class="badge badge-rupture">❌ Rupture</span>';
+        const timeStr = new Date(item.created_at).toLocaleString('fr-FR', { 
+          day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' 
+        });
+
+        return `
+          <div class="history-item">
+            <div class="history-item-info">
+              <div class="history-item-medicine">💊 Demande #${item.request_id?.toString().slice(-6) || '—'}</div>
+              <div class="history-item-meta"><span>📅 ${timeStr}</span></div>
+            </div>
+            <div class="history-item-status">${statusBadge}</div>
+          </div>`;
+      }).join('');
+
+    } catch (err) {
+      console.error('Load history error:', err);
+    }
+  }
+
+  // ══════════════════════════════════════════════════════
+  //  STATISTICS — Real data from Supabase
+  // ══════════════════════════════════════════════════════
+  async function loadStats() {
+    if (!currentPharmacy) return;
+
+    try {
+      // Count responses
+      const { data: responses } = await supabase
+        .from('responses')
+        .select('status, request_id')
+        .eq('pharmacy_id', currentPharmacy.id);
+
+      const accepted = (responses || []).filter(r => r.status === 'accepted').length;
+      const total = (responses || []).length;
+
+      // Get top medicines from requests
+      const { data: requests } = await supabase
+        .from('requests')
+        .select('medicines')
+        .order('created_at', { ascending: false })
+        .limit(200);
+
+      // Count medicine frequency
+      const medCounts = {};
+      (requests || []).forEach(req => {
+        const meds = Array.isArray(req.medicines) ? req.medicines : [req.medicines];
+        meds.forEach(med => {
+          if (med) medCounts[med] = (medCounts[med] || 0) + 1;
+        });
+      });
+
+      const topMeds = Object.entries(medCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+
+      renderTopMedications(topMeds);
+
+    } catch (err) {
+      console.error('Stats error:', err);
+    }
+  }
+
+  function renderTopMedications(topMeds) {
+    const container = $('#top-medications');
+    if (!container) return;
+
+    if (topMeds.length === 0) {
+      container.innerHTML = '<p style="color: var(--dark-400); font-size: 14px;">Pas encore de données.</p>';
+      return;
+    }
+
+    const maxCount = topMeds[0][1];
+    container.innerHTML = topMeds.map(([name, count]) => `
+      <div class="med-bar">
+        <div class="med-bar-label">${name}</div>
+        <div class="med-bar-track">
+          <div class="med-bar-fill" style="width: ${(count / maxCount) * 100}%">${count}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // ── Update Stats Counters ──────────────────────────────
+  function updateStats() {
+    const pending = activeRequests.filter(r => r.status === 'pending').length;
+    
+    const statPending = $('#stat-pending');
+    const statToday = $('#stat-today');
+    const activeBadge = $('#active-badge');
+
+    if (statPending) statPending.textContent = pending;
+    if (statToday) statToday.textContent = activeRequests.length;
+    if (activeBadge) activeBadge.textContent = pending;
+  }
+
+  // ── Dashboard Tabs ─────────────────────────────────────
   function bindTabs() {
-    $$('.dash-tab').forEach((tab) => {
+    $$('.dash-tab').forEach(tab => {
       tab.addEventListener('click', () => {
-        switchToTab(tab.dataset.tab);
+        $$('.dash-tab').forEach(t => t.classList.remove('active'));
+        $$('.dash-tab-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        const content = $(`#tab-${tab.dataset.tab}`);
+        if (content) content.classList.add('active');
       });
     });
-
-    // Make stats cards clickable
-    const statCards = $$('.stat-card');
-    if (statCards.length >= 4) {
-      statCards[0].style.cursor = 'pointer';
-      statCards[0].addEventListener('click', () => {
-        switchToTab('history');
-        const filterSelect = $('#history-filter-status');
-        if (filterSelect) {
-          filterSelect.value = 'all';
-          renderHistory('all');
-        }
-      });
-
-      statCards[1].style.cursor = 'pointer';
-      statCards[1].addEventListener('click', () => {
-        switchToTab('history');
-        const filterSelect = $('#history-filter-status');
-        if (filterSelect) {
-          filterSelect.value = 'responded';
-          renderHistory('responded');
-        }
-      });
-
-      statCards[2].style.cursor = 'pointer';
-      statCards[2].addEventListener('click', () => {
-        switchToTab('active');
-      });
-
-      statCards[3].style.cursor = 'pointer';
-      statCards[3].addEventListener('click', () => {
-        switchToTab('reservations');
-      });
-    }
-  }
-
-  function switchToTab(tabId) {
-    $$('.dash-tab').forEach((t) => t.classList.remove('active'));
-    $$('.dash-tab-content').forEach((c) => c.classList.remove('active'));
-
-    const tabBtn = $(`.dash-tab[data-tab="${tabId}"]`);
-    if (tabBtn) tabBtn.classList.add('active');
-    
-    const tabContent = $(`#tab-${tabId}`);
-    if (tabContent) tabContent.classList.add('active');
   }
 
   // ── Guard Status Switch ────────────────────────────────
   function bindGuardSwitch() {
-    $$('.guard-option').forEach((option) => {
-      option.addEventListener('click', () => {
-        $$('.guard-option').forEach((o) => o.classList.remove('active'));
+    $$('.guard-option').forEach(option => {
+      option.addEventListener('click', async () => {
+        $$('.guard-option').forEach(o => o.classList.remove('active'));
         option.classList.add('active');
 
         const status = option.dataset.status;
@@ -357,301 +709,44 @@
         const labelEl = $('#guard-label');
         if (labelEl) labelEl.textContent = labels[status];
 
-        const messages = {
-          open: '✅ Votre pharmacie est maintenant marquée comme OUVERTE',
-          guard: '🌙 Votre pharmacie est maintenant en mode GARDE',
-          closed: '❌ Votre pharmacie est maintenant marquée comme FERMÉE',
-        };
-        showToast(messages[status], 'success');
+        // UPDATE in Supabase (REAL)
+        if (currentPharmacy) {
+          try {
+            await supabase
+              .from('pharmacies')
+              .update({ 
+                status: status, 
+                is_open: status !== 'closed',
+                is_on_duty: status === 'guard',
+              })
+              .eq('id', currentPharmacy.id);
 
-        // Update in Supabase if available
-        if (currentPharmacyId && typeof supabase !== 'undefined') {
-          supabase.from('pharmacies').update({ status }).eq('id', currentPharmacyId).then(() => {});
+            showToast(`✅ Statut mis à jour: ${labels[status]}`, 'success');
+          } catch (err) {
+            console.error('Status update error:', err);
+            showToast('❌ Erreur de mise à jour du statut', 'error');
+          }
         }
       });
     });
   }
 
-  function renderActiveRequests() {
-    if (!activeRequests) return;
-    
-    if (ACTIVE_REQUESTS.length === 0) {
-      activeRequests.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon">📭</div>
-          <div class="empty-state-text">Aucune demande en cours. Les demandes de patients apparaîtront ici en temps réel.</div>
-        </div>
-      `;
-      return;
-    }
-
-    activeRequests.innerHTML = ACTIVE_REQUESTS
-      .map(
-        (req) => `
-        <div class="request-card ${req.urgent ? 'urgent' : ''}" id="request-${req.id}">
-          <div class="request-header">
-            <div class="request-time">${req.time}</div>
-            <div class="request-patient-info">
-              <span>📍 Patient à ${req.patientDistance}</span>
-              ${req.insurance_name ? `<br><span style="color:var(--green-400); font-weight:bold; font-size:12px;">🛡️ Assurance : ${req.insurance_name}</span>` : ''}
-            </div>
-          </div>
-          <div class="request-products-list">
-            ${req.medicines.map((med, idx) => `
-              <div class="request-product-item" id="product-${req.id}-${idx}" style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 8px;">
-                <div class="request-medicine" style="font-weight: bold;">💊 ${med}</div>
-                <div class="request-actions" style="display: flex; gap: 8px; flex-wrap: wrap;">
-                  ${req.insurance_name ? `
-                    <button class="btn btn-in-stock" style="padding: 6px 10px; font-size: 11px;" onclick="PharmDash.confirmProductResponse('${req.id}', ${idx}, '${med.replace(/'/g, "\\'")}', 'in_stock_insured')">✅ Disponible & Assuré</button>
-                    <button class="btn btn-outline" style="padding: 6px 10px; font-size: 11px; background:var(--dark-700); border-color:var(--gold-500); color:var(--gold-400);" onclick="PharmDash.confirmProductResponse('${req.id}', ${idx}, '${med.replace(/'/g, "\\'")}', 'in_stock_uninsured')">⚠️ Dispo (Non assuré)</button>
-                    <button class="btn btn-out-stock" style="padding: 6px 10px; font-size: 11px;" onclick="PharmDash.confirmProductResponse('${req.id}', ${idx}, '${med.replace(/'/g, "\\'")}', 'out_of_stock')">❌ Non disponible</button>
-                  ` : `
-                    <button class="btn btn-in-stock" style="padding: 6px 12px; font-size: 12px;" onclick="PharmDash.confirmProductResponse('${req.id}', ${idx}, '${med.replace(/'/g, "\\'")}', 'in_stock')">✅ OUI (Disponible)</button>
-                    <button class="btn btn-out-stock" style="padding: 6px 12px; font-size: 12px;" onclick="PharmDash.confirmProductResponse('${req.id}', ${idx}, '${med.replace(/'/g, "\\'")}', 'out_of_stock')">❌ NON (Rupture)</button>
-                  `}
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      `
-      )
-      .join('');
+  // ── Utility ────────────────────────────────────────────
+  function getTimeAgo(dateStr) {
+    const now = new Date();
+    const date = new Date(dateStr);
+    const diffMs = now - date;
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return 'À l\'instant';
+    if (diffMin < 60) return `Il y a ${diffMin} min`;
+    const diffH = Math.floor(diffMin / 60);
+    if (diffH < 24) return `Il y a ${diffH}h`;
+    return new Date(dateStr).toLocaleDateString('fr-FR');
   }
 
-  // ── Render History ─────────────────────────────────────
-  function renderHistory(filter = 'all') {
-    if (!historyList) return;
-    
-    const filtered = filter === 'all' 
-      ? HISTORY_DATA 
-      : HISTORY_DATA.filter((item) => item.status === filter);
-
-    if (filtered.length === 0) {
-      historyList.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon">📋</div>
-          <div class="empty-state-text">Aucun historique pour ce filtre.</div>
-        </div>
-      `;
-      return;
-    }
-
-    historyList.innerHTML = filtered
-      .map((item) => {
-        let statusBadge;
-        if (item.status === 'responded') {
-          statusBadge = '<span class="badge badge-stock">✅ En stock</span>';
-        } else if (item.status === 'rupture') {
-          statusBadge = '<span class="badge badge-rupture">❌ Rupture</span>';
-        } else {
-          statusBadge = '<span class="badge badge-closed">⏭️ Ignorée</span>';
-        }
-
-        return `
-          <div class="history-item">
-            <div class="history-item-info">
-              <div class="history-item-medicine">💊 ${item.medicine}</div>
-              <div class="history-item-meta">
-                <span>📅 ${item.date}</span>
-                <span>📍 ${item.patient}</span>
-              </div>
-            </div>
-            <div class="history-item-status">${statusBadge}</div>
-          </div>
-        `;
-      })
-      .join('');
-
-    // Bind filter change
-    const filterSelect = $('#history-filter-status');
-    if (filterSelect && !filterSelect.dataset.bound) {
-      filterSelect.dataset.bound = 'true';
-      filterSelect.addEventListener('change', (e) => {
-        renderHistory(e.target.value);
-      });
-    }
-  }
-
-  // ── Render Reservations ────────────────────────────────
-  function renderReservations() {
-    if (!reservationsList) return;
-    
-    if (RESERVATIONS.length === 0) {
-      reservationsList.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon">🔒</div>
-          <div class="empty-state-text">Aucune réservation en cours.</div>
-        </div>
-      `;
-      return;
-    }
-
-    reservationsList.innerHTML = RESERVATIONS
-      .map(
-        (res, i) => `
-        <div class="reservation-item">
-          <div class="reservation-header">
-            <div class="reservation-medicine">
-              <span>🔒</span>
-              <span>${res.medicine}</span>
-            </div>
-            <div class="reservation-timer">⏰ ${res.time}</div>
-          </div>
-          <div class="reservation-details">
-            <div>📍 ${res.patient} • 💳 ${res.amount} payé</div>
-          </div>
-          <div class="reservation-actions">
-            <button class="btn btn-primary btn-sm" onclick="PharmDash.confirmPickup(${i})">
-              ✅ Récupéré par le patient
-            </button>
-            <button class="btn btn-outline btn-sm" onclick="PharmDash.cancelReservation(${i})">
-              ❌ Annuler
-            </button>
-          </div>
-        </div>
-      `
-      )
-      .join('');
-  }
-
-  // ── Render Top Medications ─────────────────────────────
-  function renderTopMedications() {
-    if (!topMedications) return;
-    
-    const maxCount = Math.max(...TOP_MEDICATIONS.map((m) => m.count));
-
-    topMedications.innerHTML = TOP_MEDICATIONS
-      .map(
-        (med) => `
-        <div class="med-bar">
-          <div class="med-bar-label">${med.name}</div>
-          <div class="med-bar-track">
-            <div class="med-bar-fill" style="width: ${(med.count / maxCount) * 100}%">
-              ${med.count}
-            </div>
-          </div>
-        </div>
-      `
-      )
-      .join('');
-  }
-
-  // ── Handle Product Responses ───────────────────────────
-  let pendingAction = null;
-
-  function confirmProductResponse(reqId, pIdx, medName, statusType) {
-    pendingAction = () => respondToProduct(reqId, pIdx, medName, statusType);
-    let actionText = "";
-    if (statusType === 'in_stock_insured') actionText = "Disponible & Assuré";
-    else if (statusType === 'in_stock_uninsured') actionText = "Disponible mais non couvert";
-    else if (statusType === 'in_stock') actionText = "OUI (En stock)";
-    else actionText = "NON (Rupture)";
-    
-    if (confirmText) confirmText.textContent = `Confirmez-vous le statut pour "${medName}" : ${actionText} ?`;
-    if (confirmModal) confirmModal.style.display = 'flex';
-  }
-
-  function executeConfirm() {
-    if (pendingAction) pendingAction();
-    if (confirmModal) confirmModal.style.display = 'none';
-    pendingAction = null;
-  }
-
-  async function respondToProduct(reqId, pIdx, medName, statusType) {
-    const productEl = $(`#product-${reqId}-${pIdx}`);
-    if (!productEl) return;
-
-    if (statusType === 'in_stock' || statusType === 'in_stock_insured' || statusType === 'in_stock_uninsured') {
-      let msg = 'En stock';
-      if (statusType === 'in_stock_insured') msg = 'En stock (Couvert)';
-      if (statusType === 'in_stock_uninsured') msg = 'En stock (Non couvert par l\'assurance)';
-      
-      let color = (statusType === 'in_stock_uninsured') ? 'var(--gold-400)' : 'var(--green-400)';
-      
-      productEl.innerHTML = `<div style="color: ${color}; font-weight:bold;">✅ ${medName} (${msg})</div>`;
-      showToast(`✅ Réponse "${msg}" envoyée`, 'success');
-      
-      const respondedEl = $('#stat-responded');
-      if (respondedEl) {
-        const responded = parseInt(respondedEl.textContent);
-        respondedEl.textContent = responded + 1;
-      }
-
-      // Update Supabase
-      if (typeof supabase !== 'undefined' && reqId && !reqId.toString().startsWith('req-')) {
-        try {
-          await supabase
-            .from('requests')
-            .update({ status: 'accepted', pharmacy_id: currentPharmacyId })
-            .eq('id', reqId);
-        } catch(e) { console.error(e); }
-      }
-
-    } else {
-      productEl.innerHTML = `<div style="color: var(--red-400); font-weight:bold; opacity: 0.7;">❌ ${medName} (Rupture)</div>`;
-      showToast('❌ Réponse "Rupture" enregistrée', 'info');
-    }
-    
-    // Check if all products in request are answered
-    const reqCard = $(`#request-${reqId}`);
-    if (reqCard) {
-      const remainingBtns = reqCard.querySelectorAll('.btn-in-stock').length;
-      if (remainingBtns === 0) {
-        setTimeout(() => {
-          reqCard.style.transition = 'all 0.3s ease';
-          reqCard.style.opacity = '0';
-          setTimeout(() => reqCard.remove(), 300);
-        }, 1500);
-        
-        const pendingEl = $('#stat-pending');
-        const activeBadge = $('#active-badge');
-        if (pendingEl) {
-          const pending = parseInt(pendingEl.textContent);
-          pendingEl.textContent = Math.max(0, pending - 1);
-        }
-        if (activeBadge) {
-          const pending = parseInt(activeBadge.textContent);
-          activeBadge.textContent = Math.max(0, pending - 1);
-        }
-      }
-    }
-  }
-
-  function confirmPickup(index) {
-    showToast('✅ Médicament récupéré par le patient. Réservation terminée.', 'success');
-    RESERVATIONS.splice(index, 1);
-    renderReservations();
-    const reservedEl = $('#stat-reserved');
-    const reserveBadge = $('#reserve-badge');
-    if (reservedEl) {
-      const reserved = parseInt(reservedEl.textContent);
-      reservedEl.textContent = Math.max(0, reserved - 1);
-    }
-    if (reserveBadge) {
-      const reserved = parseInt(reserveBadge.textContent);
-      reserveBadge.textContent = Math.max(0, reserved - 1);
-    }
-  }
-
-  function cancelReservation(index) {
-    showToast('❌ Réservation annulée.', 'info');
-    RESERVATIONS.splice(index, 1);
-    renderReservations();
-    const reservedEl = $('#stat-reserved');
-    const reserveBadge = $('#reserve-badge');
-    if (reservedEl) {
-      const reserved = parseInt(reservedEl.textContent);
-      reservedEl.textContent = Math.max(0, reserved - 1);
-    }
-    if (reserveBadge) {
-      const reserved = parseInt(reserveBadge.textContent);
-      reserveBadge.textContent = Math.max(0, reserved - 1);
-    }
-  }
-
-  // ── Toast ──────────────────────────────────────────────
   function showToast(message, type = 'success') {
+    const toast = $('#toast');
+    const toastMessage = $('#toast-message');
     if (toast && toastMessage) {
       toast.className = `toast toast-${type} show`;
       toastMessage.textContent = message;
@@ -661,11 +756,9 @@
 
   // ── Public API ─────────────────────────────────────────
   window.PharmDash = {
-    confirmProductResponse,
-    confirmPickup,
-    cancelReservation,
+    respondToRequest,
+    confirmAction,
   };
 
-  // ── Start ──────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', init);
 })();

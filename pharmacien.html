@@ -7,6 +7,8 @@
   <meta name="theme-color" content="#059669">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <!-- Force landscape on mobile -->
+  <meta name="screen-orientation" content="landscape">
 
   <title>Espace Pharmacie — Pharma-Garde</title>
 
@@ -38,40 +40,74 @@
       <div class="login-tabs">
         <button class="login-tab active" data-form="login" id="tab-login">Connexion</button>
         <button class="login-tab" data-form="register" id="tab-register">Inscription</button>
+        <button class="login-tab" data-form="reset" id="tab-reset">Mot de passe oublié</button>
       </div>
 
-      <!-- Login Form -->
+      <!-- ─── Login Form ─── -->
       <div class="login-form" id="form-login">
         <div class="form-group">
-          <label for="pharmacy-name-input">Nom de la pharmacie</label>
-          <input type="text" id="pharmacy-name-input" class="input-field" placeholder="Ex: Pharmacie du Centre" required>
+          <label for="login-phone">Numéro de téléphone</label>
+          <input type="tel" id="login-phone" class="input-field" placeholder="6XX XXX XXX" required>
+        </div>
+        <div class="form-group">
+          <label for="login-password">Mot de passe</label>
+          <input type="password" id="login-password" class="input-field" placeholder="Votre mot de passe" required>
         </div>
         <button id="btn-login" class="btn btn-primary btn-lg btn-block">
           Se connecter
         </button>
+        <p style="text-align: center; margin-top: 12px;">
+          <a href="#" id="link-forgot" style="color: var(--green-400); font-size: 13px;">Mot de passe oublié ?</a>
+        </p>
       </div>
 
-      <!-- Register Form -->
+      <!-- ─── Register Form ─── -->
       <div class="login-form" id="form-register" style="display: none;">
         <div class="form-group">
           <label>Nom de la pharmacie *</label>
-          <input type="text" class="input-field" placeholder="Nom de la pharmacie" required>
+          <input type="text" id="reg-name" class="input-field" placeholder="Nom de la pharmacie" required>
         </div>
         <div class="form-group">
-          <label>Ville et Quartier *</label>
-          <input type="text" class="input-field" placeholder="Ville et Quartier" required>
+          <label>Ville *</label>
+          <select id="reg-city" class="input-field">
+            <option value="">— Sélectionner —</option>
+            <option value="Douala">Douala</option>
+            <option value="Yaoundé">Yaoundé</option>
+            <option value="Bafoussam">Bafoussam</option>
+            <option value="Bamenda">Bamenda</option>
+            <option value="Garoua">Garoua</option>
+            <option value="Maroua">Maroua</option>
+            <option value="Kribi">Kribi</option>
+            <option value="Limbé">Limbé</option>
+            <option value="Buéa">Buéa</option>
+            <option value="Bertoua">Bertoua</option>
+            <option value="Ngaoundéré">Ngaoundéré</option>
+            <option value="Ebolowa">Ebolowa</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Quartier *</label>
+          <input type="text" id="reg-quarter" class="input-field" placeholder="Ex: Akwa, Bépanda, Bastos...">
         </div>
         <div class="form-group">
           <label>Numéro de téléphone *</label>
-          <input type="tel" id="reg-phone-input" class="input-field" placeholder="6XX XXX XXX">
+          <input type="tel" id="reg-phone" class="input-field" placeholder="6XX XXX XXX" required>
+        </div>
+        <div class="form-group">
+          <label>Mot de passe * (min 6 caractères)</label>
+          <input type="password" id="reg-password" class="input-field" placeholder="Créer un mot de passe" required minlength="6">
+        </div>
+        <div class="form-group">
+          <label>Confirmer le mot de passe *</label>
+          <input type="password" id="reg-password-confirm" class="input-field" placeholder="Confirmer le mot de passe" required>
         </div>
         <div class="form-group">
           <label>WhatsApp (optionnel)</label>
-          <input type="tel" id="reg-whatsapp-input" class="input-field" placeholder="6XX XXX XXX">
+          <input type="tel" id="reg-whatsapp" class="input-field" placeholder="237 6XX XXX XXX">
         </div>
         <div class="form-group">
-          <label>Email (optionnel)</label>
-          <input type="email" id="reg-email-input" class="input-field" placeholder="pharmacie@email.com">
+          <label>Email (optionnel — pour réinitialisation)</label>
+          <input type="email" id="reg-email" class="input-field" placeholder="pharmacie@email.com">
         </div>
         <div class="form-group">
           <label>Horaires d'ouverture</label>
@@ -103,54 +139,40 @@
         </button>
       </div>
 
+      <!-- ─── Password Reset Form ─── -->
+      <div class="login-form" id="form-reset" style="display: none;">
+        <p style="font-size: 14px; color: var(--dark-400); margin-bottom: 16px; line-height: 1.6;">
+          Entrez le numéro de téléphone et l'email associés à votre pharmacie. Un nouveau mot de passe vous sera envoyé.
+        </p>
+        <div class="form-group">
+          <label>Numéro de téléphone</label>
+          <input type="tel" id="reset-phone" class="input-field" placeholder="6XX XXX XXX" required>
+        </div>
+        <div class="form-group">
+          <label>Email enregistré</label>
+          <input type="email" id="reset-email" class="input-field" placeholder="pharmacie@email.com" required>
+        </div>
+        <div class="form-group">
+          <label>Nouveau mot de passe (min 6 caractères)</label>
+          <input type="password" id="reset-new-password" class="input-field" placeholder="Nouveau mot de passe" required minlength="6">
+        </div>
+        <button id="btn-reset-password" class="btn btn-primary btn-lg btn-block">
+          Réinitialiser le mot de passe
+        </button>
+      </div>
+
       <!-- Advantages Section -->
       <div class="advantages-section">
         <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 16px; color: var(--green-400); text-align: center;">
           ✨ Pourquoi rejoindre Pharma-Garde ?
         </h3>
         <div class="advantage-cards">
-          <div class="advantage-card">
-            <span class="advantage-icon">📊</span>
-            <div>
-              <strong>Visibilité accrue</strong>
-              <p>Soyez visible par des milliers de patients dans votre zone</p>
-            </div>
-          </div>
-          <div class="advantage-card">
-            <span class="advantage-icon">🔔</span>
-            <div>
-              <strong>Demandes en temps réel</strong>
-              <p>Recevez des demandes de médicaments instantanément</p>
-            </div>
-          </div>
-          <div class="advantage-card">
-            <span class="advantage-icon">💰</span>
-            <div>
-              <strong>Revenus supplémentaires</strong>
-              <p>Chaque recherche payée est un client potentiel</p>
-            </div>
-          </div>
-          <div class="advantage-card">
-            <span class="advantage-icon">📈</span>
-            <div>
-              <strong>Statistiques détaillées</strong>
-              <p>Suivez vos performances et les médicaments les plus demandés</p>
-            </div>
-          </div>
-          <div class="advantage-card">
-            <span class="advantage-icon">🆓</span>
-            <div>
-              <strong>Inscription gratuite</strong>
-              <p>Aucun frais d'inscription ni d'abonnement mensuel</p>
-            </div>
-          </div>
-          <div class="advantage-card">
-            <span class="advantage-icon">🛡️</span>
-            <div>
-              <strong>Assurances intégrées</strong>
-              <p>Identifiez les patients assurés pour un meilleur service</p>
-            </div>
-          </div>
+          <div class="advantage-card"><span class="advantage-icon">📊</span><div><strong>Visibilité accrue</strong><p>Soyez visible par des milliers de patients dans votre zone</p></div></div>
+          <div class="advantage-card"><span class="advantage-icon">🔔</span><div><strong>Demandes en temps réel</strong><p>Recevez des demandes de médicaments instantanément</p></div></div>
+          <div class="advantage-card"><span class="advantage-icon">💰</span><div><strong>Revenus supplémentaires</strong><p>Chaque recherche payée est un client potentiel</p></div></div>
+          <div class="advantage-card"><span class="advantage-icon">📈</span><div><strong>Statistiques détaillées</strong><p>Suivez vos performances et les médicaments les plus demandés</p></div></div>
+          <div class="advantage-card"><span class="advantage-icon">🆓</span><div><strong>Inscription gratuite</strong><p>Aucun frais d'inscription ni d'abonnement mensuel</p></div></div>
+          <div class="advantage-card"><span class="advantage-icon">🛡️</span><div><strong>Assurances intégrées</strong><p>Identifiez les patients assurés pour un meilleur service</p></div></div>
         </div>
       </div>
     </div>
@@ -160,18 +182,13 @@
        DASHBOARD
        ═══════════════════════════════════════════════════════ -->
   <div id="dashboard" class="hidden">
-    <!-- Header -->
     <header class="dash-header">
       <div class="dash-header-left">
         <a href="index.html" class="nav-btn" title="Retour accueil" style="text-decoration: none;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         </a>
-        <div class="dash-logo">
-          <span>🏥</span>
-          <span>Espace Pharmacie</span>
-        </div>
+        <div class="dash-logo"><span>🏥</span><span>Espace Pharmacie</span></div>
       </div>
-
       <div class="guard-toggle">
         <span class="guard-toggle-label" id="guard-label">Statut : Ouvert</span>
         <div class="guard-switch">
@@ -182,132 +199,47 @@
       </div>
     </header>
 
-    <!-- Info Bar -->
     <div class="dash-info-bar">
       <div class="dash-pharmacy-name" id="dash-pharmacy-name">Ma Pharmacie</div>
       <div class="dash-pharmacy-detail">Tableau de bord en temps réel</div>
     </div>
 
-    <!-- Stats -->
     <div class="dash-stats">
-      <div class="stat-card stat-primary">
-        <div class="stat-value" id="stat-today">12</div>
-        <div class="stat-label">Demandes aujourd'hui</div>
-        <span class="stat-icon">📥</span>
-      </div>
-      <div class="stat-card stat-success">
-        <div class="stat-value" id="stat-responded">8</div>
-        <div class="stat-label">Répondues</div>
-        <span class="stat-icon">✅</span>
-      </div>
-      <div class="stat-card stat-warning">
-        <div class="stat-value" id="stat-pending">3</div>
-        <div class="stat-label">En attente</div>
-        <span class="stat-icon">⏳</span>
-      </div>
-      <div class="stat-card stat-info">
-        <div class="stat-value" id="stat-reserved">1</div>
-        <div class="stat-label">Réservations</div>
-        <span class="stat-icon">🔒</span>
-      </div>
+      <div class="stat-card stat-primary"><div class="stat-value" id="stat-today">0</div><div class="stat-label">Demandes aujourd'hui</div><span class="stat-icon">📥</span></div>
+      <div class="stat-card stat-success"><div class="stat-value" id="stat-responded">0</div><div class="stat-label">Répondues</div><span class="stat-icon">✅</span></div>
+      <div class="stat-card stat-warning"><div class="stat-value" id="stat-pending">0</div><div class="stat-label">En attente</div><span class="stat-icon">⏳</span></div>
+      <div class="stat-card stat-info"><div class="stat-value" id="stat-reserved">0</div><div class="stat-label">Réservations</div><span class="stat-icon">🔒</span></div>
     </div>
 
-    <!-- Tabs -->
     <nav class="dash-tabs">
-      <button class="dash-tab active" data-tab="active">
-        📥 Demandes
-        <span class="tab-badge" id="active-badge">3</span>
-      </button>
-      <button class="dash-tab" data-tab="history">
-        📋 Historique
-      </button>
-      <button class="dash-tab" data-tab="reservations">
-        🔒 Réservations
-        <span class="tab-badge" id="reserve-badge">1</span>
-      </button>
-      <button class="dash-tab" data-tab="stats">
-        📊 Statistiques
-      </button>
+      <button class="dash-tab active" data-tab="active">📥 Demandes<span class="tab-badge" id="active-badge">0</span></button>
+      <button class="dash-tab" data-tab="history">📋 Historique</button>
+      <button class="dash-tab" data-tab="stats">📊 Statistiques</button>
     </nav>
 
-    <!-- Tab Content: Active Requests -->
     <div class="dash-tab-content active" id="tab-active">
       <div id="active-requests">
-        <div class="empty-state">
-          <div class="empty-state-icon">📭</div>
-          <div class="empty-state-text">Aucune demande en cours. Les demandes de patients apparaîtront ici en temps réel.</div>
-        </div>
+        <div class="empty-state"><div class="empty-state-icon">📭</div><div class="empty-state-text">Aucune demande en cours. Les demandes de patients apparaîtront ici en temps réel.</div></div>
       </div>
     </div>
 
-    <!-- Tab Content: History -->
     <div class="dash-tab-content" id="tab-history">
-      <div class="history-filters">
-        <select id="history-filter-status" class="input-field" style="width: auto; min-width: 140px;">
-          <option value="all">Toutes</option>
-          <option value="responded">En stock</option>
-          <option value="rupture">Rupture</option>
-          <option value="ignored">Ignorées</option>
-        </select>
-      </div>
-      <div id="history-list">
-        <!-- History items dynamically inserted -->
-      </div>
+      <div id="history-list"></div>
     </div>
 
-    <!-- Tab Content: Reservations -->
-    <div class="dash-tab-content" id="tab-reservations">
-      <div id="reservations-list">
-        <!-- Reservation items dynamically inserted -->
-      </div>
-    </div>
-
-    <!-- Tab Content: Statistics -->
     <div class="dash-tab-content" id="tab-stats">
       <div class="dash-section">
-        <div class="dash-section-title">🏆 Top 5 Médicaments les plus demandés</div>
-        <div class="top-meds" id="top-medications">
-          <!-- Bar chart dynamically inserted -->
-        </div>
-      </div>
-      
-      <div class="dash-section" style="border-top: 1px solid var(--color-border); margin-top: 24px; padding-top: 24px;">
-        <div class="dash-section-title">📈 Performance</div>
-        <div class="performance-grid">
-          <div class="perf-card">
-            <div class="perf-value" style="color: var(--green-400);">92%</div>
-            <div class="perf-label">Taux de réponse</div>
-          </div>
-          <div class="perf-card">
-            <div class="perf-value" style="color: var(--gold-400);">~3 min</div>
-            <div class="perf-label">Temps de réponse moyen</div>
-          </div>
-          <div class="perf-card">
-            <div class="perf-value" style="color: #60a5fa;">4.7/5</div>
-            <div class="perf-label">Score satisfaction</div>
-          </div>
-          <div class="perf-card">
-            <div class="perf-value" style="color: #a78bfa;">156</div>
-            <div class="perf-label">Patients servis (mois)</div>
-          </div>
-        </div>
+        <div class="dash-section-title">🏆 Top Médicaments demandés</div>
+        <div class="top-meds" id="top-medications"></div>
       </div>
     </div>
 
-    <!-- Footer Actions -->
     <div class="dash-footer">
-      <button id="btn-logout" class="btn btn-outline btn-block">
-        🚪 Déconnexion
-      </button>
-      <button id="btn-deregister" class="btn btn-block" style="background: rgba(220, 38, 38, 0.1); color: var(--red-400); border: 1px solid rgba(220, 38, 38, 0.25); margin-top: 8px;">
-        ⚠️ Désinscrire ma pharmacie
-      </button>
+      <button id="btn-logout" class="btn btn-outline btn-block">🚪 Déconnexion</button>
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════
-       CONFIRM MODAL
-       ═══════════════════════════════════════════════════════ -->
+  <!-- Confirm Modal -->
   <div id="confirm-modal" style="display: none; position: fixed; inset: 0; z-index: 10000; align-items: center; justify-content: center;">
     <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);"></div>
     <div style="position: relative; background: var(--dark-800); border: 1px solid var(--glass-border); border-radius: 16px; padding: 24px; max-width: 360px; width: 90%; text-align: center; z-index: 10001;">
@@ -320,14 +252,19 @@
   </div>
 
   <!-- Toast -->
-  <div id="toast" class="toast toast-success">
-    <span id="toast-message">Message</span>
-  </div>
+  <div id="toast" class="toast toast-success"><span id="toast-message">Message</span></div>
 
   <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/supabaseClient.js"></script>
   <script src="js/pharmacien.js"></script>
+
+  <!-- Force landscape on mobile -->
+  <script>
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('landscape').catch(() => {});
+    }
+  </script>
 
 </body>
 </html>
