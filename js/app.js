@@ -861,7 +861,7 @@ const App = (() => {
     }).join('');
   }
 
-  window.App.reservePharmacy = async function(pharmacyId, btnElement) {
+  async function reservePharmacy(pharmacyId, btnElement) {
     if (!currentRequestId) return;
     
     // Disable all reserve buttons
@@ -1305,6 +1305,7 @@ const App = (() => {
     addMedicine,
     removeMedicine,
     showToast,
+    reservePharmacy,
   };
 
   // ── Start ──────────────────────────────────────────────
