@@ -505,47 +505,6 @@
   padding: 0 var(--space-4) var(--space-3);
 }
 
-/* Emergency Search Button */
-#search-btn {
-  width: calc(100% - var(--space-8));
-  margin: 0 auto var(--space-4);
-  padding: var(--space-4) var(--space-6);
-  background: linear-gradient(135deg, var(--red-600), var(--red-700));
-  color: white;
-  border-radius: var(--radius-xl);
-  font-size: var(--font-md);
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-3);
-  animation: emergencyPulse 3s ease-in-out infinite;
-  position: relative;
-  overflow: hidden;
-  letter-spacing: 0.02em;
-}
-
-#search-btn::after {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: linear-gradient(
-    45deg,
-    transparent 40%,
-    rgba(255, 255, 255, 0.1) 50%,
-    transparent 60%
-  );
-  animation: shimmer 3s ease-in-out infinite;
-}
-
-#search-btn:active {
-  transform: scale(0.98);
-  animation: none;
-}
-
 /* Stats Row */
 .stats-row {
   display: flex;
@@ -1587,14 +1546,14 @@
 }
 
 .primary-action {
-  background: linear-gradient(135deg, var(--red-600), var(--red-700));
+  background: linear-gradient(135deg, var(--green-600), var(--green-700));
   color: white;
   animation: emergencyPulse 3s ease-in-out infinite;
 }
 
 .primary-action:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(220, 38, 38, 0.6);
+  box-shadow: 0 4px 20px rgba(5, 150, 105, 0.6);
 }
 
 .secondary-action {
