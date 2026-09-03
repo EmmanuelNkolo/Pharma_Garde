@@ -315,13 +315,14 @@ const App = (() => {
     if (!pos) return;
 
     // Get all local pharmacies
-    let allPharmacies = typeof LOCAL_PHARMACIES !== 'undefined' ? [...LOCAL_PHARMACIES] : [];
+    let allPharmacies = typeof LOCAL_PHARMACIES !== 'undefined' ? LOCAL_PHARMACIES.slice() : [];
 
     // Add distance to each
-    allPharmacies = allPharmacies.map(p => ({
-      ...p,
-      distance: parseFloat(Geolocation.distanceTo(p.lat, p.lng).toFixed(1)),
-    }));
+    allPharmacies = allPharmacies.map(p => {
+      const pCopy = Object.assign({}, p);
+      pCopy.distance = parseFloat(Geolocation.distanceTo(p.lat, p.lng).toFixed(1));
+      return pCopy;
+    });
 
     // Filter by radius
     pharmaciesInRadius = allPharmacies.filter(p => p.distance <= currentRadius);
