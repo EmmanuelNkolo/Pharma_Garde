@@ -739,7 +739,32 @@ const App = (() => {
       }
 
       currentRequestId = data.id;
-      if (pingStatus) pingStatus.textContent = `✅ Demande envoyée à ${pharmacyCount} pharmacie(s)...`;
+
+      // Close the modal
+      const modal = $('#search-modal');
+      if (modal) modal.classList.remove('active');
+      
+      // Update Bottom Sheet Header
+      const mainActions = $('#main-actions');
+      const banner = $('#responses-banner');
+      if (mainActions) mainActions.style.display = 'none';
+      if (banner) banner.style.display = 'flex';
+      
+      // Clear pharmacy list and show waiting text
+      const listEl = $('#pharmacy-list');
+      if (listEl) {
+        listEl.innerHTML = `
+          <div style="padding: 30px 20px; text-align: center; color: var(--dark-400);">
+            <div class="loading-dots" style="justify-content: center; margin-bottom: 16px;">
+              <span style="background: var(--green-500)"></span>
+              <span style="background: var(--green-500)"></span>
+              <span style="background: var(--green-500)"></span>
+            </div>
+            <div style="font-weight: 500;">Recherche de pharmacies en cours...</div>
+            <div style="font-size: 13px; margin-top: 8px;">Les réponses apparaîtront ici.</div>
+          </div>
+        `;
+      }
 
       // Subscribe to REAL responses from pharmacists
       if (responseChannel) {
@@ -757,25 +782,10 @@ const App = (() => {
           const resp = payload.new;
           if (resp.status === 'accepted') {
             realResponses.push(resp);
-            // Update the waiting screen
-            if (pingStatus) {
-              pingStatus.textContent = `🎉 ${realResponses.length} pharmacie(s) ont confirmé la disponibilité !`;
-            }
-            // Auto-show results after first response
-            showResults();
+            renderPatientResponses();
           }
         })
         .subscribe();
-
-      // Wait for responses (max 60 seconds)
-      if (pingStatus) pingStatus.textContent = 'En attente des réponses des pharmacies...';
-      
-      // Show results after 60s timeout even if no responses
-      setTimeout(() => {
-        if (realResponses.length === 0) {
-          showResults();
-        }
-      }, 60000);
 
     } catch(e) {
       console.error('Search request error:', e);
@@ -783,48 +793,112 @@ const App = (() => {
     }
   }
 
-  function showResults() {
-    showSearchStep(4);
+  function renderPatientResponses() {
+    const listEl = $('#pharmacy-list');
+    if (!listEl) return;
     
-    const countEl = $('#result-count');
-    const subtitleEl = $('#result-subtitle');
-    const listEl = $('#results-list');
-    
-    if (countEl) countEl.textContent = realResponses.length;
-    
-    if (realResponses.length === 0) {
-      if (subtitleEl) subtitleEl.textContent = 'Aucune pharmacie n\'a encore confirmé';
-      if (listEl) {
-        listEl.innerHTML = `
-          <div class="empty-state">
-            <div class="empty-state-icon">⏳</div>
-            <div class="empty-state-text">
-              Votre demande a été envoyée aux pharmacies. Les réponses arrivent en temps réel.
-              <br><br>
-              <strong>Restez sur cette page</strong> — les réponses apparaîtront automatiquement dès qu'une pharmacie confirmera la disponibilité.
-            </div>
+    if (realResponses.length === 0) return;
+
+    listEl.innerHTML = realResponses.map(resp => {
+      // Parse medicines_status
+      let medsHtml = '';
+      if (resp.medicines_status) {
+        medsHtml = Object.entries(resp.medicines_status).map(([med, status]) => {
+          let badge = '';
+          if (status === 'en_stock_assure') badge = '<span style="color:var(--green-500)">✅ En stock assuré</span>';
+          else if (status === 'en_stock_non_assure') badge = '<span style="color:var(--gold-500)">⚠️ En stock non assuré</span>';
+          else if (status === 'en_stock') badge = '<span style="color:var(--green-500)">✅ En stock</span>';
+          else badge = '<span style="color:var(--red-500)">❌ Rupture</span>';
+          
+          return `<div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 13px;">
+            <span style="font-weight: 500;">💊 ${med}</span>
+            ${badge}
           </div>`;
+        }).join('');
       }
-    } else {
-      if (subtitleEl) subtitleEl.textContent = `pharmacie(s) ont confirmé la disponibilité`;
-      if (listEl) {
-        listEl.innerHTML = realResponses.map(resp => `
-          <div class="result-card">
-            <div class="result-card-header">
-              <span class="result-card-name">${resp.pharmacy_name || 'Pharmacie'}</span>
-            </div>
-            <div class="result-card-address">${resp.pharmacy_address || ''}</div>
-            <div class="result-card-actions">
-              ${resp.pharmacy_phone ? `
-                <button class="btn btn-call btn-sm" onclick="App.callPharmacy('${resp.pharmacy_phone}')">📞 Appeler</button>
-                <button class="btn btn-whatsapp btn-sm" onclick="App.openWhatsApp('237${resp.pharmacy_phone}')">💬 WhatsApp</button>
-              ` : ''}
+
+      return `
+        <div class="pharmacy-card">
+          <div class="card-header" style="margin-bottom: 12px;">
+            <div class="card-info">
+              <div class="card-name">${resp.pharmacy_name || 'Pharmacie'}</div>
+              <div class="card-address" style="font-size: 13px; color: var(--dark-300);">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                ${resp.pharmacy_address || 'Adresse inconnue'}
+              </div>
             </div>
           </div>
-        `).join('');
-      }
-    }
+          
+          <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+            ${medsHtml}
+          </div>
+
+          <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+            <button class="btn btn-primary btn-block" style="flex: 1;" onclick="App.reservePharmacy('${resp.pharmacy_id}', this)">
+              Réserver
+            </button>
+          </div>
+
+          <div class="card-actions">
+            ${resp.pharmacy_phone ? `
+              <button class="btn btn-call" onclick="App.callPharmacy('${resp.pharmacy_phone}')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                Appeler
+              </button>
+              <button class="btn btn-whatsapp" onclick="App.openWhatsApp('237${resp.pharmacy_phone}')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
+                WhatsApp
+              </button>
+            ` : ''}
+            <button class="btn btn-go" onclick="App.routeToPharmacy('${resp.pharmacy_id}')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+              Y aller
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
   }
+
+  window.App.reservePharmacy = async function(pharmacyId, btnElement) {
+    if (!currentRequestId) return;
+    
+    // Disable all reserve buttons
+    document.querySelectorAll('.pharmacy-card .btn-block').forEach(btn => btn.disabled = true);
+    
+    // Update button text and style
+    btnElement.innerHTML = 'Réservé <span class="countdown">60</span>s';
+    btnElement.style.background = 'var(--gold-500)';
+    btnElement.style.color = 'var(--dark-900)';
+    
+    // Start countdown
+    let timeLeft = 60;
+    const countdownInterval = setInterval(() => {
+      timeLeft--;
+      const span = btnElement.querySelector('.countdown');
+      if (span) span.textContent = timeLeft;
+      
+      if (timeLeft <= 0) {
+        clearInterval(countdownInterval);
+        btnElement.innerHTML = 'Réservation expirée';
+        btnElement.style.background = 'var(--dark-500)';
+        btnElement.style.color = '#fff';
+      }
+    }, 1000);
+
+    // Update Supabase request to reserved
+    try {
+      await supabase
+        .from('requests')
+        .update({ 
+          status: 'accepted',
+          pharmacy_id: pharmacyId 
+        })
+        .eq('id', currentRequestId);
+    } catch(e) {
+      console.error('Reserve error:', e);
+    }
+  };
 
   function resetSearch() {
     selectedMedicines = [];

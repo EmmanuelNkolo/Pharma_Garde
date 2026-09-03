@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS responses (
   pharmacy_phone TEXT,
   pharmacy_address TEXT,
   status TEXT NOT NULL CHECK (status IN ('accepted', 'out_of_stock')),
+  medicines_status JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

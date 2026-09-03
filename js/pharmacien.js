@@ -441,27 +441,69 @@
       const meds = Array.isArray(req.medicines) ? req.medicines : [req.medicines];
       const timeAgo = getTimeAgo(req.created_at);
       
+      const hasInsurance = !!req.insurance_name;
+
+      const medRows = meds.map((med) => {
+        let buttonsHtml = '';
+        if (hasInsurance) {
+          buttonsHtml = `
+            <button class="btn btn-sm btn-outline" data-status="en_stock_assure">✅ En stock assuré</button>
+            <button class="btn btn-sm btn-outline" data-status="en_stock_non_assure">⚠️ En stock non assuré</button>
+            <button class="btn btn-sm btn-outline" data-status="rupture">❌ Rupture</button>
+          `;
+        } else {
+          buttonsHtml = `
+            <button class="btn btn-sm btn-outline" data-status="en_stock">✅ En stock</button>
+            <button class="btn btn-sm btn-outline" data-status="rupture">❌ Rupture</button>
+          `;
+        }
+        return `
+          <div class="med-response-row" style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+            <div style="font-weight: 500; margin-bottom: 8px;">💊 ${med}</div>
+            <div class="med-btn-group" style="display: flex; gap: 8px; flex-wrap: wrap;" data-med="${med}">
+              ${buttonsHtml}
+            </div>
+          </div>
+        `;
+      }).join('');
+
       return `
         <div class="request-card urgent" id="request-${req.id}">
-          <div class="request-header">
-            <div class="request-medicine">💊 ${meds.join(', ')}</div>
+          <div class="request-header" style="margin-bottom: 8px;">
+            <div class="request-patient-info" style="font-size: 14px; opacity: 0.9;">
+              ${req.user_phone ? `📱 ${req.user_phone}` : '📱 Anonyme'}
+              ${req.insurance_name ? ` • 🛡️ Assurance: ${req.insurance_name}` : ''}
+              ${req.radius ? ` • 📍 Rayon: ${req.radius} km` : ''}
+            </div>
             <div class="request-time">${timeAgo}</div>
           </div>
-          <div class="request-patient-info">
-            ${req.user_phone ? `📱 ${req.user_phone}` : '📱 Anonyme'}
-            ${req.insurance_name ? ` • 🛡️ Assurance: ${req.insurance_name}` : ''}
-            ${req.radius ? ` • 📍 Rayon: ${req.radius} km` : ''}
+          
+          <div class="request-medicines-list" style="margin-bottom: 16px; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px;">
+            ${medRows}
           </div>
-          <div class="request-actions">
-            <button class="btn btn-in-stock" onclick="PharmDash.respondToRequest('${req.id}', 'accepted')">
-              ✅ EN STOCK
-            </button>
-            <button class="btn btn-out-stock" onclick="PharmDash.respondToRequest('${req.id}', 'out_of_stock')">
-              ❌ RUPTURE
-            </button>
-          </div>
+
+          <button class="btn btn-primary btn-block" onclick="PharmDash.submitDetailedResponse('${req.id}')">
+            Envoyer la réponse
+          </button>
         </div>`;
     }).join('');
+
+    // Attach click events for medication selection
+    document.querySelectorAll('.med-btn-group button').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const group = e.target.closest('.med-btn-group');
+        group.querySelectorAll('button').forEach(b => {
+          b.classList.remove('active', 'btn-primary');
+          b.classList.add('btn-outline');
+          b.style.background = 'transparent';
+        });
+        
+        e.target.classList.remove('btn-outline');
+        e.target.classList.add('active', 'btn-primary');
+        e.target.style.background = 'var(--primary-color)';
+        group.setAttribute('data-selected', e.target.getAttribute('data-status'));
+      });
+    });
   }
 
   // ══════════════════════════════════════════════════════
@@ -469,10 +511,32 @@
   // ══════════════════════════════════════════════════════
   let pendingAction = null;
 
-  async function respondToRequest(requestId, responseStatus) {
+  async function submitDetailedResponse(requestId) {
     if (!currentPharmacy) return;
 
-    // Insert response record
+    const requestEl = document.getElementById(`request-${requestId}`);
+    if (!requestEl) return;
+
+    const groups = requestEl.querySelectorAll('.med-btn-group');
+    const medicinesStatus = {};
+    let allSelected = true;
+
+    groups.forEach(g => {
+      const med = g.getAttribute('data-med');
+      const selected = g.getAttribute('data-selected');
+      if (!selected) allSelected = false;
+      else medicinesStatus[med] = selected;
+    });
+
+    if (!allSelected) {
+      showToast('⚠️ Veuillez indiquer le statut pour tous les médicaments', 'error');
+      return;
+    }
+
+    // Determine overall status (if at least one is in stock, we consider the response 'accepted' broadly)
+    const hasAnyStock = Object.values(medicinesStatus).some(s => s.startsWith('en_stock'));
+    const responseStatus = hasAnyStock ? 'accepted' : 'out_of_stock';
+
     try {
       const { error: respError } = await supabase
         .from('responses')
@@ -483,35 +547,24 @@
           pharmacy_phone: currentPharmacy.phone,
           pharmacy_address: currentPharmacy.address,
           status: responseStatus,
+          medicines_status: medicinesStatus,
           created_at: new Date().toISOString(),
         }]);
 
       if (respError) {
         console.error('Response insert error:', respError);
+        throw respError;
       }
 
-      // Update the request status
-      if (responseStatus === 'accepted') {
-        await supabase
-          .from('requests')
-          .update({ 
-            status: 'accepted',
-            pharmacy_id: currentPharmacy.id,
-          })
-          .eq('id', requestId);
-      }
+      // Do not update the request status to 'accepted' here.
+      // The request stays 'pending' until the patient chooses a pharmacy (reserves).
+      // We just remove it from the active list for this pharmacy.
 
-      // Remove from active list
       activeRequests = activeRequests.filter(r => r.id !== requestId);
       renderActiveRequests();
       updateStats();
 
-      const msg = responseStatus === 'accepted' 
-        ? '✅ Réponse "En stock" envoyée au patient' 
-        : '❌ Réponse "Rupture" enregistrée';
-      showToast(msg, responseStatus === 'accepted' ? 'success' : 'info');
-
-      // Reload history
+      showToast('✅ Réponse détaillée envoyée au patient', 'success');
       loadHistory();
 
     } catch (err) {
@@ -593,14 +646,30 @@
     if (!currentPharmacy) return;
 
     try {
-      // Count responses
-      const { data: responses } = await supabase
-        .from('responses')
-        .select('status, request_id')
-        .eq('pharmacy_id', currentPharmacy.id);
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      const todayStr = today.toISOString();
 
-      const accepted = (responses || []).filter(r => r.status === 'accepted').length;
-      const total = (responses || []).length;
+      // Count responses today
+      const { count: respondedCount } = await supabase
+        .from('responses')
+        .select('*', { count: 'exact', head: true })
+        .eq('pharmacy_id', currentPharmacy.id)
+        .gte('created_at', todayStr);
+
+      const statResponded = $('#stat-responded');
+      if (statResponded) statResponded.textContent = respondedCount || 0;
+
+      // Count reservations
+      const { count: reservedCount } = await supabase
+        .from('requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('pharmacy_id', currentPharmacy.id)
+        .in('status', ['accepted', 'reserved'])
+        .gte('created_at', todayStr);
+
+      const statReserved = $('#stat-reserved');
+      if (statReserved) statReserved.textContent = reservedCount || 0;
 
       // Get top medicines from requests
       const { data: requests } = await supabase
@@ -652,14 +721,18 @@
   // ── Update Stats Counters ──────────────────────────────
   function updateStats() {
     const pending = activeRequests.filter(r => r.status === 'pending').length;
+    const totalToday = activeRequests.length; // Actually should be queried, but for now we use loaded requests
     
     const statPending = $('#stat-pending');
     const statToday = $('#stat-today');
     const activeBadge = $('#active-badge');
 
     if (statPending) statPending.textContent = pending;
-    if (statToday) statToday.textContent = activeRequests.length;
+    if (statToday) statToday.textContent = totalToday;
     if (activeBadge) activeBadge.textContent = pending;
+    
+    // Refresh async stats
+    loadStats();
   }
 
   // ── Dashboard Tabs ─────────────────────────────────────

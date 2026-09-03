@@ -122,7 +122,7 @@
       
       <div class="sheet-header">
         <!-- Action Buttons -->
-        <div class="action-buttons-row">
+        <div class="action-buttons-row" id="main-actions">
           <button id="search-btn" class="action-btn primary-action">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             <span>MÉDICAMENTS</span>
@@ -137,6 +137,12 @@
           </button>
         </div>
         <input type="file" id="ocr-camera-input" accept="image/*" capture="environment" style="display: none;">
+        
+        <!-- Responses Banner -->
+        <div id="responses-banner" style="display: none; align-items: center; justify-content: center; background: rgba(5, 150, 105, 0.1); padding: 12px; border-radius: 8px; border: 1px solid rgba(5, 150, 105, 0.3); color: var(--green-400); font-weight: 600; font-size: 14px; margin-bottom: 12px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right: 8px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          Réponses des pharmacies
+        </div>
         
         <!-- Stats -->
         <div class="stats-row">
