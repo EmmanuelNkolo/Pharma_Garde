@@ -823,7 +823,7 @@
 
   // ── Public API ─────────────────────────────────────────
   window.PharmDash = {
-    respondToRequest,
+    submitDetailedResponse,
     confirmAction,
   };
 
