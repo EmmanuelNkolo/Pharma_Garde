@@ -296,3 +296,5 @@ const Geolocation = (() => {
     loadSavedPosition,
   };
 })();
+
+window.Geolocation = Geolocation;

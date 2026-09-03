@@ -204,3 +204,5 @@ const Payment = (() => {
     checkPaymentStatus,
   };
 })();
+
+window.Payment = Payment;

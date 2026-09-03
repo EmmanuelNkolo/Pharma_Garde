@@ -1313,3 +1313,5 @@ const App = (() => {
 
   return publicApi;
 })();
+
+window.App = App;

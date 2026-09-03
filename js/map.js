@@ -344,3 +344,5 @@ const PharmMap = (() => {
     clearRoute,
   };
 })();
+
+window.PharmMap = PharmMap;

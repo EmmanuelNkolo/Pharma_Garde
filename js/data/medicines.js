@@ -50,3 +50,5 @@ const LOCAL_MEDICINES = [
   "Fer",
   "Acide folique"
 ];
+
+window.LOCAL_MEDICINES = LOCAL_MEDICINES;

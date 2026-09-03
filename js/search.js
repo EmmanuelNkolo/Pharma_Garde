@@ -211,3 +211,5 @@ const Search = (() => {
     reset,
   };
 })();
+
+window.Search = Search;

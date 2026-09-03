@@ -96,3 +96,5 @@ const COMMON_MEDICATIONS = [
   'Sérum physiologique',
   'Sérum anti-venimeux',
 ];
+
+window.COMMON_MEDICATIONS = COMMON_MEDICATIONS;
