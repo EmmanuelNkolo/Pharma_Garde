@@ -1546,14 +1546,14 @@
 }
 
 .primary-action {
-  background: linear-gradient(135deg, var(--green-600), var(--green-700));
+  background: linear-gradient(135deg, var(--red-600), var(--red-700));
   color: white;
   animation: emergencyPulse 3s ease-in-out infinite;
 }
 
 .primary-action:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(5, 150, 105, 0.6);
+  box-shadow: 0 4px 20px rgba(220, 38, 38, 0.6);
 }
 
 .secondary-action {
