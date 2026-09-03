@@ -327,7 +327,7 @@ const App = (() => {
     pharmaciesInRadius = allPharmacies.filter(p => p.distance <= currentRadius);
 
     // Show/hide closed pharmacies based on setting
-    const showClosed = $('#toggle-closed')?.classList?.contains('active');
+    const toggleEl = $('#toggle-closed'); const showClosed = toggleEl ? toggleEl.classList.contains('active') : false;
     let displayPharmacies = showClosed 
       ? pharmaciesInRadius 
       : pharmaciesInRadius.filter(p => p.isOpen || p.isOnDuty);
@@ -721,11 +721,11 @@ const App = (() => {
         .from('requests')
         .insert([{
           medicines: selectedMedicines,
-          user_lat: pos?.lat,
-          user_lng: pos?.lng,
+          user_lat: pos ? pos.lat : null,
+          user_lng: pos ? pos.lng : null,
           radius: currentRadius,
           status: 'pending',
-          user_phone: phoneInput?.value || null,
+          user_phone: (phoneInput && phoneInput.value) ? phoneInput.value : null,
           insurance_name: insuranceName,
           created_at: new Date().toISOString(),
         }])

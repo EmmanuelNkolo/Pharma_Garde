@@ -105,8 +105,8 @@
   //  LOGIN — Real Supabase authentication
   // ══════════════════════════════════════════════════════
   async function handleLogin() {
-    const email = $('#login-email')?.value?.trim();
-    const password = $('#login-password')?.value;
+    const emailEl = $('#login-email'); const email = emailEl && emailEl.value ? emailEl.value.trim() : '';
+    const passEl = $('#login-password'); const password = passEl ? passEl.value : '';
 
     if (!email || !password) {
       showToast('Veuillez remplir tous les champs', 'error');
@@ -159,16 +159,16 @@
   //  REGISTER — Real Supabase insertion
   // ══════════════════════════════════════════════════════
   async function handleRegister() {
-    const name = $('#reg-name')?.value?.trim();
-    const city = $('#reg-city')?.value;
-    const quarter = $('#reg-quarter')?.value?.trim();
-    const phone = $('#reg-phone')?.value?.trim().replace(/\s+/g, '');
-    const password = $('#reg-password')?.value;
-    const passwordConfirm = $('#reg-password-confirm')?.value;
-    const whatsapp = $('#reg-whatsapp')?.value?.trim();
-    const email = $('#reg-email')?.value?.trim();
-    const hourOpen = $('#reg-hour-open')?.value || '08:00';
-    const hourClose = $('#reg-hour-close')?.value || '21:00';
+    const nameEl = $('#reg-name'); const name = nameEl && nameEl.value ? nameEl.value.trim() : '';
+    const cityEl = $('#reg-city'); const city = cityEl ? cityEl.value : '';
+    const quarterEl = $('#reg-quarter'); const quarter = quarterEl && quarterEl.value ? quarterEl.value.trim() : '';
+    const phoneEl = $('#reg-phone'); const phone = phoneEl && phoneEl.value ? phoneEl.value.trim().replace(/\s+/g, '') : '';
+    const passRegEl = $('#reg-password'); const password = passRegEl ? passRegEl.value : '';
+    const passConfEl = $('#reg-password-confirm'); const passwordConfirm = passConfEl ? passConfEl.value : '';
+    const whatsappEl = $('#reg-whatsapp'); const whatsapp = whatsappEl && whatsappEl.value ? whatsappEl.value.trim() : '';
+    const emailRegEl = $('#reg-email'); const email = emailRegEl && emailRegEl.value ? emailRegEl.value.trim() : '';
+    const openEl = $('#reg-hour-open'); const hourOpen = (openEl && openEl.value) ? openEl.value : '08:00';
+    const closeEl = $('#reg-hour-close'); const hourClose = (closeEl && closeEl.value) ? closeEl.value : '21:00';
 
     // Validation
     if (!name || !city || !quarter || !phone || !email) {
@@ -227,10 +227,10 @@
 
       // Collect services
       const services = [];
-      if ($('#reg-service-garde')?.checked) services.push('garde_nuit');
-      if ($('#reg-service-livraison')?.checked) services.push('livraison');
-      if ($('#reg-service-assurance')?.checked) services.push('assurance');
-      if ($('#reg-service-conseil')?.checked) services.push('conseil');
+      const gardeEl = $('#reg-service-garde'); if (gardeEl && gardeEl.checked) services.push('garde_nuit');
+      const livEl = $('#reg-service-livraison'); if (livEl && livEl.checked) services.push('livraison');
+      const assEl = $('#reg-service-assurance'); if (assEl && assEl.checked) services.push('assurance');
+      const consEl = $('#reg-service-conseil'); if (consEl && consEl.checked) services.push('conseil');
 
       const insertData = {
         id: authUserId, // Primary Key linked to Auth User
@@ -283,7 +283,7 @@
   //  PASSWORD RESET — Real Supabase update
   // ══════════════════════════════════════════════════════
   async function handlePasswordReset() {
-    const email = $('#reset-email')?.value?.trim();
+    const resEmailEl = $('#reset-email'); const email = resEmailEl && resEmailEl.value ? resEmailEl.value.trim() : '';
 
     if (!email) {
       showToast('Veuillez remplir votre email', 'error');
@@ -639,7 +639,7 @@
         return `
           <div class="history-item">
             <div class="history-item-info">
-              <div class="history-item-medicine">💊 Demande #${item.request_id?.toString().slice(-6) || '—'}</div>
+              <div class="history-item-medicine">💊 Demande #${item.request_id ? item.request_id.toString().slice(-6) : '—'}</div>
               <div class="history-item-meta"><span>📅 ${timeStr}</span></div>
             </div>
             <div class="history-item-status">${statusBadge}</div>
