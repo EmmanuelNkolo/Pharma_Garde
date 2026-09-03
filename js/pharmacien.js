@@ -137,7 +137,7 @@
         .single();
 
       if (profileError || !profile) {
-        showToast('❌ Profil pharmacie introuvable', 'error');
+        showToast('⚠️ Profil supprimé de la base. Veuillez vous réinscrire avec le même mot de passe pour le recréer.', 'error');
         return;
       }
 
@@ -189,6 +189,8 @@
     btn.disabled = true;
 
     try {
+      let authUserId = null;
+
       // 1. Create User in Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: email,
@@ -196,16 +198,26 @@
       });
 
       if (authError) {
-        if (authError.message.includes('already registered')) {
-          showToast('❌ Cet email est déjà utilisé', 'error');
+        if (authError.message.includes('already registered') || authError.message.includes('User already registered')) {
+          // Try to sign in to get the user ID
+          const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+            email: email,
+            password: password,
+          });
+          
+          if (signInError) {
+            showToast('❌ Cet email est déjà utilisé (mot de passe incorrect)', 'error');
+            throw signInError;
+          }
+          authUserId = signInData.user.id;
         } else {
           throw authError;
         }
-        return;
-      }
-
-      if (!authData.user) {
-        throw new Error("L'inscription Auth a échoué");
+      } else {
+        if (!authData.user) {
+          throw new Error("L'inscription Auth a échoué");
+        }
+        authUserId = authData.user.id;
       }
 
       // Get approximate coordinates for the city
@@ -221,7 +233,7 @@
       if ($('#reg-service-conseil')?.checked) services.push('conseil');
 
       const insertData = {
-        id: authData.user.id, // Primary Key linked to Auth User
+        id: authUserId, // Primary Key linked to Auth User
         name: name,
         address: `${quarter}, ${city}`,
         city: city,
