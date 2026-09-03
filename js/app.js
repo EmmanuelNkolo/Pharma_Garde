@@ -236,6 +236,28 @@ const App = (() => {
     try {
       const pos = await Geolocation.requestPosition();
       hideLocationModal();
+      
+      // Force Landscape & Desktop Layout
+      try {
+        if (document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+        }
+        if (screen.orientation && screen.orientation.lock) {
+          await screen.orientation.lock('landscape');
+        }
+      } catch(e) { 
+        console.log('Fullscreen/Orientation lock failed', e); 
+      }
+      
+      // Force viewport to trigger tablet/desktop layout even in portrait
+      const viewport = document.querySelector('meta[name="viewport"]');
+      if (viewport) {
+        viewport.setAttribute('content', 'width=1024, user-scalable=no, viewport-fit=cover');
+      }
+      setTimeout(() => {
+        if (PharmMap && PharmMap.map) PharmMap.map.invalidateSize();
+      }, 500);
+
       setupMapWithPosition(pos);
       showToast(`📍 Position détectée : ${Geolocation.getCity()}`, 'success');
       
