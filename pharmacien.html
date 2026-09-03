@@ -46,8 +46,8 @@
       <!-- ─── Login Form ─── -->
       <div class="login-form" id="form-login">
         <div class="form-group">
-          <label for="login-phone">Numéro de téléphone</label>
-          <input type="tel" id="login-phone" class="input-field" placeholder="6XX XXX XXX" required>
+          <label for="login-email">Email</label>
+          <input type="email" id="login-email" class="input-field" placeholder="pharmacie@email.com" required>
         </div>
         <div class="form-group">
           <label for="login-password">Mot de passe</label>
@@ -106,8 +106,8 @@
           <input type="tel" id="reg-whatsapp" class="input-field" placeholder="237 6XX XXX XXX">
         </div>
         <div class="form-group">
-          <label>Email (optionnel — pour réinitialisation)</label>
-          <input type="email" id="reg-email" class="input-field" placeholder="pharmacie@email.com">
+          <label>Email *</label>
+          <input type="email" id="reg-email" class="input-field" placeholder="pharmacie@email.com" required>
         </div>
         <div class="form-group">
           <label>Horaires d'ouverture</label>
@@ -142,19 +142,11 @@
       <!-- ─── Password Reset Form ─── -->
       <div class="login-form" id="form-reset" style="display: none;">
         <p style="font-size: 14px; color: var(--dark-400); margin-bottom: 16px; line-height: 1.6;">
-          Entrez le numéro de téléphone et l'email associés à votre pharmacie. Un nouveau mot de passe vous sera envoyé.
+          Entrez l'email associé à votre pharmacie. Un lien de réinitialisation vous sera envoyé.
         </p>
-        <div class="form-group">
-          <label>Numéro de téléphone</label>
-          <input type="tel" id="reset-phone" class="input-field" placeholder="6XX XXX XXX" required>
-        </div>
         <div class="form-group">
           <label>Email enregistré</label>
           <input type="email" id="reset-email" class="input-field" placeholder="pharmacie@email.com" required>
-        </div>
-        <div class="form-group">
-          <label>Nouveau mot de passe (min 6 caractères)</label>
-          <input type="password" id="reset-new-password" class="input-field" placeholder="Nouveau mot de passe" required minlength="6">
         </div>
         <button id="btn-reset-password" class="btn btn-primary btn-lg btn-block">
           Réinitialiser le mot de passe

@@ -27,14 +27,6 @@
     }
   }
 
-  // ── Simple password hash (SHA-256) ─────────────────────
-  async function hashPassword(password) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(password + '_pharmagarde_salt_2024');
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  }
 
   // ── Session persistence ────────────────────────────────
   function saveSession(pharmacy) {
@@ -113,10 +105,10 @@
   //  LOGIN — Real Supabase authentication
   // ══════════════════════════════════════════════════════
   async function handleLogin() {
-    const phone = $('#login-phone')?.value?.trim().replace(/\s+/g, '');
+    const email = $('#login-email')?.value?.trim();
     const password = $('#login-password')?.value;
 
-    if (!phone || !password) {
+    if (!email || !password) {
       showToast('Veuillez remplir tous les champs', 'error');
       return;
     }
@@ -126,25 +118,33 @@
     btn.disabled = true;
 
     try {
-      const passwordHash = await hashPassword(password);
+      // 1. Authenticate with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: password,
+      });
 
-      // Query Supabase for pharmacy with matching phone and password
-      const { data, error } = await supabase
-        .from('pharmacies')
-        .select('*')
-        .eq('phone', phone)
-        .eq('password_hash', passwordHash)
-        .single();
-
-      if (error || !data) {
-        showToast('❌ Numéro ou mot de passe incorrect', 'error');
+      if (authError || !authData.user) {
+        showToast('❌ Email ou mot de passe incorrect', 'error');
         return;
       }
 
-      currentPharmacy = data;
-      saveSession(data);
+      // 2. Fetch the corresponding pharmacy profile
+      const { data: profile, error: profileError } = await supabase
+        .from('pharmacies')
+        .select('*')
+        .eq('id', authData.user.id)
+        .single();
+
+      if (profileError || !profile) {
+        showToast('❌ Profil pharmacie introuvable', 'error');
+        return;
+      }
+
+      currentPharmacy = profile;
+      saveSession(profile);
       showDashboard();
-      showToast(`✅ Bienvenue, ${data.name} !`, 'success');
+      showToast(`✅ Bienvenue, ${profile.name} !`, 'success');
 
     } catch (err) {
       console.error('Login error:', err);
@@ -171,8 +171,8 @@
     const hourClose = $('#reg-hour-close')?.value || '21:00';
 
     // Validation
-    if (!name || !city || !quarter || !phone) {
-      showToast('Veuillez remplir les champs obligatoires (*)', 'error');
+    if (!name || !city || !quarter || !phone || !email) {
+      showToast('Veuillez remplir tous les champs obligatoires (*)', 'error');
       return;
     }
     if (!password || password.length < 6) {
@@ -189,21 +189,24 @@
     btn.disabled = true;
 
     try {
-      // Check if phone already registered
-      const { data: existing } = await supabase
-        .from('pharmacies')
-        .select('id')
-        .eq('phone', phone)
-        .single();
+      // 1. Create User in Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: email,
+        password: password,
+      });
 
-      if (existing) {
-        showToast('❌ Ce numéro de téléphone est déjà inscrit', 'error');
-        btn.textContent = 'Inscrire ma pharmacie';
-        btn.disabled = false;
+      if (authError) {
+        if (authError.message.includes('already registered')) {
+          showToast('❌ Cet email est déjà utilisé', 'error');
+        } else {
+          throw authError;
+        }
         return;
       }
 
-      const passwordHash = await hashPassword(password);
+      if (!authData.user) {
+        throw new Error("L'inscription Auth a échoué");
+      }
 
       // Get approximate coordinates for the city
       const cityCoords = getCityCoords(city);
@@ -218,14 +221,14 @@
       if ($('#reg-service-conseil')?.checked) services.push('conseil');
 
       const insertData = {
+        id: authData.user.id, // Primary Key linked to Auth User
         name: name,
         address: `${quarter}, ${city}`,
         city: city,
         quarter: quarter,
         phone: phone,
-        password_hash: passwordHash,
         whatsapp: whatsapp || null,
-        email: email || null,
+        email: email,
         lat: lat,
         lng: lng,
         status: 'open',
@@ -237,13 +240,18 @@
         created_at: new Date().toISOString(),
       };
 
+      // 2. Insert Pharmacy Profile
       const { data, error } = await supabase
         .from('pharmacies')
         .insert([insertData])
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // Fallback: If profile creation fails, we should ideally delete the auth user, but for now just show error
+        console.error('Profile insertion error:', error);
+        throw new Error('Le profil n\'a pas pu être créé. Vérifiez si ce numéro de téléphone existe déjà.');
+      }
 
       showToast('✅ Pharmacie inscrite avec succès !', 'success');
       currentPharmacy = data;
@@ -263,58 +271,32 @@
   //  PASSWORD RESET — Real Supabase update
   // ══════════════════════════════════════════════════════
   async function handlePasswordReset() {
-    const phone = $('#reset-phone')?.value?.trim().replace(/\s+/g, '');
     const email = $('#reset-email')?.value?.trim();
-    const newPassword = $('#reset-new-password')?.value;
 
-    if (!phone || !email || !newPassword) {
-      showToast('Veuillez remplir tous les champs', 'error');
-      return;
-    }
-    if (newPassword.length < 6) {
-      showToast('Le nouveau mot de passe doit contenir au moins 6 caractères', 'error');
+    if (!email) {
+      showToast('Veuillez remplir votre email', 'error');
       return;
     }
 
     const btn = $('#btn-reset-password');
-    btn.textContent = 'Réinitialisation...';
+    btn.textContent = 'Envoi en cours...';
     btn.disabled = true;
 
     try {
-      // Verify phone + email match
-      const { data: pharmacy, error: findError } = await supabase
-        .from('pharmacies')
-        .select('id, name')
-        .eq('phone', phone)
-        .eq('email', email)
-        .single();
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '/pharmacien.html?reset=true',
+      });
 
-      if (findError || !pharmacy) {
-        showToast('❌ Aucune pharmacie trouvée avec ce numéro et cet email', 'error');
-        return;
-      }
-
-      const newHash = await hashPassword(newPassword);
-
-      const { error: updateError } = await supabase
-        .from('pharmacies')
-        .update({ password_hash: newHash })
-        .eq('id', pharmacy.id);
-
-      if (updateError) throw updateError;
-
-      showToast(`✅ Mot de passe réinitialisé pour "${pharmacy.name}". Connectez-vous.`, 'success');
+      if (error) throw error;
       
-      // Switch to login tab
-      $$('.login-tab').forEach(t => t.classList.remove('active'));
-      $('#tab-login').classList.add('active');
-      $('#form-reset').style.display = 'none';
-      $('#form-login').style.display = 'block';
-      $('#login-phone').value = phone;
+      showToast('✅ Email de réinitialisation envoyé ! Vérifiez votre boîte mail.', 'success');
+      setTimeout(() => {
+         $('#tab-login').click();
+      }, 3000);
 
     } catch (err) {
       console.error('Reset error:', err);
-      showToast('❌ Erreur lors de la réinitialisation', 'error');
+      showToast('❌ Erreur lors de la réinitialisation.', 'error');
     } finally {
       btn.textContent = 'Réinitialiser le mot de passe';
       btn.disabled = false;

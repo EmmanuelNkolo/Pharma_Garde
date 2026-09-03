@@ -10,15 +10,14 @@ DROP TABLE IF EXISTS pharmacies CASCADE;
 
 -- 1. Table des pharmacies (avec mot de passe)
 CREATE TABLE IF NOT EXISTS pharmacies (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   address TEXT NOT NULL,
   city TEXT,
   quarter TEXT,
   phone TEXT NOT NULL UNIQUE,
-  password_hash TEXT NOT NULL,
   whatsapp TEXT,
-  email TEXT,
+  email TEXT UNIQUE NOT NULL,
   lat DOUBLE PRECISION NOT NULL,
   lng DOUBLE PRECISION NOT NULL,
   status TEXT DEFAULT 'open' CHECK (status IN ('open', 'guard', 'closed')),
@@ -74,10 +73,12 @@ ALTER TABLE pharmacies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE responses ENABLE ROW LEVEL SECURITY;
 
--- Allow public read/insert on pharmacies (anon key)
+-- Allow public read on pharmacies
 CREATE POLICY "Public can read pharmacies" ON pharmacies FOR SELECT USING (true);
-CREATE POLICY "Public can insert pharmacies" ON pharmacies FOR INSERT WITH CHECK (true);
-CREATE POLICY "Public can update own pharmacy" ON pharmacies FOR UPDATE USING (true);
+-- Authenticated users can insert their profile with their matching auth ID
+CREATE POLICY "Authenticated users can insert profile" ON pharmacies FOR INSERT WITH CHECK (auth.uid() = id);
+-- Authenticated pharmacies can update only their own profile
+CREATE POLICY "Pharmacy can update own profile" ON pharmacies FOR UPDATE USING (auth.uid() = id);
 
 -- Allow public read/insert on requests
 CREATE POLICY "Public can read requests" ON requests FOR SELECT USING (true);
