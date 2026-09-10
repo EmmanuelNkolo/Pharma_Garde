@@ -651,7 +651,24 @@
       btn.addEventListener('click', () => {
         $$('#tab-stats .filter-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        loadStats(btn.getAttribute('data-filter'));
+        const filter = btn.getAttribute('data-filter');
+        
+        // Handle custom date pickers visibility
+        $$('.stats-custom-dates input').forEach(input => input.style.display = 'none');
+        if (filter === 'today') $('#date-picker-day').style.display = 'inline-block';
+        if (filter === 'week') $('#date-picker-week').style.display = 'inline-block';
+        if (filter === 'month') $('#date-picker-month').style.display = 'inline-block';
+        if (filter === 'year') $('#date-picker-year').style.display = 'inline-block';
+        
+        loadStats(filter);
+      });
+    });
+    
+    // Custom Date Picker listeners
+    $$('.stats-custom-dates input').forEach(input => {
+      input.addEventListener('change', () => {
+        const filter = $('#tab-stats .filter-btn.active').getAttribute('data-filter');
+        loadStats(filter);
       });
     });
     
@@ -663,10 +680,54 @@
   function getDateRange(filter) {
     const now = new Date();
     let start = new Date();
-    if (filter === 'today') { start.setHours(0, 0, 0, 0); }
-    else if (filter === 'week') { start.setDate(now.getDate() - 7); start.setHours(0, 0, 0, 0); }
-    else if (filter === 'month') { start.setMonth(now.getMonth() - 1); start.setHours(0, 0, 0, 0); }
-    return start.toISOString();
+    let end = new Date();
+    
+    if (filter === 'today') {
+      const val = $('#date-picker-day').value;
+      if (val) start = new Date(val);
+      start.setHours(0, 0, 0, 0);
+      end = new Date(start);
+      end.setDate(end.getDate() + 1);
+    }
+    else if (filter === 'week') {
+      const val = $('#date-picker-week').value; // format: "2026-W37"
+      if (val) {
+        const [year, week] = val.split('-W');
+        start = new Date(year, 0, 1 + (week - 1) * 7);
+        const dayOffset = start.getDay() <= 4 ? 1 - start.getDay() : 8 - start.getDay();
+        start.setDate(start.getDate() + dayOffset - 1); // Start of week (Monday)
+      } else {
+        start.setDate(now.getDate() - 7);
+      }
+      start.setHours(0, 0, 0, 0);
+      end = new Date(start);
+      end.setDate(end.getDate() + 7);
+    }
+    else if (filter === 'month') {
+      const val = $('#date-picker-month').value; // format: "2026-09"
+      if (val) {
+        const [year, month] = val.split('-');
+        start = new Date(year, month - 1, 1);
+      } else {
+        start.setMonth(now.getMonth() - 1);
+      }
+      start.setHours(0, 0, 0, 0);
+      end = new Date(start);
+      end.setMonth(end.getMonth() + 1);
+    }
+    else if (filter === 'year') {
+      const val = $('#date-picker-year').value; // format: "2026"
+      if (val) {
+        start = new Date(val, 0, 1);
+      } else {
+        start = new Date(now.getFullYear(), 0, 1);
+      }
+      start.setHours(0, 0, 0, 0);
+      end = new Date(start);
+      end.setFullYear(end.getFullYear() + 1);
+    }
+    
+    return { start: start.toISOString(), end: end.toISOString() };
   }
 
   async function openStatDetail(type, filter) {
@@ -680,11 +741,11 @@
     panel.style.display = 'block';
     body.innerHTML = '<div style="text-align:center;padding:20px;"><div class="loading-dots" style="justify-content:center"><span></span><span></span><span></span></div></div>';
 
-    const startDate = getDateRange(filter);
+    const range = getDateRange(filter);
 
     try {
       if (type === 'requests') {
-        const { data } = await supabase.from('requests').select('*').gte('created_at', startDate).order('created_at', { ascending: false }).limit(100);
+        const { data } = await supabase.from('requests').select('*').gte('created_at', range.start).lt('created_at', range.end).order('created_at', { ascending: false }).limit(100);
         const filtered = (data || []).filter(r => {
           if (!currentPharmacy || !r.user_lat || !r.user_lng) return false;
           return haversine(currentPharmacy.lat, currentPharmacy.lng, r.user_lat, r.user_lng) <= (r.radius || 5);
@@ -697,7 +758,7 @@
           }).join('');
 
       } else if (type === 'responded') {
-        const { data } = await supabase.from('responses').select('*, request:requests(created_at)').eq('pharmacy_id', currentPharmacy.id).gte('created_at', startDate).order('created_at', { ascending: false }).limit(200);
+        const { data } = await supabase.from('responses').select('*, request:requests(created_at)').eq('pharmacy_id', currentPharmacy.id).gte('created_at', range.start).lt('created_at', range.end).order('created_at', { ascending: false }).limit(200);
         if (!data || data.length === 0) { body.innerHTML = '<p style="color:var(--dark-400);text-align:center;padding:20px;">Aucune réponse</p>'; return; }
 
         // Aggregate per medicine
@@ -750,10 +811,16 @@
           }).join('') + '</div>';
 
       } else if (type === 'pending') {
-        // Pending = active requests not yet responded to (within 1h window)
-        const oneHourAgo = new Date(Date.now() - 3600000).toISOString();
-        body.innerHTML = activeRequests.length === 0 ? '<p style="color:var(--dark-400);text-align:center;padding:20px;">Aucune demande en attente</p>' :
-          activeRequests.map(r => {
+        const { data } = await supabase.from('requests').select('*').eq('status', 'pending').gte('created_at', range.start).lt('created_at', range.end).order('created_at', { ascending: false });
+        if (!data || data.length === 0) { body.innerHTML = '<p style="color:var(--dark-400);text-align:center;padding:20px;">Aucune demande en attente</p>'; return; }
+
+        const filtered = (data || []).filter(r => {
+          if (!currentPharmacy || !r.user_lat || !r.user_lng) return false;
+          return haversine(currentPharmacy.lat, currentPharmacy.lng, r.user_lat, r.user_lng) <= (r.radius || 5);
+        });
+
+        body.innerHTML = filtered.length === 0 ? '<p style="color:var(--dark-400);text-align:center;padding:20px;">Aucune demande en attente</p>' :
+          filtered.map(r => {
             const created = new Date(r.created_at);
             const pendingExpires = new Date(created.getTime() + 3600000);
             const remaining = Math.max(0, Math.floor((pendingExpires - new Date()) / 60000));
@@ -788,10 +855,10 @@
     if (!currentPharmacy) return;
     const container = $('#history-list');
     if (!container) return;
-    const startDate = getDateRange(filter || 'today');
+    const range = getDateRange(filter || 'today');
 
     try {
-      const { data, error } = await supabase.from('responses').select('*').eq('pharmacy_id', currentPharmacy.id).gte('created_at', startDate).order('created_at', { ascending: false }).limit(50);
+      const { data, error } = await supabase.from('responses').select('*').eq('pharmacy_id', currentPharmacy.id).gte('created_at', range.start).lt('created_at', range.end).order('created_at', { ascending: false }).limit(50);
       if (error) throw error;
       if (!data || data.length === 0) {
         container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-text">Aucun historique pour cette période.</div></div>';
@@ -819,24 +886,97 @@
   // ═══════════════════════════════════════════════════════
   //  STATISTICS
   // ═══════════════════════════════════════════════════════
+  let statsChartInstance = null;
+
   async function loadStats(filter) {
     if (!currentPharmacy) return;
-    const startDate = getDateRange(filter || 'today');
+    const range = getDateRange(filter || 'today');
 
     try {
-      const { count: totalResp } = await supabase.from('responses').select('*', { count: 'exact', head: true }).eq('pharmacy_id', currentPharmacy.id).gte('created_at', startDate);
-      const { count: ignoredCount } = await supabase.from('responses').select('*', { count: 'exact', head: true }).eq('pharmacy_id', currentPharmacy.id).eq('ignored', true).gte('created_at', startDate);
-      const { count: totalReq } = await supabase.from('requests').select('*', { count: 'exact', head: true }).gte('created_at', startDate);
+      // 1. Fetch responses by this pharmacy in the given range
+      const { data: responsesData } = await supabase.from('responses')
+        .select('*')
+        .eq('pharmacy_id', currentPharmacy.id)
+        .gte('created_at', range.start)
+        .lt('created_at', range.end);
+        
+      const responses = responsesData || [];
+      const totalResp = responses.filter(r => !r.ignored).length;
+      const ignoredCount = responses.filter(r => r.ignored).length;
+      
+      let positiveCount = 0;
+      let negativeCount = 0;
+      responses.filter(r => !r.ignored).forEach(r => {
+        let hasStock = false;
+        if (r.medicines_status) {
+          Object.values(r.medicines_status).forEach(status => {
+            if (status.startsWith('en_stock')) hasStock = true;
+          });
+        }
+        if (hasStock) positiveCount++;
+        else negativeCount++;
+      });
 
-      const el1 = $('#stats-total-requests'); if (el1) el1.textContent = totalReq || 0;
-      const el2 = $('#stats-total-responses'); if (el2) el2.textContent = totalResp || 0;
-      const el3 = $('#stats-response-rate'); if (el3) el3.textContent = totalReq > 0 ? Math.round(((totalResp || 0) / totalReq) * 100) + '%' : '0%';
-      const el4 = $('#stats-ignored'); if (el4) el4.textContent = ignoredCount || 0;
+      // 2. Fetch pending requests (active, not responded, in the given range)
+      const { data: requestsData } = await supabase.from('requests')
+        .select('*')
+        .eq('status', 'pending')
+        .gte('created_at', range.start)
+        .lt('created_at', range.end);
+        
+      const pendingRequests = (requestsData || []).filter(r => {
+        if (!r.user_lat || !r.user_lng) return false;
+        return haversine(currentPharmacy.lat, currentPharmacy.lng, r.user_lat, r.user_lng) <= (r.radius || 5);
+      });
+      const pendingCount = pendingRequests.length;
 
-      // Top medicines
-      const { data: responses } = await supabase.from('responses').select('medicines_status').eq('pharmacy_id', currentPharmacy.id).gte('created_at', startDate).limit(200);
+      // 3. True Total Demandes = Responses (incl ignored) + Pending
+      const totalReq = responses.length + pendingCount;
+
+      const el1 = $('#stats-total-requests'); if (el1) el1.textContent = totalReq;
+      const el2 = $('#stats-total-responses'); if (el2) el2.textContent = totalResp;
+      const el3 = $('#stats-response-rate'); if (el3) el3.textContent = totalReq > 0 ? Math.round(((totalResp + ignoredCount) / totalReq) * 100) + '%' : '0%';
+      const el4 = $('#stats-ignored'); if (el4) el4.textContent = ignoredCount;
+
+      // 4. Update Chart.js Doughnut
+      const ctx = $('#stats-chart');
+      if (ctx && window.Chart) {
+        if (statsChartInstance) statsChartInstance.destroy();
+        
+        const hasData = positiveCount > 0 || negativeCount > 0 || ignoredCount > 0;
+        const dataVals = hasData ? [positiveCount, negativeCount, ignoredCount] : [1];
+        const bgColors = hasData ? ['#10b981', '#f59e0b', '#ef4444'] : ['rgba(255,255,255,0.1)'];
+        const labels = hasData ? ['Positives', 'Négatives', 'Ignorées'] : ['Aucune donnée'];
+        
+        statsChartInstance = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: labels,
+            datasets: [{
+              data: dataVals,
+              backgroundColor: bgColors,
+              borderWidth: 0,
+              hoverOffset: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '75%',
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: { color: '#94a3b8', font: { family: 'Inter', size: 12 }, padding: 15 }
+              },
+              tooltip: { enabled: hasData }
+            }
+          }
+        });
+      }
+
+      // 5. Top medicines
       const medCounts = {};
-      (responses || []).forEach(r => {
+      responses.forEach(r => {
         if (r.medicines_status) {
           Object.keys(r.medicines_status).forEach(med => { medCounts[med] = (medCounts[med] || 0) + 1; });
         }
@@ -886,11 +1026,24 @@
         ${statsGrid}
       </div>
       
+      <h3 style="color:#10b981; margin-bottom: 15px;">📊 Répartition des réponses</h3>
+      <div style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; margin-bottom: 30px; text-align: center;">
+        <img src="" id="pdf-chart-img" style="max-height: 250px; display: inline-block;">
+      </div>
+      
       <h3 style="color:#10b981; margin-bottom: 15px;">🏆 Top Médicaments demandés</h3>
       <div style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px;">
         ${topMeds}
       </div>
     `;
+    
+    // Convert canvas to image
+    const canvas = document.getElementById('stats-chart');
+    if (canvas) {
+      const imgData = canvas.toDataURL('image/png');
+      const imgEl = reportContainer.querySelector('#pdf-chart-img');
+      if (imgEl) imgEl.src = imgData;
+    }
     
     const opt = {
       margin:       10,
