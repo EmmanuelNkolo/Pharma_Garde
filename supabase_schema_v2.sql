@@ -45,3 +45,22 @@ CREATE POLICY "Pharmacy can delete own profile" ON pharmacies FOR DELETE USING (
 
 -- 8. Allow public update on responses (for ignored flag)
 CREATE POLICY "Public can update responses" ON responses FOR UPDATE USING (true);
+
+-- 9. Create payments table (for Campay Webhooks)
+CREATE TABLE IF NOT EXISTS payments (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  reference TEXT UNIQUE NOT NULL,
+  status TEXT NOT NULL,
+  amount NUMERIC,
+  operator TEXT,
+  metadata JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 10. Enable Realtime & RLS for payments
+ALTER PUBLICATION supabase_realtime ADD TABLE payments;
+ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public can insert payments" ON payments FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public can update payments" ON payments FOR UPDATE USING (true);
+CREATE POLICY "Public can read payments" ON payments FOR SELECT USING (true);
