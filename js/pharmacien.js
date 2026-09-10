@@ -233,15 +233,29 @@
         authUserId = authData.user.id;
       }
 
-      // Use real GPS if available, otherwise approximate from city
+      // Use real GPS if available, otherwise fetch from Nominatim API
       let lat, lng;
       if (latVal && lngVal) {
         lat = parseFloat(latVal);
         lng = parseFloat(lngVal);
       } else {
-        const cityCoords = getCityCoords(city);
-        lat = cityCoords.lat + (Math.random() - 0.5) * 0.02;
-        lng = cityCoords.lng + (Math.random() - 0.5) * 0.02;
+        try {
+          // Attempt to geocode using Quarter + City + Cameroon
+          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(quarter + ', ' + city + ', Cameroon')}`);
+          const geoData = await res.json();
+          if (geoData && geoData.length > 0) {
+            lat = parseFloat(geoData[0].lat);
+            lng = parseFloat(geoData[0].lon);
+          } else {
+            // Fallback to Douala if totally unknown
+            lat = 4.0511 + (Math.random() - 0.5) * 0.05;
+            lng = 9.7679 + (Math.random() - 0.5) * 0.05;
+          }
+        } catch(e) {
+          console.error("Geocoding failed", e);
+          lat = 4.0511;
+          lng = 9.7679;
+        }
       }
 
       const services = [];
