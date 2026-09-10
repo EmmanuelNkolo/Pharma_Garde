@@ -806,6 +806,19 @@ const App = (() => {
           renderPatientResponses();
           showToast('🔔 Nouvelle réponse d\'une pharmacie !', 'info');
         })
+        .on('postgres_changes', {
+          event: 'UPDATE', schema: 'public', table: 'responses',
+          filter: `request_id=eq.${currentRequestId}`
+        }, (payload) => {
+          const updatedResp = payload.new;
+          const idx = realResponses.findIndex(r => r.id === updatedResp.id);
+          if (idx !== -1) {
+            realResponses[idx] = updatedResp;
+            renderPatientResponses();
+            // Optionally, show a toast if something went out of stock
+            showToast('⚠️ Une pharmacie a mis à jour sa réponse.', 'warning');
+          }
+        })
         .subscribe();
 
     } catch(e) {

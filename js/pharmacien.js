@@ -836,9 +836,14 @@
           const expiresAt = new Date(r.expires_at);
           const remaining = Math.max(0, Math.floor((expiresAt - new Date()) / 60000));
           const meds = Array.isArray(r.medicines) ? r.medicines.join(', ') : (r.medicines || '');
-          return `<div class="stat-detail-item reservation-item">
-            <div><strong>💊 ${meds}</strong><br><small>📱 ${r.patient_phone || 'Anonyme'}</small></div>
-            <div class="reservation-countdown ${remaining < 10 ? 'urgent' : ''}">⏱️ ${remaining} min</div>
+          return `<div class="stat-detail-item reservation-item" id="res-${r.id}" style="flex-direction: column; align-items: stretch; gap: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div><strong>💊 ${meds}</strong><br><small>📱 ${r.patient_phone || 'Anonyme'}</small></div>
+              <div class="reservation-countdown ${remaining < 10 ? 'urgent' : ''}" data-expires="${r.expires_at}" data-resid="${r.id}" data-reqid="${r.request_id}">⏱️ ${remaining} min</div>
+            </div>
+            <button class="btn resp-btn-danger" style="width: 100%; font-size: 13px; padding: 6px;" onclick="PharmDash.cancelReservation('${r.id}', '${r.request_id}')">
+              ❌ Annuler la réservation
+            </button>
           </div>`;
         }).join('');
       }
@@ -1085,8 +1090,51 @@
   }
 
   // ═══════════════════════════════════════════════════════
-  //  EXPIRATION CHECKER (runs every 30s)
+  //  EXPIRATION & CANCELLATION
   // ═══════════════════════════════════════════════════════
+  async function cancelReservation(reservationId, requestId, isAutoExpire = false) {
+    if (!currentPharmacy) return;
+    try {
+      const status = isAutoExpire ? 'expired' : 'cancelled';
+      // 1. Update Reservation status
+      await supabase.from('reservations').update({ status }).eq('id', reservationId);
+      
+      // 2. Fetch the corresponding response to update medicines_status
+      const { data: responseData } = await supabase.from('responses')
+        .select('*')
+        .eq('request_id', requestId)
+        .eq('pharmacy_id', currentPharmacy.id)
+        .single();
+        
+      if (responseData && responseData.medicines_status) {
+        // Change all 'en_stock*' statuses to 'rupture'
+        const newStatus = { ...responseData.medicines_status };
+        let updated = false;
+        Object.keys(newStatus).forEach(med => {
+          if (newStatus[med].startsWith('en_stock')) {
+            newStatus[med] = 'rupture';
+            updated = true;
+          }
+        });
+        
+        if (updated) {
+          await supabase.from('responses').update({ medicines_status: newStatus }).eq('id', responseData.id);
+        }
+      }
+      
+      // Remove from UI
+      const resEl = document.getElementById(`res-${reservationId}`);
+      if (resEl) resEl.remove();
+      
+      updateStatCounters();
+      if (!isAutoExpire) showToast('✅ Réservation annulée', 'info');
+      
+    } catch (e) {
+      console.error('Cancel error:', e);
+      if (!isAutoExpire) showToast('❌ Erreur lors de l\'annulation', 'error');
+    }
+  }
+
   function startExpirationChecker() {
     setInterval(() => {
       const now = new Date();
@@ -1102,14 +1150,32 @@
         updateStatCounters();
       }
 
-      // Update countdown displays
+      // Update countdown displays & auto-expire reservations
+      document.querySelectorAll('.reservation-countdown[data-expires]').forEach(el => {
+        const exp = new Date(el.getAttribute('data-expires'));
+        const rem = Math.floor((exp - now) / 60000);
+        
+        if (rem <= 0) {
+          // Expired !
+          const resId = el.getAttribute('data-resid');
+          const reqId = el.getAttribute('data-reqid');
+          if (resId && reqId) {
+            cancelReservation(resId, reqId, true);
+          }
+        } else {
+          el.textContent = `⏱️ ${rem} min`;
+          if (rem < 15) el.classList.add('urgent');
+        }
+      });
+      
+      // Also update request countdowns
       document.querySelectorAll('.request-countdown[data-expires]').forEach(el => {
         const exp = new Date(el.getAttribute('data-expires'));
         const rem = Math.max(0, Math.floor((exp - now) / 60000));
         el.textContent = `⏱️ ${rem} min`;
         if (rem < 15) el.classList.add('urgent');
       });
-    }, 30000);
+    }, 15000);
   }
 
   // ═══════════════════════════════════════════════════════
@@ -1224,6 +1290,7 @@
   window.PharmDash = {
     prepareResponse,
     confirmAction,
+    cancelReservation,
   };
 
   document.addEventListener('DOMContentLoaded', init);
