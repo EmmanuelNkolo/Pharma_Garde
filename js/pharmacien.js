@@ -654,6 +654,10 @@
         loadStats(btn.getAttribute('data-filter'));
       });
     });
+    
+    // PDF Report
+    const btnPdf = $('#btn-download-pdf');
+    if (btnPdf) btnPdf.addEventListener('click', generatePDFReport);
   }
 
   function getDateRange(filter) {
@@ -693,7 +697,7 @@
           }).join('');
 
       } else if (type === 'responded') {
-        const { data } = await supabase.from('responses').select('*').eq('pharmacy_id', currentPharmacy.id).gte('created_at', startDate).order('created_at', { ascending: false }).limit(100);
+        const { data } = await supabase.from('responses').select('*, request:requests(created_at)').eq('pharmacy_id', currentPharmacy.id).gte('created_at', startDate).order('created_at', { ascending: false }).limit(200);
         if (!data || data.length === 0) { body.innerHTML = '<p style="color:var(--dark-400);text-align:center;padding:20px;">Aucune réponse</p>'; return; }
 
         // Aggregate per medicine
@@ -701,33 +705,48 @@
         data.forEach(r => {
           if (r.medicines_status) {
             Object.entries(r.medicines_status).forEach(([med, status]) => {
-              if (!medStats[med]) medStats[med] = { total: 0, inStock: 0, outOfStock: 0, ignored: 0 };
+              if (!medStats[med]) medStats[med] = { total: 0, inStock: 0, outOfStock: 0, ignored: 0, history: [] };
               medStats[med].total++;
               if (status.startsWith('en_stock')) medStats[med].inStock++;
               else if (status === 'rupture') medStats[med].outOfStock++;
+              
+              // Push history entry
+              medStats[med].history.push({
+                requestTime: r.request?.created_at || r.created_at,
+                responseTime: r.responded_at || r.created_at,
+                status: status.startsWith('en_stock') ? 'ACCEPTED' : 'REFUSED',
+                ignored: r.ignored || false
+              });
             });
-          }
-          if (r.ignored) {
-            const meds = r.medicines_status ? Object.keys(r.medicines_status) : [];
-            meds.forEach(med => { if (medStats[med]) medStats[med].ignored++; });
           }
         });
 
-        body.innerHTML = '<div class="responded-stats-grid">' +
-          Object.entries(medStats).map(([med, s]) =>
-            `<div class="responded-med-card">
-              <div class="responded-med-name">💊 ${med}</div>
-              <div class="responded-med-stats">
+        body.innerHTML = '<div class="responded-stats-list" style="display:flex; flex-direction:column; gap:16px;">' +
+          Object.entries(medStats).map(([med, s]) => {
+            const historyHtml = s.history.map(h => {
+              const reqTime = new Date(h.requestTime).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+              const respTime = new Date(h.responseTime).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+              const badge = h.ignored ? '<span class="badge badge-muted">Ignoré</span>' : 
+                            h.status === 'ACCEPTED' ? '<span class="badge badge-stock">✅ ACCEPTED</span>' : '<span class="badge badge-rupture">❌ REFUSED</span>';
+              return `<div style="display:flex; justify-content:space-between; align-items:center; padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; margin-top: 6px; font-size: 13px;">
+                        <div style="color: var(--dark-300);">Demande: ${reqTime} <br> Réponse: ${respTime}</div>
+                        <div>${badge}</div>
+                      </div>`;
+            }).join('');
+            
+            return `
+            <div class="responded-med-card" style="background: var(--dark-800); border: 1px solid var(--glass-border); border-radius: 12px; padding: 16px;">
+              <div class="responded-med-name" style="font-weight: 600; margin-bottom: 8px;">💊 ${med}</div>
+              <div class="responded-med-stats" style="display:flex; gap:12px; margin-bottom: 12px; font-size: 14px;">
                 <span class="responded-stat">📊 ${s.total}</span>
                 <span class="responded-stat text-success">✅ ${s.inStock}</span>
                 <span class="responded-stat text-danger">❌ ${s.outOfStock}</span>
                 <span class="responded-stat text-muted">⏭️ ${s.ignored}</span>
               </div>
-            </div>`
-          ).join('') + '</div>' +
-          '<div style="margin-top:12px;">' + data.slice(0, 20).map(r => {
-            const time = new Date(r.responded_at || r.created_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-            return `<div class="stat-detail-item"><div><small>🕐 ${time}</small></div><span class="badge badge-${r.status === 'accepted' ? 'stock' : 'rupture'}">${r.status === 'accepted' ? '✅' : '❌'} ${r.status}</span></div>`;
+              <div class="responded-med-history">
+                ${historyHtml}
+              </div>
+            </div>`;
           }).join('') + '</div>';
 
       } else if (type === 'pending') {
@@ -837,6 +856,54 @@
     container.innerHTML = topMeds.map(([name, count]) => `
       <div class="med-bar"><div class="med-bar-label">${name}</div><div class="med-bar-track"><div class="med-bar-fill" style="width:${(count / maxCount) * 100}%">${count}</div></div></div>
     `).join('');
+  }
+
+  function generatePDFReport() {
+    if (!window.html2pdf) {
+      showToast('Erreur: PDF library non chargée', 'error');
+      return;
+    }
+    
+    // Create a temporary container for the report
+    const reportContainer = document.createElement('div');
+    reportContainer.style.padding = '20px';
+    reportContainer.style.background = '#1a1f2b'; // match dark theme
+    reportContainer.style.color = '#e2e8f0';
+    
+    const filter = $('#tab-stats .filter-btn.active')?.textContent || 'Période';
+    const dateStr = new Date().toLocaleString('fr-FR');
+    const pharmacyName = currentPharmacy?.name || 'Pharmacie';
+    
+    // Copy the stats grid and top meds
+    const statsGrid = document.querySelector('.stats-grid')?.outerHTML || '';
+    const topMeds = document.querySelector('.top-meds')?.outerHTML || '';
+    
+    reportContainer.innerHTML = `
+      <h1 style="color:#10b981; margin-bottom: 5px;">${pharmacyName}</h1>
+      <h3 style="color:#94a3b8; margin-bottom: 20px;">Rapport Statistique - ${filter} (Généré le ${dateStr})</h3>
+      
+      <div style="margin-bottom: 30px;">
+        ${statsGrid}
+      </div>
+      
+      <h3 style="color:#10b981; margin-bottom: 15px;">🏆 Top Médicaments demandés</h3>
+      <div style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px;">
+        ${topMeds}
+      </div>
+    `;
+    
+    const opt = {
+      margin:       10,
+      filename:     `Rapport_Stats_${pharmacyName.replace(/\s+/g, '_')}_${filter}.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2, useCORS: true },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+    
+    showToast('Génération du PDF en cours...', 'success');
+    html2pdf().set(opt).from(reportContainer).save().then(() => {
+      showToast('PDF téléchargé avec succès !', 'success');
+    });
   }
 
   // ═══════════════════════════════════════════════════════
