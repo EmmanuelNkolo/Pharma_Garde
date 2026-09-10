@@ -92,10 +92,50 @@ const Payment = (() => {
     return hasActiveSession() ? 0 : SEARCH_COST;
   }
 
+  // ── CamPay Configuration ────────────────────────────────
+  // ATTENTION: Pour la production, ces appels doivent être faits depuis un serveur (ex: Supabase Edge Functions)
+  // pour ne pas exposer vos identifiants (username/password).
+  // Pour l'instant, c'est implémenté côté client pour que ça fonctionne.
+  const CAMPAY_ENV = 'demo'; // 'demo' ou 'production'
+  const CAMPAY_BASE_URL = CAMPAY_ENV === 'demo' ? 'https://demo.campay.net/api' : 'https://www.campay.net/api';
+  
+  // REMPLACEZ PAR VOS CLÉS CAMPAY
+  const CAMPAY_USERNAME = 'VOTRE_USERNAME_CAMPAY'; 
+  const CAMPAY_PASSWORD = 'VOTRE_PASSWORD_CAMPAY';
+
+  let campayToken = null;
+  let tokenExpiresAt = null;
+
+  async function getCampayToken() {
+    // Réutiliser le token s'il est encore valide (on garde 5 min de marge)
+    if (campayToken && tokenExpiresAt && Date.now() < tokenExpiresAt - 300000) {
+      return campayToken;
+    }
+
+    try {
+      const response = await fetch(`${CAMPAY_BASE_URL}/token/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: CAMPAY_USERNAME,
+          password: CAMPAY_PASSWORD
+        })
+      });
+
+      if (!response.ok) throw new Error('Échec authentification CamPay');
+      const data = await response.json();
+      campayToken = data.token;
+      // Le token CamPay expire généralement après un certain temps (ex: 3600s). On prend 1h par défaut.
+      tokenExpiresAt = Date.now() + (data.expires_in ? data.expires_in * 1000 : 3600 * 1000);
+      return campayToken;
+    } catch (err) {
+      console.error('Erreur Token CamPay:', err);
+      return null;
+    }
+  }
+
   /**
    * Process a payment via CamPay / Mobile Money
-   * In production, this calls a Supabase Edge Function
-   * The Edge Function handles the actual API call with the merchant credentials
    */
   async function processPayment(phone, method, amount) {
     const validation = validatePhone(phone, method);
@@ -113,82 +153,99 @@ const Payment = (() => {
       };
     }
 
-    // ── Production path: Supabase Edge Function ──
-    if (PAYMENT_ENDPOINT) {
-      try {
-        const response = await fetch(PAYMENT_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            phone: validation.cleaned,
-            amount: amount,
-            method: method, // 'momo' or 'om'
-            description: 'Pharma-Garde - Recherche Express',
-          }),
-        });
-
-        const result = await response.json();
-        
-        if (result.success) {
-          createSession(result.transactionId);
-          return {
-            success: true,
-            transactionId: result.transactionId,
-            message: 'Paiement confirmé',
-            amount: amount
-          };
-        } else {
-          return {
-            success: false,
-            error: result.error || 'Paiement refusé. Veuillez réessayer.',
-          };
-        }
-      } catch (error) {
-        console.error('Payment API error:', error);
-        return {
-          success: false,
-          error: 'Erreur de connexion. Vérifiez votre connexion internet.',
-        };
-      }
+    // Si les clés ne sont pas configurées, on utilise la simulation (utile pour la démo)
+    if (CAMPAY_USERNAME === 'VOTRE_USERNAME_CAMPAY') {
+      return new Promise((resolve) => {
+        const operatorName = method === 'momo' ? 'MTN MoMo' : 'Orange Money';
+        console.log(`[DEV] Simulation paiement ${operatorName}: ${amount} FCFA → ${validation.cleaned}`);
+        setTimeout(() => {
+          const txId = 'TX-' + Date.now();
+          createSession(txId);
+          resolve({ success: true, transactionId: txId, message: `Paiement ${operatorName} simulé avec succès`, amount: amount });
+        }, 1500);
+      });
     }
 
-    // ── Development path: Simulation ──
-    // This simulates the payment flow for development/testing
-    return new Promise((resolve) => {
-      const operatorName = method === 'momo' ? 'MTN MoMo' : 'Orange Money';
-      
-      console.log(`[DEV] Simulation paiement ${operatorName}: ${amount} FCFA → ${validation.cleaned}`);
-      console.log(`[DEV] Merchant account: ***HIDDEN*** (configured server-side)`);
+    // ── VÉRITABLE INTÉGRATION CAMPAY ──
+    try {
+      const token = await getCampayToken();
+      if (!token) return { success: false, error: 'Impossible de contacter le service de paiement (Auth).' };
 
-      // Simulate processing delay
-      setTimeout(() => {
-        const txId = 'TX-' + Date.now() + '-' + Math.random().toString(36).substr(2, 8);
+      const externalRef = 'REQ-' + Date.now();
+      // On ajoute 237 au numéro nettoyé (Campay requiert souvent l'indicatif sans +)
+      const phoneWithCode = validation.cleaned.startsWith('237') ? validation.cleaned : '237' + validation.cleaned;
+
+      const response = await fetch(`${CAMPAY_BASE_URL}/collect/`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Token ${token}`
+        },
+        body: JSON.stringify({
+          amount: amount.toString(),
+          currency: 'XAF',
+          from: phoneWithCode,
+          description: 'Pharma-Garde - Recherche Express',
+          external_reference: externalRef
+        }),
+      });
+
+      const result = await response.json();
+      
+      // La requête collect renvoie un reference qu'on utilise pour vérifier le statut
+      if (response.ok && result.reference) {
+        // Optionnel : On pourrait boucler pour attendre la confirmation via /transaction/
+        // Mais pour la simplicité immédiate, on considère la requête initiée.
+        // Le client doit valider sur son téléphone.
         
-        createSession(txId);
+        // ATTENTE ACTIVE DU PAIEMENT (Polling)
+        let isPaid = false;
+        let attempts = 0;
+        let finalMessage = 'Paiement initié. Veuillez valider sur votre téléphone.';
         
-        resolve({
-          success: true,
-          transactionId: txId,
-          message: `Paiement ${operatorName} simulé avec succès`,
-          amount: amount,
-          simulated: true
-        });
-      }, 2000);
-    });
+        while (attempts < 12) { // Attend jusqu'à ~60 secondes
+          await new Promise(r => setTimeout(r, 5000));
+          attempts++;
+          
+          const statusCheck = await checkPaymentStatus(result.reference, token);
+          if (statusCheck.status === 'SUCCESSFUL') {
+            isPaid = true;
+            finalMessage = 'Paiement confirmé avec succès.';
+            break;
+          } else if (statusCheck.status === 'FAILED') {
+            return { success: false, error: 'Le paiement a échoué ou a été annulé.' };
+          }
+        }
+
+        if (isPaid) {
+          createSession(result.reference);
+          return { success: true, transactionId: result.reference, message: finalMessage, amount: amount };
+        } else {
+          return { success: false, error: 'Temps d\'attente dépassé. Si vous avez payé, réessayez la recherche.' };
+        }
+      } else {
+        return { success: false, error: result.message || 'Paiement refusé par l\'opérateur.' };
+      }
+    } catch (error) {
+      console.error('Payment API error:', error);
+      return { success: false, error: 'Erreur de connexion. Vérifiez votre connexion internet.' };
+    }
   }
 
   /**
-   * Check payment status (for async payment confirmations)
+   * Check payment status on CamPay
    */
-  async function checkPaymentStatus(transactionId) {
-    if (!PAYMENT_ENDPOINT) {
-      // Dev mode
-      return { status: 'SUCCESS', transactionId };
-    }
-
+  async function checkPaymentStatus(reference, token) {
     try {
-      const response = await fetch(`${PAYMENT_ENDPOINT}/status/${transactionId}`);
-      return await response.json();
+      const response = await fetch(`${CAMPAY_BASE_URL}/transaction/${reference}/`, {
+        method: 'GET',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Token ${token}`
+        }
+      });
+      const data = await response.json();
+      return { status: data.status, data: data };
     } catch (error) {
       return { status: 'ERROR', error: error.message };
     }
