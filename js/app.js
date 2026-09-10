@@ -310,12 +310,42 @@ const App = (() => {
   }
 
   // ── Pharmacy Data ──────────────────────────────────────
-  function updatePharmacies() {
+  async function updatePharmacies() {
     const pos = Geolocation.getPosition();
     if (!pos) return;
 
-    // Get all local pharmacies
+    // Get local hardcoded pharmacies
     let allPharmacies = typeof LOCAL_PHARMACIES !== 'undefined' ? LOCAL_PHARMACIES.slice() : [];
+
+    // Fetch registered pharmacies from Supabase
+    try {
+      if (window.supabase) {
+        const { data, error } = await supabase.from('pharmacies').select('*');
+        if (!error && data) {
+          data.forEach(dbPharm => {
+            // Avoid duplicates by name
+            const exists = allPharmacies.find(p => p.name.toLowerCase().trim() === dbPharm.name.toLowerCase().trim());
+            if (!exists) {
+              allPharmacies.push({
+                id: dbPharm.id,
+                name: dbPharm.name,
+                address: dbPharm.address,
+                phone: dbPharm.phone,
+                whatsapp: dbPharm.whatsapp,
+                lat: dbPharm.lat,
+                lng: dbPharm.lng,
+                isOpen: dbPharm.is_open,
+                isOnDuty: dbPharm.is_on_duty,
+                hours: dbPharm.opening_hours || '08h00 - 20h00',
+                isRegistered: true
+              });
+            }
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching registered pharmacies:', err);
+    }
 
     // Add distance to each
     allPharmacies = allPharmacies.map(p => {
