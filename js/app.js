@@ -1338,7 +1338,8 @@ const App = (() => {
     addMedicine,
     removeMedicine,
     showToast,
-    reservePharmacy,
+    toggleReserveMedicine,
+    confirmPharmacyReservations,
   };
 
   // ── Start ──────────────────────────────────────────────
