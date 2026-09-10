@@ -788,3 +788,581 @@ body {
     grid-template-columns: repeat(4, 1fr);
   }
 }
+
+/* ═══════════════════════════════════════════════════════
+   V2.0 — NEW STYLES
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Stat Cards Clickable ─────────────────────────────── */
+.stat-card {
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+.stat-card:active {
+  transform: scale(0.97);
+}
+
+/* ── Stat Detail Panel ────────────────────────────────── */
+.stat-detail-panel {
+  background: var(--dark-800);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  margin: 0 var(--space-4) var(--space-4);
+  overflow: hidden;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.stat-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(255,255,255,0.03);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.stat-detail-header h3 {
+  font-size: 15px;
+  font-weight: 700;
+  flex: 1;
+}
+
+.stat-detail-filters {
+  display: flex;
+  gap: 6px;
+}
+
+.stat-detail-close {
+  background: rgba(255,255,255,0.1);
+  border: none;
+  color: var(--dark-300);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.stat-detail-close:hover { background: rgba(255,255,255,0.2); }
+
+.stat-detail-body {
+  padding: 16px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.stat-detail-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  gap: 12px;
+}
+.stat-detail-item:last-child { border-bottom: none; }
+
+/* ── Filter Buttons ───────────────────────────────────── */
+.filter-btn {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid transparent;
+  color: var(--dark-300);
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.filter-btn.active {
+  background: rgba(16,185,129,0.15);
+  color: var(--green-400);
+  border-color: rgba(16,185,129,0.3);
+}
+.filter-btn:hover:not(.active) {
+  background: rgba(255,255,255,0.1);
+}
+
+.history-filters, .stats-filters {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  justify-content: center;
+}
+
+/* ── Request Cards (Dashboard) ────────────────────────── */
+.request-card {
+  background: var(--dark-800);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 12px;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.request-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.request-patient-info {
+  font-size: 13px;
+  color: var(--dark-300);
+}
+
+.request-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--dark-400);
+}
+
+.request-countdown {
+  font-weight: 600;
+}
+.request-countdown.urgent {
+  color: var(--red-400);
+  animation: pulse 1.5s ease infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.request-medicines-list {
+  margin-bottom: 12px;
+}
+
+/* ── Medicine Response Row ────────────────────────────── */
+.med-response-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  flex-wrap: wrap;
+}
+.med-response-row:last-child { border-bottom: none; }
+
+.med-name {
+  font-size: 14px;
+  font-weight: 600;
+  flex: 1;
+  min-width: 120px;
+}
+
+.med-btn-group {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.resp-btn {
+  background: rgba(16,185,129,0.12);
+  border: 1px solid rgba(16,185,129,0.25);
+  color: var(--green-400);
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.resp-btn:hover {
+  background: rgba(16,185,129,0.25);
+  transform: scale(1.02);
+}
+.resp-btn.active {
+  background: var(--green-600);
+  color: white;
+  border-color: var(--green-500);
+  box-shadow: 0 2px 8px rgba(16,185,129,0.3);
+}
+.resp-btn-danger {
+  background: rgba(239,68,68,0.12);
+  border-color: rgba(239,68,68,0.25);
+  color: var(--red-400);
+}
+.resp-btn-danger:hover {
+  background: rgba(239,68,68,0.25);
+}
+.resp-btn-danger.active {
+  background: var(--red-600);
+  color: white;
+  border-color: var(--red-500);
+  box-shadow: 0 2px 8px rgba(239,68,68,0.3);
+}
+
+/* ── Confirm Response Modal ───────────────────────────── */
+.confirm-response-panel {
+  position: relative;
+  background: var(--dark-800);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 420px;
+  width: 90%;
+  z-index: 10001;
+}
+.confirm-response-panel h3 {
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.confirm-med-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.confirm-med-row:last-child { border-bottom: none; }
+
+.confirm-med-name {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.confirm-badge {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-weight: 600;
+}
+.confirm-badge-success {
+  background: rgba(16,185,129,0.15);
+  color: var(--green-400);
+}
+.confirm-badge-warning {
+  background: rgba(245,158,11,0.15);
+  color: var(--gold-400);
+}
+.confirm-badge-danger {
+  background: rgba(239,68,68,0.15);
+  color: var(--red-400);
+}
+
+/* ── History Items ────────────────────────────────────── */
+.history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.history-item:last-child { border-bottom: none; }
+
+.history-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.history-item-medicine {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-item-meta {
+  font-size: 11px;
+  color: var(--dark-400);
+}
+
+/* ── Badges ───────────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.badge-stock {
+  background: rgba(16,185,129,0.15);
+  color: var(--green-400);
+}
+.badge-rupture {
+  background: rgba(239,68,68,0.15);
+  color: var(--red-400);
+}
+.badge-warning {
+  background: rgba(245,158,11,0.15);
+  color: var(--gold-400);
+}
+.badge-muted {
+  background: rgba(255,255,255,0.06);
+  color: var(--dark-400);
+}
+.badge-success {
+  background: rgba(16,185,129,0.15);
+  color: var(--green-400);
+}
+
+/* ── Responded Stats ──────────────────────────────────── */
+.responded-stats-grid {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.responded-med-card {
+  background: rgba(255,255,255,0.03);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.responded-med-name {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.responded-med-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.responded-stat { opacity: 0.9; }
+.text-success { color: var(--green-400); }
+.text-danger { color: var(--red-400); }
+.text-muted { color: var(--dark-400); }
+
+/* ── Reservation Items ────────────────────────────────── */
+.reservation-item {
+  gap: 12px;
+}
+
+.reservation-countdown {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--gold-400);
+}
+.reservation-countdown.urgent {
+  color: var(--red-400);
+  animation: pulse 1.5s ease infinite;
+}
+
+/* ── Tab Badge ────────────────────────────────────────── */
+.tab-badge {
+  background: var(--green-600);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  margin-left: 4px;
+  min-width: 16px;
+  text-align: center;
+}
+
+/* ── Stats Grid (Statistics Tab) ──────────────────────── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.mini-stat {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 14px;
+  text-align: center;
+}
+
+.mini-stat-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--green-400);
+  margin-bottom: 4px;
+}
+
+.mini-stat-label {
+  font-size: 11px;
+  color: var(--dark-400);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ── Dashboard Footer ─────────────────────────────────── */
+.dash-footer {
+  padding: 16px;
+  margin-top: 20px;
+  border-top: 1px solid var(--color-border);
+}
+
+/* ── Landscape mode forced ────────────────────────────── */
+@media (orientation: portrait) and (max-width: 900px) {
+  html {
+    transform: rotate(90deg);
+    transform-origin: left top;
+    width: 100vh;
+    height: 100vw;
+    overflow-x: hidden;
+    position: absolute;
+    top: 100%;
+    left: 0;
+  }
+}
+
+/* ── Loading dots ─────────────────────────────────────── */
+.loading-dots {
+  display: flex;
+  gap: 6px;
+}
+.loading-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green-500);
+  animation: loadingDot 1.2s ease-in-out infinite;
+}
+.loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes loadingDot {
+  0%, 100% { transform: scale(0.5); opacity: 0.3; }
+  50% { transform: scale(1); opacity: 1; }
+}
+
+/* ── Guard Switch v2 ──────────────────────────────────── */
+.guard-switch {
+  display: flex;
+  gap: 4px;
+  background: rgba(0,0,0,0.3);
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.guard-option {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: transparent;
+  color: var(--dark-400);
+  white-space: nowrap;
+}
+.guard-option.active {
+  background: var(--green-600);
+  color: white;
+  box-shadow: 0 2px 8px rgba(16,185,129,0.3);
+}
+.guard-option:hover:not(.active) {
+  background: rgba(255,255,255,0.08);
+}
+
+/* ── Info Bar ─────────────────────────────────────────── */
+.dash-info-bar {
+  padding: 12px 16px;
+  background: rgba(16,185,129,0.06);
+  border-bottom: 1px solid var(--color-border);
+}
+.dash-pharmacy-name {
+  font-size: 16px;
+  font-weight: 700;
+}
+.dash-pharmacy-detail {
+  font-size: 12px;
+  color: var(--dark-400);
+  margin-top: 2px;
+}
+
+/* ── Mobile responsive dashboard ──────────────────────── */
+@media (max-width: 600px) {
+  .stat-detail-header {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .stat-detail-close {
+    position: absolute;
+    right: 12px;
+    top: 12px;
+  }
+
+  .stat-detail-panel {
+    margin: 0 8px 8px;
+  }
+
+  .med-response-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .med-btn-group {
+    width: 100%;
+  }
+
+  .request-header {
+    flex-direction: column;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .guard-switch {
+    flex-wrap: wrap;
+  }
+}
+
+/* ── Reserve button in patient results ────────────────── */
+.reserve-med-btn {
+  background: rgba(16,185,129,0.15) !important;
+  color: var(--green-400) !important;
+  border: 1px solid rgba(16,185,129,0.3) !important;
+  padding: 4px 12px !important;
+  border-radius: 6px !important;
+  font-size: 11px !important;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.reserve-med-btn:hover {
+  background: rgba(16,185,129,0.3) !important;
+}
+.reserve-med-btn.reserved {
+  background: var(--green-600) !important;
+  color: white !important;
+}
+
+/* ── Reservation confirmation card ────────────────────── */
+.reservation-confirm-card {
+  background: var(--dark-800);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+}

@@ -3,7 +3,7 @@
  * Handles offline caching for the PWA
  */
 
-const CACHE_NAME = 'pharma-garde-v1';
+const CACHE_NAME = 'pharma-garde-v3';
 const STATIC_ASSETS = [
   '/index.html',
   '/pharmacien.html',
@@ -17,6 +17,8 @@ const STATIC_ASSETS = [
   '/js/search.js',
   '/js/payment.js',
   '/js/pharmacien.js',
+  '/js/i18n.js',
+  '/js/supabaseClient.js',
   '/manifest.json',
 ];
 

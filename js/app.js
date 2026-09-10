@@ -672,10 +672,12 @@ const App = (() => {
   let currentRequestId = null;
   let responseChannel = null;
   let realResponses = [];
+  let reservedMedicines = {}; // { pharmacyId: { meds: [...], resp: respObj } }
 
   async function handleSearchRequest() {
     showSearchStep(3);
     realResponses = [];
+    reservedMedicines = {};
     
     const pingMedName = $('#ping-medicine-name');
     const pingCount = $('#ping-pharmacy-count');
@@ -687,14 +689,12 @@ const App = (() => {
     let pharmacyCount = 0;
     try {
       const pos = Geolocation.getPosition();
-      // Query real pharmacies from Supabase
       const { data: dbPharmacies } = await supabase
         .from('pharmacies')
         .select('id, name, phone, address, lat, lng, status, is_open, is_on_duty')
         .or('is_open.eq.true,is_on_duty.eq.true');
 
       if (dbPharmacies) {
-        // Filter by radius
         const inRadius = dbPharmacies.filter(p => {
           if (!pos) return true;
           const dist = Geolocation.haversine(pos.lat, pos.lng, p.lat, p.lng);
@@ -706,17 +706,15 @@ const App = (() => {
       console.error('Pharmacy count error:', e);
     }
 
-    // Add local pharmacies count too
     const localOpen = pharmaciesInRadius.filter(p => p.isOpen || p.isOnDuty);
     pharmacyCount = Math.max(pharmacyCount, localOpen.length);
     if (pingCount) pingCount.textContent = pharmacyCount;
-
     if (pingStatus) pingStatus.textContent = 'Envoi de la demande...';
 
-    // INSERT the request in Supabase (REAL)
     try {
       const pos = Geolocation.getPosition();
       const phoneInput = $('#phone-input');
+      const expiresAt = new Date(Date.now() + 2 * 3600000).toISOString();
       
       const { data, error } = await supabase
         .from('requests')
@@ -728,6 +726,7 @@ const App = (() => {
           status: 'pending',
           user_phone: (phoneInput && phoneInput.value) ? phoneInput.value : null,
           insurance_name: insuranceName,
+          expires_at: expiresAt,
           created_at: new Date().toISOString(),
         }])
         .select()
@@ -735,23 +734,21 @@ const App = (() => {
 
       if (error) {
         console.error('Request insert error:', error);
-        if (pingStatus) pingStatus.textContent = '⚠️ Erreur d\'envoi. Veuillez réessayer.';
+        if (pingStatus) pingStatus.textContent = '⚠️ Erreur d\'envoi.';
         return;
       }
 
       currentRequestId = data.id;
 
-      // Close the modal
+      // Close modal, show waiting in bottom sheet
       const modal = $('#search-modal');
       if (modal) modal.classList.remove('active');
       
-      // Update Bottom Sheet Header
       const mainActions = $('#main-actions');
       const banner = $('#responses-banner');
       if (mainActions) mainActions.style.display = 'none';
       if (banner) banner.style.display = 'flex';
       
-      // Clear pharmacy list and show waiting text
       const listEl = $('#pharmacy-list');
       if (listEl) {
         listEl.innerHTML = `
@@ -762,144 +759,180 @@ const App = (() => {
               <span style="background: var(--green-500)"></span>
             </div>
             <div style="font-weight: 500;">Recherche de pharmacies en cours...</div>
-            <div style="font-size: 13px; margin-top: 8px;">Les réponses apparaîtront ici.</div>
-          </div>
-        `;
+            <div style="font-size: 13px; margin-top: 8px;">Les réponses apparaîtront ici. Durée max: 2h.</div>
+          </div>`;
       }
 
-      // Subscribe to REAL responses from pharmacists
-      if (responseChannel) {
-        supabase.removeChannel(responseChannel);
-      }
-
+      // Subscribe to responses
+      if (responseChannel) supabase.removeChannel(responseChannel);
       responseChannel = supabase
         .channel(`responses_for_${currentRequestId}`)
         .on('postgres_changes', {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'responses',
+          event: 'INSERT', schema: 'public', table: 'responses',
           filter: `request_id=eq.${currentRequestId}`
         }, (payload) => {
           const resp = payload.new;
-          if (resp.status === 'accepted') {
-            realResponses.push(resp);
-            renderPatientResponses();
-          }
+          realResponses.push(resp);
+          renderPatientResponses();
+          showToast('🔔 Nouvelle réponse d\'une pharmacie !', 'info');
         })
         .subscribe();
 
     } catch(e) {
       console.error('Search request error:', e);
-      if (pingStatus) pingStatus.textContent = '❌ Erreur. Vérifiez votre connexion.';
+      if (pingStatus) pingStatus.textContent = '❌ Erreur.';
     }
   }
 
+  // ── Render Patient Responses (Multi-Pharmacy Per-Medicine Reserve) ──
   function renderPatientResponses() {
     const listEl = $('#pharmacy-list');
-    if (!listEl) return;
-    
-    if (realResponses.length === 0) return;
+    if (!listEl || realResponses.length === 0) return;
 
-    listEl.innerHTML = realResponses.map(resp => {
-      // Parse medicines_status
+    // Add confirm reservations button at top
+    let confirmBtnHtml = '<div id="confirm-reservations-bar" style="display:none; padding: 12px; background: rgba(16,185,129,0.15); border-radius: 12px; margin-bottom: 16px; text-align: center;">' +
+      '<p style="font-size: 13px; color: var(--green-400); margin-bottom: 8px;">Médicaments sélectionnés de plusieurs pharmacies</p>' +
+      '<button class="btn btn-primary btn-block" onclick="App.confirmAllReservations()">✅ Confirmer les réservations</button></div>';
+
+    listEl.innerHTML = confirmBtnHtml + realResponses.map(resp => {
+      const pos = Geolocation.getPosition();
+      let distance = '—';
+      if (pos && resp.pharmacy_id) {
+        // Try to find pharmacy coords from our Supabase data
+        // For now we show address
+      }
+
       let medsHtml = '';
       if (resp.medicines_status) {
         medsHtml = Object.entries(resp.medicines_status).map(([med, status]) => {
+          const isInStock = status.startsWith('en_stock');
           let badge = '';
           if (status === 'en_stock_assure') badge = '<span style="color:var(--green-500)">✅ En stock assuré</span>';
           else if (status === 'en_stock_non_assure') badge = '<span style="color:var(--gold-500)">⚠️ En stock non assuré</span>';
           else if (status === 'en_stock') badge = '<span style="color:var(--green-500)">✅ En stock</span>';
           else badge = '<span style="color:var(--red-500)">❌ Rupture</span>';
-          
-          return `<div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 13px;">
-            <span style="font-weight: 500;">💊 ${med}</span>
+          const reserveBtn = isInStock
+            ? `<button class="btn btn-sm reserve-med-btn" data-pharmacy-id="${resp.pharmacy_id}" data-med="${med}" data-pharmacy-name="${resp.pharmacy_name || ''}" data-pharmacy-phone="${resp.pharmacy_phone || ''}" data-pharmacy-address="${resp.pharmacy_address || ''}" onclick="App.toggleReserveMedicine(this)">Réserver</button>`
+            : '';
+
+          return `<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 13px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+            <span style="font-weight: 500; flex: 1;">💊 ${med}</span>
             ${badge}
+            ${reserveBtn}
           </div>`;
         }).join('');
       }
 
       return `
-        <div class="pharmacy-card">
+        <div class="pharmacy-card" data-pharmacy-id="${resp.pharmacy_id}">
           <div class="card-header" style="margin-bottom: 12px;">
             <div class="card-info">
               <div class="card-name">${resp.pharmacy_name || 'Pharmacie'}</div>
               <div class="card-address" style="font-size: 13px; color: var(--dark-300);">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                ${resp.pharmacy_address || 'Adresse inconnue'}
+                📍 ${resp.pharmacy_address || 'Adresse inconnue'}
               </div>
             </div>
           </div>
-          
-          <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+          <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; margin-bottom: 12px;">
             ${medsHtml}
           </div>
-
-          <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-            <button class="btn btn-primary btn-block" style="flex: 1;" onclick="App.reservePharmacy('${resp.pharmacy_id}', this)">
-              Réserver
-            </button>
-          </div>
-
           <div class="card-actions">
             ${resp.pharmacy_phone ? `
-              <button class="btn btn-call" onclick="App.callPharmacy('${resp.pharmacy_phone}')">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                Appeler
-              </button>
-              <button class="btn btn-whatsapp" onclick="App.openWhatsApp('237${resp.pharmacy_phone}')">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
-                WhatsApp
-              </button>
+              <button class="btn btn-call" onclick="App.callPharmacy('${resp.pharmacy_phone}')">📞 Appeler</button>
+              <button class="btn btn-whatsapp" onclick="App.openWhatsApp('237${resp.pharmacy_phone}')">💬 WhatsApp</button>
             ` : ''}
-            <button class="btn btn-go" onclick="App.routeToPharmacy('${resp.pharmacy_id}')">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
-              Y aller
-            </button>
+            <button class="btn btn-route" onclick="App.getRoute(0, 0)">🗺️ Y aller</button>
           </div>
         </div>
       `;
     }).join('');
   }
 
-  async function reservePharmacy(pharmacyId, btnElement) {
-    if (!currentRequestId) return;
-    
-    // Disable all reserve buttons
-    document.querySelectorAll('.pharmacy-card .btn-block').forEach(btn => btn.disabled = true);
-    
-    // Update button text and style
-    btnElement.innerHTML = 'Réservé <span class="countdown">60</span>s';
-    btnElement.style.background = 'var(--gold-500)';
-    btnElement.style.color = 'var(--dark-900)';
-    
-    // Start countdown
-    let timeLeft = 60;
-    const countdownInterval = setInterval(() => {
-      timeLeft--;
-      const span = btnElement.querySelector('.countdown');
-      if (span) span.textContent = timeLeft;
-      
-      if (timeLeft <= 0) {
-        clearInterval(countdownInterval);
-        btnElement.innerHTML = 'Réservation expirée';
-        btnElement.style.background = 'var(--dark-500)';
-        btnElement.style.color = '#fff';
+  function toggleReserveMedicine(btnEl) {
+    var pharmacyId = btnEl.getAttribute('data-pharmacy-id');
+    var med = btnEl.getAttribute('data-med');
+    var pharmacyName = btnEl.getAttribute('data-pharmacy-name');
+    var pharmacyPhone = btnEl.getAttribute('data-pharmacy-phone');
+    var pharmacyAddress = btnEl.getAttribute('data-pharmacy-address');
+    if (btnEl.classList.contains('reserved')) {
+      btnEl.classList.remove('reserved');
+      btnEl.textContent = 'Réserver';
+      btnEl.style.background = '';
+      if (reservedMedicines[pharmacyId]) {
+        reservedMedicines[pharmacyId].meds = reservedMedicines[pharmacyId].meds.filter(function(m) { return m !== med; });
+        if (reservedMedicines[pharmacyId].meds.length === 0) delete reservedMedicines[pharmacyId];
       }
-    }, 1000);
-
-    // Update Supabase request to reserved
-    try {
-      await supabase
-        .from('requests')
-        .update({ 
-          status: 'accepted',
-          pharmacy_id: pharmacyId 
-        })
-        .eq('id', currentRequestId);
-    } catch(e) {
-      console.error('Reserve error:', e);
+    } else {
+      btnEl.classList.add('reserved');
+      btnEl.textContent = '✅ Réservé';
+      btnEl.style.background = 'var(--green-600)';
+      if (!reservedMedicines[pharmacyId]) {
+        reservedMedicines[pharmacyId] = { meds: [], name: pharmacyName, phone: pharmacyPhone, address: pharmacyAddress };
+      }
+      reservedMedicines[pharmacyId].meds.push(med);
     }
-  };
+    var confirmBar = $('#confirm-reservations-bar');
+    var totalReserved = Object.values(reservedMedicines).reduce(function(sum, p) { return sum + p.meds.length; }, 0);
+    if (confirmBar) confirmBar.style.display = totalReserved > 0 ? 'block' : 'none';
+  }
+
+  async function confirmAllReservations() {
+    if (Object.keys(reservedMedicines).length === 0) { showToast('⚠️ Sélectionnez au moins un médicament', 'error'); return; }
+    var phoneInput = $('#phone-input');
+    var patientPhone = (phoneInput && phoneInput.value) ? phoneInput.value : null;
+    var entries = Object.entries(reservedMedicines);
+    var insertPromises = entries.map(function(entry) {
+      return supabase.from('reservations').insert([{
+        request_id: currentRequestId, pharmacy_id: entry[0], patient_phone: patientPhone,
+        medicines: entry[1].meds, status: 'active', created_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 3600000).toISOString(),
+      }]);
+    });
+    try { await Promise.all(insertPromises); } catch(e) { console.error('Reservation error:', e); }
+    showReservationConfirmation();
+  }
+
+  function showReservationConfirmation() {
+    var entries = Object.entries(reservedMedicines);
+    var expiresIso = new Date(Date.now() + 3600000).toISOString();
+    var confirmHtml = entries.map(function(entry) {
+      var pid = entry[0]; var data = entry[1];
+      var medsHtml = data.meds.map(function(m) { return '<div style="padding:4px 0;font-size:13px;">💊 ' + m + '</div>'; }).join('');
+      var phoneBtn = data.phone ? '<button class="btn btn-call" onclick="App.callPharmacy(\'' + data.phone + '\')">📞 Appeler</button>' : '';
+      var waBtn = data.phone ? '<button class="btn btn-whatsapp" onclick="App.openWhatsApp(\'237' + data.phone + '\')">💬 WhatsApp</button>' : '';
+      return '<div style="background:var(--dark-800);border:1px solid var(--color-border);border-radius:12px;padding:16px;margin-bottom:12px;">' +
+        '<div style="font-weight:700;font-size:16px;margin-bottom:8px;">🏥 ' + (data.name || 'Pharmacie') + '</div>' +
+        '<div style="font-size:13px;color:var(--dark-300);margin-bottom:12px;">📍 ' + (data.address || '') + '</div>' +
+        '<div style="background:rgba(0,0,0,0.2);padding:10px;border-radius:8px;margin-bottom:12px;">' + medsHtml + '</div>' +
+        '<div class="reservation-confirm-timer" data-expires="' + expiresIso + '" style="color:var(--gold-500);font-size:13px;margin-bottom:12px;">⏱️ Expire dans <strong>60 min</strong></div>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;">' + phoneBtn + waBtn + '<button class="btn btn-route" onclick="App.getRoute(0,0)">🗺️ Y aller</button></div></div>';
+    }).join('');
+
+    var listEl = $('#pharmacy-list');
+    if (listEl) {
+      listEl.innerHTML = '<div style="padding:16px;"><div style="text-align:center;margin-bottom:20px;"><span style="font-size:28px;">🎉</span><h3 style="margin:8px 0 4px;">Vos réservations</h3><p style="font-size:13px;color:var(--dark-400);">Pharmacies notifiées. Récupérez vos médicaments sous 1h.</p></div>' + confirmHtml + '<button class="btn btn-outline btn-block" style="margin-top:16px;" onclick="App.resetAfterReservation()">🔍 Nouvelle recherche</button></div>';
+    }
+    showToast('✅ Réservations confirmées !', 'success');
+    setInterval(function() {
+      document.querySelectorAll('.reservation-confirm-timer[data-expires]').forEach(function(el) {
+        var rem = Math.max(0, Math.floor((new Date(el.getAttribute('data-expires')) - new Date()) / 60000));
+        el.innerHTML = rem > 0 ? '⏱️ Expire dans <strong>' + rem + ' min</strong>' : '⏱️ <strong style="color:var(--red-400)">Expirée</strong>';
+      });
+    }, 30000);
+  }
+
+  function resetAfterReservation() {
+    reservedMedicines = {};
+    realResponses = [];
+    currentRequestId = null;
+    if (responseChannel) { supabase.removeChannel(responseChannel); responseChannel = null; }
+    var mainActions = $('#main-actions');
+    var banner = $('#responses-banner');
+    if (mainActions) mainActions.style.display = '';
+    if (banner) banner.style.display = 'none';
+    updatePharmacies();
+    resetSearch();
+  }
 
   function resetSearch() {
     selectedMedicines = [];

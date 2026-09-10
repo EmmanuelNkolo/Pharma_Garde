@@ -7,7 +7,6 @@
   <meta name="theme-color" content="#059669">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <!-- Force landscape on mobile -->
   <meta name="screen-orientation" content="landscape">
 
   <title>Espace Pharmacie — Pharma-Garde</title>
@@ -15,7 +14,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏥</text></svg>">
   <link rel="stylesheet" href="css/index.css">
-  <link rel="stylesheet" href="css/pharmacien.css">
+  <link rel="stylesheet" href="css/pharmacien.css?v=3">
 </head>
 <body>
 
@@ -28,47 +27,47 @@
       <div style="display: flex; justify-content: flex-start; margin-bottom: 16px;">
         <a href="index.html" class="btn btn-outline btn-sm" style="display: flex; align-items: center; gap: 6px; padding: 8px 16px;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-          Retour
+          <span data-i18n="nav.back">Retour</span>
         </a>
       </div>
 
       <div class="login-icon">🏥</div>
-      <h1 class="login-title">Espace Pharmacie</h1>
-      <p class="login-subtitle">Gérez vos demandes patients en temps réel</p>
+      <h1 class="login-title" data-i18n="pharm.title">Espace Pharmacie</h1>
+      <p class="login-subtitle" data-i18n="pharm.subtitle">Gérez vos demandes patients en temps réel</p>
 
       <!-- Tab Switcher Login/Register -->
       <div class="login-tabs">
-        <button class="login-tab active" data-form="login" id="tab-login">Connexion</button>
-        <button class="login-tab" data-form="register" id="tab-register">Inscription</button>
-        <button class="login-tab" data-form="reset" id="tab-reset">Mot de passe oublié</button>
+        <button class="login-tab active" data-form="login" id="tab-login" data-i18n="pharm.login">Connexion</button>
+        <button class="login-tab" data-form="register" id="tab-register" data-i18n="pharm.register">Inscription</button>
+        <button class="login-tab" data-form="reset" id="tab-reset" data-i18n="pharm.reset">Mot de passe oublié</button>
       </div>
 
       <!-- ─── Login Form ─── -->
       <div class="login-form" id="form-login">
         <div class="form-group">
-          <label for="login-email">Email</label>
+          <label for="login-email" data-i18n="pharm.email">Email</label>
           <input type="email" id="login-email" class="input-field" placeholder="pharmacie@email.com" required>
         </div>
         <div class="form-group">
-          <label for="login-password">Mot de passe</label>
+          <label for="login-password" data-i18n="pharm.password">Mot de passe</label>
           <input type="password" id="login-password" class="input-field" placeholder="Votre mot de passe" required>
         </div>
-        <button id="btn-login" class="btn btn-primary btn-lg btn-block">
+        <button id="btn-login" class="btn btn-primary btn-lg btn-block" data-i18n="pharm.login_btn">
           Se connecter
         </button>
         <p style="text-align: center; margin-top: 12px;">
-          <a href="#" id="link-forgot" style="color: var(--green-400); font-size: 13px;">Mot de passe oublié ?</a>
+          <a href="#" id="link-forgot" style="color: var(--green-400); font-size: 13px;" data-i18n="pharm.forgot">Mot de passe oublié ?</a>
         </p>
       </div>
 
       <!-- ─── Register Form ─── -->
       <div class="login-form" id="form-register" style="display: none;">
         <div class="form-group">
-          <label>Nom de la pharmacie *</label>
+          <label data-i18n="pharm.name">Nom de la pharmacie *</label>
           <input type="text" id="reg-name" class="input-field" placeholder="Nom de la pharmacie" required>
         </div>
         <div class="form-group">
-          <label>Ville *</label>
+          <label data-i18n="pharm.city">Ville *</label>
           <select id="reg-city" class="input-field">
             <option value="">— Sélectionner —</option>
             <option value="Douala">Douala</option>
@@ -83,14 +82,40 @@
             <option value="Bertoua">Bertoua</option>
             <option value="Ngaoundéré">Ngaoundéré</option>
             <option value="Ebolowa">Ebolowa</option>
+            <option value="Kumba">Kumba</option>
+            <option value="Nkongsamba">Nkongsamba</option>
+            <option value="Edéa">Edéa</option>
+            <option value="Dschang">Dschang</option>
+            <option value="Foumban">Foumban</option>
+            <option value="Sangmélima">Sangmélima</option>
+            <option value="Autre">Autre ville</option>
           </select>
         </div>
-        <div class="form-group">
-          <label>Quartier *</label>
-          <input type="text" id="reg-quarter" class="input-field" placeholder="Ex: Akwa, Bépanda, Bastos...">
+        <div class="form-group" id="reg-other-city-group" style="display:none;">
+          <label>Autre ville *</label>
+          <input type="text" id="reg-other-city" class="input-field" placeholder="Nom de votre ville">
         </div>
         <div class="form-group">
-          <label>Numéro de téléphone *</label>
+          <label data-i18n="pharm.quarter">Quartier *</label>
+          <input type="text" id="reg-quarter" class="input-field" placeholder="Ex: Akwa, Bépanda, Bastos...">
+        </div>
+
+        <!-- GPS Position -->
+        <div class="form-group">
+          <label data-i18n="pharm.gps_title">Position GPS de votre pharmacie</label>
+          <p style="font-size: 12px; color: var(--dark-400); margin-bottom: 8px;" data-i18n="pharm.gps_desc">Activez le GPS pour fixer la position exacte de votre pharmacie sur la carte.</p>
+          <button type="button" id="btn-detect-gps" class="btn btn-outline btn-block" style="margin-bottom: 8px;">
+            📍 <span data-i18n="pharm.gps_btn">Détecter la position</span>
+          </button>
+          <div id="gps-status" style="font-size: 12px; color: var(--green-400); display: none;">
+            ✅ Position détectée : <span id="gps-coords"></span>
+          </div>
+          <input type="hidden" id="reg-lat" value="">
+          <input type="hidden" id="reg-lng" value="">
+        </div>
+
+        <div class="form-group">
+          <label data-i18n="pharm.phone">Numéro de téléphone *</label>
           <input type="tel" id="reg-phone" class="input-field" placeholder="6XX XXX XXX" required>
         </div>
         <div class="form-group">
@@ -102,15 +127,15 @@
           <input type="password" id="reg-password-confirm" class="input-field" placeholder="Confirmer le mot de passe" required>
         </div>
         <div class="form-group">
-          <label>WhatsApp (optionnel)</label>
+          <label data-i18n="pharm.whatsapp">WhatsApp (optionnel)</label>
           <input type="tel" id="reg-whatsapp" class="input-field" placeholder="237 6XX XXX XXX">
         </div>
         <div class="form-group">
-          <label>Email *</label>
+          <label data-i18n="pharm.email">Email *</label>
           <input type="email" id="reg-email" class="input-field" placeholder="pharmacie@email.com" required>
         </div>
         <div class="form-group">
-          <label>Horaires d'ouverture</label>
+          <label data-i18n="pharm.hours">Horaires d'ouverture</label>
           <div style="display: flex; gap: 8px; align-items: center;">
             <input type="time" id="reg-hour-open" class="input-field" value="08:00" style="flex:1;">
             <span style="color: var(--dark-400);">à</span>
@@ -118,23 +143,23 @@
           </div>
         </div>
         <div class="form-group">
-          <label>Services spéciaux</label>
+          <label data-i18n="pharm.services">Services spéciaux</label>
           <div class="services-checkboxes">
             <label class="checkbox-label">
-              <input type="checkbox" id="reg-service-garde"> Garde de nuit (24h)
+              <input type="checkbox" id="reg-service-garde"> <span data-i18n="pharm.service_guard">Garde de nuit (24h)</span>
             </label>
             <label class="checkbox-label">
-              <input type="checkbox" id="reg-service-livraison"> Livraison à domicile
+              <input type="checkbox" id="reg-service-livraison"> <span data-i18n="pharm.service_delivery">Livraison à domicile</span>
             </label>
             <label class="checkbox-label">
-              <input type="checkbox" id="reg-service-assurance"> Accepte les assurances
+              <input type="checkbox" id="reg-service-assurance"> <span data-i18n="pharm.service_insurance">Accepte les assurances</span>
             </label>
             <label class="checkbox-label">
-              <input type="checkbox" id="reg-service-conseil"> Conseil pharmaceutique
+              <input type="checkbox" id="reg-service-conseil"> <span data-i18n="pharm.service_advice">Conseil pharmaceutique</span>
             </label>
           </div>
         </div>
-        <button id="btn-register" class="btn btn-primary btn-lg btn-block">
+        <button id="btn-register" class="btn btn-primary btn-lg btn-block" data-i18n="pharm.register_btn">
           Inscrire ma pharmacie
         </button>
       </div>
@@ -148,7 +173,7 @@
           <label>Email enregistré</label>
           <input type="email" id="reset-email" class="input-field" placeholder="pharmacie@email.com" required>
         </div>
-        <button id="btn-reset-password" class="btn btn-primary btn-lg btn-block">
+        <button id="btn-reset-password" class="btn btn-primary btn-lg btn-block" data-i18n="pharm.reset_btn">
           Réinitialiser le mot de passe
         </button>
       </div>
@@ -179,10 +204,10 @@
         <a href="index.html" class="nav-btn" title="Retour accueil" style="text-decoration: none;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         </a>
-        <div class="dash-logo"><span>🏥</span><span>Espace Pharmacie</span></div>
+        <div class="dash-logo"><span>🏥</span><span data-i18n="pharm.title">Espace Pharmacie</span></div>
       </div>
       <div class="guard-toggle">
-        <span class="guard-toggle-label" id="guard-label">Statut : Ouvert</span>
+        <span class="guard-toggle-label" id="guard-label" data-i18n="dash.status_open">Statut : Ouvert</span>
         <div class="guard-switch">
           <button class="guard-option active" data-status="open">✅ Ouvert</button>
           <button class="guard-option" data-status="guard">🌙 Garde</button>
@@ -193,45 +218,137 @@
 
     <div class="dash-info-bar">
       <div class="dash-pharmacy-name" id="dash-pharmacy-name">Ma Pharmacie</div>
-      <div class="dash-pharmacy-detail">Tableau de bord en temps réel</div>
+      <div class="dash-pharmacy-detail" data-i18n="dash.realtime">Tableau de bord en temps réel</div>
     </div>
 
+    <!-- ─── STATS CARDS (Clickable) ─── -->
     <div class="dash-stats">
-      <div class="stat-card stat-primary"><div class="stat-value" id="stat-today">0</div><div class="stat-label">Demandes aujourd'hui</div><span class="stat-icon">📥</span></div>
-      <div class="stat-card stat-success"><div class="stat-value" id="stat-responded">0</div><div class="stat-label">Répondues</div><span class="stat-icon">✅</span></div>
-      <div class="stat-card stat-warning"><div class="stat-value" id="stat-pending">0</div><div class="stat-label">En attente</div><span class="stat-icon">⏳</span></div>
-      <div class="stat-card stat-info"><div class="stat-value" id="stat-reserved">0</div><div class="stat-label">Réservations</div><span class="stat-icon">🔒</span></div>
-    </div>
-
-    <nav class="dash-tabs">
-      <button class="dash-tab active" data-tab="active">📥 Demandes<span class="tab-badge" id="active-badge">0</span></button>
-      <button class="dash-tab" data-tab="history">📋 Historique</button>
-      <button class="dash-tab" data-tab="stats">📊 Statistiques</button>
-    </nav>
-
-    <div class="dash-tab-content active" id="tab-active">
-      <div id="active-requests">
-        <div class="empty-state"><div class="empty-state-icon">📭</div><div class="empty-state-text">Aucune demande en cours. Les demandes de patients apparaîtront ici en temps réel.</div></div>
+      <div class="stat-card stat-primary" data-stat="requests" id="stat-card-requests">
+        <div class="stat-value" id="stat-today">0</div>
+        <div class="stat-label" data-i18n="dash.requests">Demandes</div>
+        <span class="stat-icon">📥</span>
+      </div>
+      <div class="stat-card stat-success" data-stat="responded" id="stat-card-responded">
+        <div class="stat-value" id="stat-responded">0</div>
+        <div class="stat-label" data-i18n="dash.responded">Répondues</div>
+        <span class="stat-icon">✅</span>
+      </div>
+      <div class="stat-card stat-warning" data-stat="pending" id="stat-card-pending">
+        <div class="stat-value" id="stat-pending">0</div>
+        <div class="stat-label" data-i18n="dash.pending">En attente</div>
+        <span class="stat-icon">⏳</span>
+      </div>
+      <div class="stat-card stat-info" data-stat="reservations" id="stat-card-reservations">
+        <div class="stat-value" id="stat-reserved">0</div>
+        <div class="stat-label" data-i18n="dash.reservations">Réservations</div>
+        <span class="stat-icon">🔒</span>
       </div>
     </div>
 
+    <!-- ─── STAT DETAIL PANEL (Slide-in when stat card is clicked) ─── -->
+    <div id="stat-detail-panel" class="stat-detail-panel" style="display:none;">
+      <div class="stat-detail-header">
+        <h3 id="stat-detail-title">Demandes</h3>
+        <div class="stat-detail-filters">
+          <button class="filter-btn active" data-filter="today" data-i18n="dash.filter_today">Aujourd'hui</button>
+          <button class="filter-btn" data-filter="week" data-i18n="dash.filter_week">Semaine</button>
+          <button class="filter-btn" data-filter="month" data-i18n="dash.filter_month">Mois</button>
+        </div>
+        <button class="stat-detail-close" id="stat-detail-close">✕</button>
+      </div>
+      <div class="stat-detail-body" id="stat-detail-body">
+        <!-- Dynamic content -->
+      </div>
+    </div>
+
+    <!-- ─── NAVIGATION TABS ─── -->
+    <nav class="dash-tabs">
+      <button class="dash-tab active" data-tab="active">📥 <span data-i18n="dash.tab_requests">Demandes</span><span class="tab-badge" id="active-badge">0</span></button>
+      <button class="dash-tab" data-tab="history">📋 <span data-i18n="dash.tab_history">Historique</span></button>
+      <button class="dash-tab" data-tab="stats">📊 <span data-i18n="dash.tab_stats">Statistiques</span></button>
+    </nav>
+
+    <!-- Tab: Active Requests -->
+    <div class="dash-tab-content active" id="tab-active">
+      <div id="active-requests">
+        <div class="empty-state"><div class="empty-state-icon">📭</div><div class="empty-state-text" data-i18n="dash.empty_requests">Aucune demande en cours. Les demandes de patients apparaîtront ici en temps réel.</div></div>
+      </div>
+    </div>
+
+    <!-- Tab: History -->
     <div class="dash-tab-content" id="tab-history">
+      <div class="history-filters">
+        <button class="filter-btn active" data-filter="today" data-i18n="dash.filter_today">Aujourd'hui</button>
+        <button class="filter-btn" data-filter="week" data-i18n="dash.filter_week">Semaine</button>
+        <button class="filter-btn" data-filter="month" data-i18n="dash.filter_month">Mois</button>
+      </div>
       <div id="history-list"></div>
     </div>
 
+    <!-- Tab: Statistics -->
     <div class="dash-tab-content" id="tab-stats">
+      <div class="stats-filters">
+        <button class="filter-btn active" data-filter="today" data-i18n="dash.filter_today">Aujourd'hui</button>
+        <button class="filter-btn" data-filter="week" data-i18n="dash.filter_week">Semaine</button>
+        <button class="filter-btn" data-filter="month" data-i18n="dash.filter_month">Mois</button>
+      </div>
       <div class="dash-section">
-        <div class="dash-section-title">🏆 Top Médicaments demandés</div>
+        <div class="stats-grid">
+          <div class="mini-stat"><div class="mini-stat-value" id="stats-total-requests">0</div><div class="mini-stat-label" data-i18n="dash.total_requests">Total demandes</div></div>
+          <div class="mini-stat"><div class="mini-stat-value" id="stats-total-responses">0</div><div class="mini-stat-label" data-i18n="dash.total_responses">Total réponses</div></div>
+          <div class="mini-stat"><div class="mini-stat-value" id="stats-response-rate">0%</div><div class="mini-stat-label" data-i18n="dash.response_rate">Taux de réponse</div></div>
+          <div class="mini-stat"><div class="mini-stat-value" id="stats-ignored">0</div><div class="mini-stat-label" data-i18n="dash.ignored_count">Ignorées</div></div>
+        </div>
+      </div>
+      <div class="dash-section">
+        <div class="dash-section-title" data-i18n="dash.top_meds">🏆 Top Médicaments demandés</div>
         <div class="top-meds" id="top-medications"></div>
       </div>
     </div>
 
+    <!-- Footer -->
     <div class="dash-footer">
-      <button id="btn-logout" class="btn btn-outline btn-block">🚪 Déconnexion</button>
+      <button id="btn-delete-account" class="btn btn-outline btn-block" style="color: var(--red-400); border-color: var(--red-400); margin-bottom: 8px;">
+        🗑️ <span data-i18n="pharm.delete_account">Supprimer mon compte</span>
+      </button>
+      <button id="btn-logout" class="btn btn-outline btn-block">🚪 <span data-i18n="pharm.logout">Déconnexion</span></button>
     </div>
   </div>
 
-  <!-- Confirm Modal -->
+  <!-- ═══════════════════════════════════════════════════════
+       CONFIRM RESPONSE MODAL
+       ═══════════════════════════════════════════════════════ -->
+  <div id="confirm-response-modal" style="display: none; position: fixed; inset: 0; z-index: 10000; align-items: center; justify-content: center;">
+    <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);" id="confirm-response-backdrop"></div>
+    <div class="confirm-response-panel">
+      <h3 data-i18n="dash.confirm_title">Récapitulatif de votre réponse</h3>
+      <div id="confirm-response-body">
+        <!-- Dynamic: list of medicines with their status -->
+      </div>
+      <div style="display: flex; gap: 12px; margin-top: 16px;">
+        <button class="btn btn-outline" style="flex: 1;" id="confirm-response-cancel">Annuler</button>
+        <button class="btn btn-primary" style="flex: 1;" id="confirm-response-ok" data-i18n="dash.confirm_response">Confirmer et envoyer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       DELETE ACCOUNT MODAL
+       ═══════════════════════════════════════════════════════ -->
+  <div id="delete-modal" style="display: none; position: fixed; inset: 0; z-index: 10000; align-items: center; justify-content: center;">
+    <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);"></div>
+    <div style="position: relative; background: var(--dark-800); border: 1px solid var(--color-border); border-radius: 16px; padding: 24px; max-width: 400px; width: 90%; text-align: center; z-index: 10001;">
+      <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+      <h3 style="color: var(--red-400); margin-bottom: 12px;" data-i18n="pharm.delete_account">Supprimer mon compte</h3>
+      <p style="color: var(--dark-400); font-size: 14px; line-height: 1.6; margin-bottom: 20px;" data-i18n="pharm.delete_confirm">Cette action est irréversible. Toutes vos données seront définitivement supprimées.</p>
+      <div style="display: flex; gap: 12px;">
+        <button class="btn btn-outline" style="flex: 1;" id="delete-cancel">Annuler</button>
+        <button class="btn" style="flex: 1; background: var(--red-600); color: white;" id="delete-confirm">Supprimer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Modal (legacy) -->
   <div id="confirm-modal" style="display: none; position: fixed; inset: 0; z-index: 10000; align-items: center; justify-content: center;">
     <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);"></div>
     <div style="position: relative; background: var(--dark-800); border: 1px solid var(--glass-border); border-radius: 16px; padding: 24px; max-width: 360px; width: 90%; text-align: center; z-index: 10001;">
@@ -248,8 +365,9 @@
 
   <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabaseClient.js"></script>
-  <script src="js/pharmacien.js"></script>
+  <script src="js/supabaseClient.js?v=3"></script>
+  <script src="js/i18n.js?v=3"></script>
+  <script src="js/pharmacien.js?v=3"></script>
 
   <!-- Force landscape on mobile -->
   <script>

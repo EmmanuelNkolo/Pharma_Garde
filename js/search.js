@@ -1,51 +1,79 @@
 /**
- * Pharma-Garde — Search Module
- * Handles medicine search, autocomplete, and pharmacy ping simulation
+ * Pharma-Garde v2.0 — Search Module
+ * Handles medicine search, autocomplete with Local + OpenFDA + Wikipedia
  */
 
 const Search = (() => {
   let currentMedicine = '';
   let autocompleteIndex = -1;
-
   let debounceTimeout = null;
 
   /**
-   * Fetch medications from local robust list AND the internet (Wikipedia OpenSearch)
-   * @param {string} query - User input
-   * @returns {Promise<Array<string>>} Matching medications
+   * Fetch medications from: 1) Local list, 2) OpenFDA, 3) Wikipedia FR
    */
   async function fetchMedications(query) {
     if (!query || query.length < 2) return [];
 
+    // 1. Local search (priority)
     let localResults = [];
     try {
       const normalizedQuery = query.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      localResults = LOCAL_MEDICINES.filter(med => {
-        const normalizedMed = med.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        return normalizedMed.includes(normalizedQuery);
-      });
+      if (typeof LOCAL_MEDICINES !== 'undefined') {
+        localResults = LOCAL_MEDICINES.filter(med => {
+          const normalizedMed = med.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          return normalizedMed.includes(normalizedQuery);
+        });
+      }
     } catch (error) {
       console.error('Local search error:', error);
     }
 
-    let internetResults = [];
+    // 2. OpenFDA search (real drug data)
+    let fdaResults = [];
     try {
-      // Aller chercher sur internet (API publique Wikipedia FR)
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000);
-      const res = await fetch(`https://fr.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(query)}&limit=10&namespace=0&format=json&origin=*`, { signal: controller.signal });
+      const fdaRes = await fetch(
+        `https://api.fda.gov/drug/label.json?search=openfda.brand_name:"${encodeURIComponent(query)}"&limit=5`,
+        { signal: controller.signal }
+      );
+      clearTimeout(timeoutId);
+      if (fdaRes.ok) {
+        const fdaData = await fdaRes.json();
+        if (fdaData.results) {
+          fdaResults = fdaData.results
+            .map(r => {
+              const brandName = r.openfda && r.openfda.brand_name ? r.openfda.brand_name[0] : null;
+              const genericName = r.openfda && r.openfda.generic_name ? r.openfda.generic_name[0] : null;
+              return brandName || genericName;
+            })
+            .filter(Boolean);
+        }
+      }
+    } catch (e) {
+      // OpenFDA may fail silently — that's fine
+    }
+
+    // 3. Wikipedia FR (fallback for local Cameroonian names)
+    let internetResults = [];
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      const res = await fetch(
+        `https://fr.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(query)}&limit=5&namespace=0&format=json&origin=*`,
+        { signal: controller.signal }
+      );
       clearTimeout(timeoutId);
       const data = await res.json();
       if (data && data[1]) {
-        // Nettoyer les résultats (enlever les mots entre parenthèses si on veut, ou juste garder tel quel)
         internetResults = data[1].filter(item => !item.toLowerCase().includes('homonymie'));
       }
-    } catch(e) {
-      console.error('Internet search error:', e);
+    } catch (e) {
+      // Wikipedia may fail — that's fine
     }
 
-    // Fusionner (Local en priorité) et dédupliquer, limité à 10 résultats
-    const combined = [...new Set([...localResults, ...internetResults])];
+    // Merge: Local → OpenFDA → Wikipedia. Deduplicate, max 10
+    const combined = [...new Set([...localResults, ...fdaResults, ...internetResults])];
     return combined.slice(0, 10);
   }
 
@@ -112,7 +140,6 @@ const Search = (() => {
     const items = container.querySelectorAll('.autocomplete-item');
     if (items.length === 0) return null;
 
-    // Remove current highlight
     items.forEach((item) => item.classList.remove('highlighted'));
 
     if (direction === 'down') {
@@ -133,7 +160,6 @@ const Search = (() => {
       const phone = session ? session.phone : 'Anonyme';
 
       try {
-        // 1. Enregistrer la demande dans Supabase
         const insertData = { user_phone: phone, medicines: requestedMeds, status: 'pending' };
         if (insuranceName) {
           insertData.insurance_name = insuranceName;
@@ -149,7 +175,6 @@ const Search = (() => {
 
         let responders = [];
 
-        // 2. Écouter les réponses en Temps Réel
         const channel = supabase
           .channel(`request_${request.id}`)
           .on('postgres_changes', { 
@@ -160,7 +185,6 @@ const Search = (() => {
           }, (payload) => {
             const updatedRequest = payload.new;
             if (updatedRequest.status === 'accepted') {
-               // Trouver la pharmacie dans notre base globale ou locale
                const pharmacy = pharmacies.find(p => p.id === updatedRequest.pharmacy_id) || (typeof LOCAL_PHARMACIES !== 'undefined' ? LOCAL_PHARMACIES.find(p => p.id === updatedRequest.pharmacy_id) : null) || pharmacies[0];
                if (pharmacy && !responders.find(r => r.id === pharmacy.id)) {
                  const respondingPharmacy = {
@@ -175,7 +199,6 @@ const Search = (() => {
           })
           .subscribe();
 
-        // 3. Fin de la requête après 30 secondes (30s) au lieu de 3 minutes
         setTimeout(() => {
           supabase.removeChannel(channel);
           resolve(responders);
@@ -188,16 +211,10 @@ const Search = (() => {
     });
   }
 
-  /**
-   * Get the current medicine being searched
-   */
   function getCurrentMedicine() {
     return currentMedicine;
   }
 
-  /**
-   * Reset the search state
-   */
   function reset() {
     currentMedicine = '';
     autocompleteIndex = -1;
