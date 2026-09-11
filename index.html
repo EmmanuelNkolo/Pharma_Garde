@@ -52,18 +52,18 @@
   <div id="location-modal">
     <div class="location-card" style="position: relative;">
       <div class="splash-lang-toggle" style="top: 10px; right: 10px; gap: 4px;">
-        <button class="splash-lang-btn active" data-lang="fr" style="background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1);" onclick="window.I18N && window.I18N.setLanguage('fr'); updateSplashLangToggles();">FR</button>
-        <button class="splash-lang-btn" data-lang="en" style="background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1);" onclick="window.I18N && window.I18N.setLanguage('en'); updateSplashLangToggles();">EN</button>
+        <button class="splash-lang-btn active" data-lang="fr" onclick="window.I18N && window.I18N.setLanguage('fr'); updateSplashLangToggles();">FR</button>
+        <button class="splash-lang-btn" data-lang="en" onclick="window.I18N && window.I18N.setLanguage('en'); updateSplashLangToggles();">EN</button>
       </div>
       <div class="location-icon">
         <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--green-400)"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
       </div>
-      <h2>Votre Position</h2>
-      <p>Pour trouver les pharmacies les plus proches, nous avons besoin de connaître votre position. Vos données restent privées et sécurisées.</p>
+      <h2 data-i18n="location.title">Votre Position</h2>
+      <p data-i18n="location.subtitle">Pour trouver les pharmacies les plus proches, nous avons besoin de connaître votre position. Vos données restent privées et sécurisées.</p>
       <div class="location-actions">
         <button id="btn-gps" class="btn btn-primary btn-lg btn-block">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-          Détecter ma position
+          <span data-i18n="location.btn">Détecter ma position</span>
         </button>
       </div>
     </div>
@@ -133,15 +133,15 @@
         <div class="action-buttons-row" id="main-actions">
           <button id="search-btn" class="action-btn primary-action">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <span>MÉDICAMENTS</span>
+            <span data-i18n="map.meds">MÉDICAMENTS</span>
           </button>
           <button id="camera-btn" class="action-btn secondary-action">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-            <span>ORDONNANCE</span>
+            <span data-i18n="map.camera">ORDONNANCE</span>
           </button>
           <button id="demo-btn" class="action-btn demo-action">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            <span>DÉMO</span>
+            <span data-i18n="map.demo">DÉMO</span>
           </button>
         </div>
         <input type="file" id="ocr-camera-input" accept="image/*" capture="environment" style="display: none;">
@@ -186,14 +186,14 @@
       <div class="search-step active" id="search-step-1">
         <div class="search-title">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--green-400)" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <span>Recherche Express</span>
+          <span data-i18n="search.express">Recherche Express</span>
         </div>
-        <p class="search-subtitle">Entrez le nom du médicament recherché. Nous contacterons les pharmacies ouvertes autour de vous.</p>
+        <p class="search-subtitle" data-i18n="search.express_subtitle">Entrez le nom du médicament recherché. Nous contacterons les pharmacies ouvertes autour de vous.</p>
         
         <div style="display: flex; gap: 8px; margin-bottom: 12px;">
           <div class="search-input-wrapper" style="flex: 1; margin-bottom: 0;">
             <span class="search-input-icon">💊</span>
-            <input type="text" id="medicine-input" placeholder="Ajouter un médicament..." autocomplete="off">
+            <input type="text" id="medicine-input" placeholder="Ajouter un médicament..." data-i18n-placeholder="search.add_placeholder" autocomplete="off">
             <div id="autocomplete-list"></div>
           </div>
           <button id="btn-add-medicine" class="btn btn-primary" style="padding: 0 16px; border-radius: var(--radius-lg);">+</button>
@@ -202,21 +202,21 @@
 
         <div class="search-info" id="search-info">
           <div class="search-info-row">
-            <span class="search-info-label">Pharmacies ouvertes dans votre zone</span>
+            <span class="search-info-label" data-i18n="search.open_pharmacies">Pharmacies ouvertes dans votre zone</span>
             <span class="search-info-value" id="search-pharmacy-count">0</span>
           </div>
           <div class="search-info-row">
-            <span class="search-info-label">Rayon de recherche</span>
+            <span class="search-info-label" data-i18n="search.radius">Rayon de recherche</span>
             <span class="search-info-value" id="search-radius-display">5 km</span>
           </div>
           <div class="search-info-row">
-            <span class="search-info-label">Coût de la recherche</span>
+            <span class="search-info-label" data-i18n="search.cost_label">Coût de la recherche</span>
             <span class="search-info-value search-cost">100 FCFA</span>
           </div>
         </div>
 
         <button id="btn-proceed-payment" class="btn btn-primary btn-lg btn-block" disabled>
-          Envoyer la demande
+          <span data-i18n="search.send_request">Envoyer la demande</span>
         </button>
       </div>
 
