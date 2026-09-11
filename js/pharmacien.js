@@ -871,17 +871,48 @@
       }
 
       container.innerHTML = data.map(item => {
-        const statusBadge = item.ignored ? '<span class="badge badge-muted">⏭️ Ignorée</span>' :
-          item.status === 'accepted' ? '<span class="badge badge-stock">✅ En stock</span>' : '<span class="badge badge-rupture">❌ Rupture</span>';
-        const time = new Date(item.responded_at || item.created_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-        let medsHtml = '';
+        const reqTime = new Date(item.created_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+        const respTime = item.responded_at ? new Date(item.responded_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+        
+        let rowsHtml = '';
         if (item.medicines_status) {
-          medsHtml = Object.entries(item.medicines_status).map(([med, s]) => {
-            let icon = s.startsWith('en_stock') ? '✅' : '❌';
-            return `<span style="font-size:12px;margin-right:8px;">${icon} ${med}</span>`;
+          rowsHtml = Object.entries(item.medicines_status).map(([med, s]) => {
+            const statusLabel = s.startsWith('en_stock') ? (window.I18N ? window.I18N.t('status.in_stock') || 'En stock' : 'En stock') : (window.I18N ? window.I18N.t('status.out_of_stock') || 'Rupture' : 'Rupture');
+            const badgeClass = s.startsWith('en_stock') ? 'badge-stock' : 'badge-rupture';
+            const icon = s.startsWith('en_stock') ? '✅' : '❌';
+            return `
+              <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                <td style="padding: 10px 4px; font-weight: 500;">${med}</td>
+                <td style="padding: 10px 4px; color: var(--dark-300);">${reqTime}</td>
+                <td style="padding: 10px 4px; color: var(--dark-300);">${respTime}</td>
+                <td style="padding: 10px 4px;"><span class="badge ${badgeClass}" style="font-size:11px;">${icon} ${statusLabel}</span></td>
+              </tr>
+            `;
           }).join('');
         }
-        return `<div class="history-item"><div class="history-item-info"><div class="history-item-medicine">${medsHtml || '💊 Demande'}</div><div class="history-item-meta"><span>📅 ${time}</span></div></div><div class="history-item-status">${statusBadge}</div></div>`;
+        
+        const thLabelMeds = window.I18N ? window.I18N.t('history.req_meds') || 'Médicaments demandés' : 'Médicaments demandés';
+        const thLabelReqDate = window.I18N ? window.I18N.t('history.req_date') || 'Date demande' : 'Date demande';
+        const thLabelRespDate = window.I18N ? window.I18N.t('history.resp_date') || 'Date réponse' : 'Date réponse';
+        const thLabelStatus = window.I18N ? window.I18N.t('history.status') || 'Statut' : 'Statut';
+
+        return `
+          <div class="history-item" style="flex-direction: column; align-items: stretch; gap: 8px; padding: 12px 16px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+              <thead>
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); text-align: left; color: var(--dark-300); font-size: 12px; text-transform: uppercase;">
+                  <th style="padding: 8px 4px;">${thLabelMeds}</th>
+                  <th style="padding: 8px 4px;">${thLabelReqDate}</th>
+                  <th style="padding: 8px 4px;">${thLabelRespDate}</th>
+                  <th style="padding: 8px 4px;">${thLabelStatus}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml}
+              </tbody>
+            </table>
+          </div>
+        `;
       }).join('');
     } catch (err) {
       console.error('Load history error:', err);
