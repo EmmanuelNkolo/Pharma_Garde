@@ -677,50 +677,6 @@
     if (btnPdf) btnPdf.addEventListener('click', generatePDFReport);
   }
 
-  // ═══════════════════════════════════════════════════════
-  //  STAT CARDS — Clickable with sub-filters
-  // ═══════════════════════════════════════════════════════
-  function bindStatCards() {
-    $$('.stat-card').forEach(card => {
-      card.addEventListener('click', () => {
-        const type = card.getAttribute('data-stat');
-        currentStatType = type;
-        currentStatFilter = 'today';
-        openStatDetail(type, 'today');
-      });
-    });
-  }
-
-  function bindFilterButtons() {
-    // Stat detail filters
-    $$('#stat-detail-panel .filter-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        $$('#stat-detail-panel .filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentStatFilter = btn.getAttribute('data-filter');
-        if (currentStatType) openStatDetail(currentStatType, currentStatFilter);
-      });
-    });
-
-    // History filters
-    $$('#tab-history .filter-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        $$('#tab-history .filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        loadHistory(btn.getAttribute('data-filter'));
-      });
-    });
-
-    // Stats tab filters
-    $$('#tab-stats .filter-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        $$('#tab-stats .filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        loadStats(btn.getAttribute('data-filter'));
-      });
-    });
-  }
-
   function getDateRange(filter) {
     const now = new Date();
     let start = new Date();
@@ -1485,17 +1441,6 @@
     } catch (e) { }
   }
 
-  // ── Public API ─────────────────────────────────────────
-  window.PharmDash = {
-    prepareResponse,
-    confirmAction,
-    cancelReservation,
-    cancelMedicineReservation,
-    confirmMedicinePurchase,
-    deletePharmacy,
-  };
-
-  document.addEventListener('DOMContentLoaded', init);
   // ═══════════════════════════════════════════════════════
   //  GRANULAR RESERVATION ACTIONS
   // ═══════════════════════════════════════════════════════
@@ -1520,7 +1465,7 @@
         await supabase.from('responses').update({ medicines_status: respStatus }).eq('request_id', reqId).eq('pharmacy_id', currentPharmacy.id);
       }
 
-      loadStatDetail('reservations');
+      openStatDetail('reservations', currentStatFilter || 'today');
     } catch (err) {
       console.error('Cancel medicine error:', err);
       alert('Erreur lors de l\'annulation.');
@@ -1540,7 +1485,7 @@
       const { error: errUpdate } = await supabase.from('reservations').update({ medicines_status: currentStatus }).eq('id', resId);
       if (errUpdate) throw errUpdate;
 
-      loadStatDetail('reservations');
+      openStatDetail('reservations', currentStatFilter || 'today');
     } catch (err) {
       console.error('Confirm purchase error:', err);
       alert('Erreur lors de la confirmation.');
@@ -1548,11 +1493,12 @@
   }
 
   // ═══════════════════════════════════════════════════════
-  //  EXPORTS & INIT
+  //  PUBLIC API & INIT
   // ═══════════════════════════════════════════════════════
   window.PharmDash = {
     prepareResponse,
     confirmAction,
+    cancelReservation,
     cancelMedicineReservation,
     confirmMedicinePurchase
   };
