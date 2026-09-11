@@ -15,6 +15,47 @@
   transition: opacity 0.6s ease, visibility 0.6s ease;
 }
 
+.splash-lang-toggle {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  gap: 8px;
+  z-index: calc(var(--z-splash) + 1);
+}
+
+.splash-lang-btn {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: #fff;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.splash-lang-btn.active {
+  background: var(--green-500);
+  border-color: var(--green-400);
+  font-weight: bold;
+}
+
+.splash-qr {
+  margin-bottom: 30px;
+  padding: 10px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 0 20px rgba(5, 150, 105, 0.4);
+}
+
+.splash-qr img {
+  display: block;
+  width: 120px;
+  height: 120px;
+}
+
+
 #splash-screen.hidden {
   opacity: 0;
   visibility: hidden;

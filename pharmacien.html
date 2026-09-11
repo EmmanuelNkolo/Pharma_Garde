@@ -24,11 +24,15 @@
   <div id="login-screen">
     <div class="login-card">
       <!-- Navigation Back -->
-      <div style="display: flex; justify-content: flex-start; margin-bottom: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
         <a href="index.html" class="btn btn-outline btn-sm" style="display: flex; align-items: center; gap: 6px; padding: 8px 16px;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
           <span data-i18n="nav.back">Retour</span>
         </a>
+        <div class="splash-lang-toggle" style="position: static;">
+          <button class="splash-lang-btn active" data-lang="fr" onclick="window.I18N && window.I18N.setLanguage('fr'); updatePharmLangToggles();">FR</button>
+          <button class="splash-lang-btn" data-lang="en" onclick="window.I18N && window.I18N.setLanguage('en'); updatePharmLangToggles();">EN</button>
+        </div>
       </div>
 
       <div class="login-icon">🏥</div>
@@ -406,6 +410,22 @@
     if (screen.orientation && screen.orientation.lock) {
       screen.orientation.lock('landscape').catch(() => {});
     }
+  </script>
+
+  <script>
+    function updatePharmLangToggles() {
+      const currentLang = (window.I18N && window.I18N.getLang()) || 'fr';
+      document.querySelectorAll('.splash-lang-btn').forEach(btn => {
+        if (btn.getAttribute('data-lang') === currentLang) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.I18N) setTimeout(updatePharmLangToggles, 100);
+    });
   </script>
 
 </body>
