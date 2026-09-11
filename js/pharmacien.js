@@ -1546,4 +1546,16 @@
       alert('Erreur lors de la confirmation.');
     }
   }
+
+  // ═══════════════════════════════════════════════════════
+  //  EXPORTS & INIT
+  // ═══════════════════════════════════════════════════════
+  window.PharmDash = {
+    prepareResponse,
+    confirmAction,
+    cancelMedicineReservation,
+    confirmMedicinePurchase
+  };
+
+  document.addEventListener('DOMContentLoaded', init);
 })();
