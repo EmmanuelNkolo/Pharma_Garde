@@ -1246,17 +1246,11 @@ const App = (() => {
   }
 
   function goBack() {
-    if (navIndex > 0) {
-      navIndex--;
-      navigateTo(navigationHistory[navIndex]);
-    }
+    window.history.back();
   }
 
   function goForward() {
-    if (navIndex < navigationHistory.length - 1) {
-      navIndex++;
-      navigateTo(navigationHistory[navIndex]);
-    }
+    window.history.forward();
   }
 
   function goHome() {

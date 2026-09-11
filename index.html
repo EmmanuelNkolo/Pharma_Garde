@@ -32,18 +32,13 @@
        SPLASH SCREEN
        ═══════════════════════════════════════════════════════ -->
   <div id="splash-screen">
-    <div class="splash-lang-toggle">
-      <button class="splash-lang-btn active" data-lang="fr" onclick="window.I18N && window.I18N.setLanguage('fr'); updateSplashLangToggles();">FR</button>
-      <button class="splash-lang-btn" data-lang="en" onclick="window.I18N && window.I18N.setLanguage('en'); updateSplashLangToggles();">EN</button>
-    </div>
-    
     <div class="splash-qr">
       <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https://pharma-garde-kappa.vercel.app" alt="QR Code Pharma-Garde">
     </div>
     <div class="splash-cross" aria-hidden="true"></div>
     <div class="splash-title">Pharma-Garde</div>
     <div class="splash-subtitle" data-i18n="splash.subtitle">Trouvez vos médicaments en un clic</div>
-    <div class="splash-subtitle-en" style="font-style: italic; font-size: 0.9em; opacity: 0.8; margin-top: 8px; margin-bottom: 20px;">Find your medicines in one click</div>
+    <div class="splash-subtitle-en" style="font-style: italic; color: var(--green-400); font-size: 0.9em; margin-top: 8px; margin-bottom: 20px;">Find your medicines in one click</div>
     <div class="splash-loader">
       <div class="loading-dots">
         <span></span><span></span><span></span>
@@ -55,7 +50,11 @@
        LOCATION PERMISSION MODAL
        ═══════════════════════════════════════════════════════ -->
   <div id="location-modal">
-    <div class="location-card">
+    <div class="location-card" style="position: relative;">
+      <div class="splash-lang-toggle" style="top: 10px; right: 10px; gap: 4px;">
+        <button class="splash-lang-btn active" data-lang="fr" style="background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1);" onclick="window.I18N && window.I18N.setLanguage('fr'); updateSplashLangToggles();">FR</button>
+        <button class="splash-lang-btn" data-lang="en" style="background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1);" onclick="window.I18N && window.I18N.setLanguage('en'); updateSplashLangToggles();">EN</button>
+      </div>
       <div class="location-icon">
         <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--green-400)"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
       </div>
