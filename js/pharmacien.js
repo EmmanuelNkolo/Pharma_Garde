@@ -1502,5 +1502,4 @@
       alert('Erreur lors de la confirmation.');
     }
   }
-
 })();
