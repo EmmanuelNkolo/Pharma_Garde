@@ -677,6 +677,50 @@
     if (btnPdf) btnPdf.addEventListener('click', generatePDFReport);
   }
 
+  // ═══════════════════════════════════════════════════════
+  //  STAT CARDS — Clickable with sub-filters
+  // ═══════════════════════════════════════════════════════
+  function bindStatCards() {
+    $$('.stat-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const type = card.getAttribute('data-stat');
+        currentStatType = type;
+        currentStatFilter = 'today';
+        openStatDetail(type, 'today');
+      });
+    });
+  }
+
+  function bindFilterButtons() {
+    // Stat detail filters
+    $$('#stat-detail-panel .filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $$('#stat-detail-panel .filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentStatFilter = btn.getAttribute('data-filter');
+        if (currentStatType) openStatDetail(currentStatType, currentStatFilter);
+      });
+    });
+
+    // History filters
+    $$('#tab-history .filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $$('#tab-history .filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        loadHistory(btn.getAttribute('data-filter'));
+      });
+    });
+
+    // Stats tab filters
+    $$('#tab-stats .filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $$('#tab-stats .filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        loadStats(btn.getAttribute('data-filter'));
+      });
+    });
+  }
+
   function getDateRange(filter) {
     const now = new Date();
     let start = new Date();
