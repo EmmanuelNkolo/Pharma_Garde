@@ -12,8 +12,16 @@ serve(async (req) => {
   }
 
   try {
-    const { action, reference, phone, amount, description } = await req.json();
-    const NOTCHPAY_SECRET_KEY = Deno.env.get('NOTCHPAY_SECRET_KEY');
+    const reqData = await req.json();
+    const action = reqData.action;
+    const reference = reqData.reference;
+    const phone = reqData.phone;
+    const amount = reqData.amount;
+    const description = reqData.description;
+    
+    // On nettoie la clé (PowerShell rajoute parfois des guillemets invisibles)
+    let NOTCHPAY_SECRET_KEY = Deno.env.get('NOTCHPAY_SECRET_KEY') || '';
+    NOTCHPAY_SECRET_KEY = NOTCHPAY_SECRET_KEY.replace(/^["']|["']$/g, '').trim();
 
     if (!NOTCHPAY_SECRET_KEY) {
       throw new Error('La clé secrète Notch Pay est manquante');
@@ -24,6 +32,7 @@ serve(async (req) => {
       const payload = {
         amount: amount || 100,
         currency: "XAF",
+        reference: "phg_" + Date.now() + "_" + Math.floor(Math.random() * 1000), // Ajout d'une référence unique
         description: description || "Recherche Pharma-Garde",
         customer: {
           email: "client@pharmagarde.cm", // Obligatoire pour Notch Pay
@@ -96,7 +105,7 @@ serve(async (req) => {
 
   } catch (error) {
     return new Response(JSON.stringify({ success: false, error: error.message }), {
-      status: 400,
+      status: 200, // On retourne 200 pour que le frontend puisse lire l'erreur JSON
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
