@@ -32,9 +32,13 @@ CREATE INDEX IF NOT EXISTS idx_reservations_status ON reservations(status);
 CREATE INDEX IF NOT EXISTS idx_reservations_expires ON reservations(expires_at);
 
 -- 5. Enable Realtime for reservations
-ALTER PUBLICATION supabase_realtime ADD TABLE reservations;
+-- ALTER PUBLICATION supabase_realtime ADD TABLE reservations;
 
 -- 6. RLS for reservations
+ALTER TABLE reservations ENABLE ROW LEVEL SECURITY;
+-- DROP POLICY IF EXISTS "Public can read reservations" ON reservations;
+-- CREATE POLICY ... (we can just add IF NOT EXISTS to policies or leave them, but postgres 11+ doesn't have CREATE POLICY IF NOT EXISTS)
+
 ALTER TABLE reservations ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public can read reservations" ON reservations FOR SELECT USING (true);
 CREATE POLICY "Public can insert reservations" ON reservations FOR INSERT WITH CHECK (true);

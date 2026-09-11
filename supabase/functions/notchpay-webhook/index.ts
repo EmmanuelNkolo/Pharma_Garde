@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.33.1";
 // =====================================================================
 // UTILS: HMAC-SHA256 Signature Verification
 // =====================================================================
-async function verifyCampaySignature(payload: string, signature: string, secret: string): Promise<boolean> {
+async function verifyNotchPaySignature(payload: string, signature: string, secret: string): Promise<boolean> {
   if (!signature || !secret) return false;
 
   const encoder = new TextEncoder();
@@ -23,7 +23,6 @@ async function verifyCampaySignature(payload: string, signature: string, secret:
   const hashArray = Array.from(new Uint8Array(signatureBuffer));
   const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-  // Simple string comparison for the hex string
   return hashHex.toLowerCase() === signature.toLowerCase();
 }
 
@@ -31,77 +30,67 @@ async function verifyCampaySignature(payload: string, signature: string, secret:
 // MAIN HANDLER
 // =====================================================================
 serve(async (req) => {
-  // CORS configuration (optional, if you need to call it from browser)
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-campay-signature' } });
+    return new Response('ok', { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-notch-signature' } });
   }
 
   try {
-    // 1. Ensure method is POST
     if (req.method !== 'POST') {
       return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 });
     }
 
-    // 2. Extract signature from headers
-    const signature = req.headers.get('X-Campay-Signature') || req.headers.get('x-campay-signature');
+    const signature = req.headers.get('X-Notch-Signature') || req.headers.get('x-notch-signature');
     if (!signature) {
       return new Response(JSON.stringify({ error: 'Missing signature header' }), { status: 401 });
     }
 
-    // 3. Read raw payload
     const rawPayload = await req.text();
     if (!rawPayload) {
       return new Response(JSON.stringify({ error: 'Empty payload' }), { status: 400 });
     }
 
-    // 4. Verify HMAC signature
-    const secret = Deno.env.get('CAMPAY_WEBHOOK_SECRET');
+    const secret = Deno.env.get('NOTCHPAY_WEBHOOK_HASH');
     if (!secret) {
-      console.error('CAMPAY_WEBHOOK_SECRET is not configured in Supabase environment.');
+      console.error('NOTCHPAY_WEBHOOK_HASH is not configured in Supabase environment.');
       return new Response(JSON.stringify({ error: 'Server configuration error' }), { status: 500 });
     }
 
-    const isValid = await verifyCampaySignature(rawPayload, signature, secret);
+    const isValid = await verifyNotchPaySignature(rawPayload, signature, secret);
     if (!isValid) {
       console.error(`Invalid signature. Expected signature for payload does not match ${signature}`);
       return new Response(JSON.stringify({ error: 'Invalid signature' }), { status: 401 });
     }
 
-    // 5. Parse JSON payload and process business logic
-    const data = JSON.parse(rawPayload);
-    console.log(`[Campay Webhook] Received valid notification for reference: ${data.reference}, Status: ${data.status}`);
+    const event = JSON.parse(rawPayload);
+    console.log(`[NotchPay Webhook] Received valid notification for event: ${event.event}`);
 
-    // Si on a un webhook de succès
-    if (data.status === 'SUCCESSFUL') {
-      // Connect to Supabase using the Service Role Key to bypass RLS policies
+    // If it's a successful payment
+    if (event.event === 'payment.complete' && event.data.status === 'complete') {
       const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
       const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
       
-      // If URLs and keys are present, update database
       if (supabaseUrl && supabaseServiceKey) {
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-        // Exemple : Mettre à jour une table "transactions" ou "payments"
-        /*
         const { error: dbError } = await supabase
           .from('payments')
           .upsert({ 
-            reference: data.reference, 
-            status: data.status, 
-            amount: data.amount,
-            operator: data.operator,
+            reference: event.data.reference, 
+            status: 'SUCCESSFUL', 
+            amount: event.data.amount,
+            operator: event.data.currency, // Or extract from customer data
             updated_at: new Date().toISOString(),
-            metadata: data 
+            metadata: event.data 
           }, { onConflict: 'reference' });
 
         if (dbError) {
-          console.error('Erreur BDD:', dbError);
+          console.error('Erreur lors de la mise à jour de la BDD:', dbError);
+        } else {
+          console.log(`Transaction ${event.data.reference} enregistrée avec succès en BDD.`);
         }
-        */
       }
     }
 
-    // Toujours retourner 200 OK à Campay pour leur signifier que nous avons bien reçu le webhook
     return new Response(JSON.stringify({ success: true, message: 'Webhook processed successfully' }), {
       headers: { 'Content-Type': 'application/json' },
       status: 200,
