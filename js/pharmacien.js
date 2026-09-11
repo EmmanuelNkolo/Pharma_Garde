@@ -734,7 +734,14 @@
     const panel = $('#stat-detail-panel');
     const title = $('#stat-detail-title');
     const body = $('#stat-detail-body');
+    const filters = panel ? panel.querySelector('.stat-detail-filters') : null;
     if (!panel || !body) return;
+
+    if (type === 'reservations') {
+      if (filters) filters.style.display = 'none';
+    } else {
+      if (filters) filters.style.display = 'flex';
+    }
 
     const titles = { requests: '📥 Demandes', responded: '✅ Répondues', pending: '⏳ En attente', reservations: '🔒 Réservations' };
     if (title) title.textContent = titles[type] || type;
@@ -829,21 +836,70 @@
           }).join('');
 
       } else if (type === 'reservations') {
-        const { data } = await supabase.from('reservations').select('*').eq('pharmacy_id', currentPharmacy.id).eq('status', 'active').order('created_at', { ascending: false });
+        const { data } = await supabase.from('reservations').select('*, requests(insurance_name)').eq('pharmacy_id', currentPharmacy.id).eq('status', 'active').order('created_at', { ascending: false });
         if (!data || data.length === 0) { body.innerHTML = '<p style="color:var(--dark-400);text-align:center;padding:20px;">Aucune réservation active</p>'; return; }
 
         body.innerHTML = data.map(r => {
           const expiresAt = new Date(r.expires_at);
           const remaining = Math.max(0, Math.floor((expiresAt - new Date()) / 60000));
-          const meds = Array.isArray(r.medicines) ? r.medicines.join(', ') : (r.medicines || '');
-          return `<div class="stat-detail-item reservation-item" id="res-${r.id}" style="flex-direction: column; align-items: stretch; gap: 10px;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-              <div><strong>💊 ${meds}</strong><br><small>📱 ${r.patient_phone || 'Anonyme'}</small></div>
-              <div class="reservation-countdown ${remaining < 10 ? 'urgent' : ''}" data-expires="${r.expires_at}" data-resid="${r.id}" data-reqid="${r.request_id}">⏱️ ${remaining} min</div>
-            </div>
-            <button class="btn resp-btn-danger" style="width: 100%; font-size: 13px; padding: 6px;" onclick="PharmDash.cancelReservation('${r.id}', '${r.request_id}')">
-              ❌ Annuler la réservation
-            </button>
+          
+          let medsArray = [];
+          if (Array.isArray(r.medicines)) medsArray = r.medicines;
+          else if (typeof r.medicines === 'string') medsArray = r.medicines.split(',').map(m => m.trim());
+          
+          const medRows = medsArray.map(med => {
+            const statusObj = (r.medicines_status || {})[med] || { status: 'reserved' };
+            const insuranceName = (r.requests && r.requests.insurance_name) ? r.requests.insurance_name : null;
+            const insuranceStr = insuranceName ? `🛡️ Réservé avec assurance (${insuranceName})` : 'Réservé sans assurance';
+            
+            let statusHtml = '';
+            let actionHtml = '';
+            let timeHtml = `<span class="reservation-countdown ${remaining < 10 ? 'urgent' : ''}" data-expires="${r.expires_at}" data-resid="${r.id}" data-reqid="${r.request_id}">⏱️ ${remaining} min</span>`;
+            
+            if (statusObj.status === 'purchased') {
+              statusHtml = '<span class="badge badge-stock" style="font-size:11px;">✅ Acheté</span>';
+              actionHtml = '<span style="color:var(--dark-400);font-size:12px;">Terminé</span>';
+              timeHtml = '—';
+            } else if (statusObj.status === 'cancelled') {
+              statusHtml = '<span class="badge badge-rupture" style="font-size:11px;">❌ Annulé (Rupture)</span>';
+              actionHtml = '<span style="color:var(--dark-400);font-size:12px;">Terminé</span>';
+              timeHtml = '—';
+            } else {
+              statusHtml = `<span style="font-size:11px; color: var(--dark-300);">${insuranceStr}</span>`;
+              actionHtml = `
+                <div style="display:flex; flex-direction:column; gap:4px; max-width: 140px; margin-left:auto;">
+                  <button class="btn btn-sm btn-outline" style="padding:4px 8px; font-size:11px;" onclick="PharmDash.confirmMedicinePurchase('${r.id}', '${med}')">✅ Confirmer l'achat</button>
+                  <button class="btn btn-sm resp-btn-danger" style="padding:4px 8px; font-size:11px;" onclick="PharmDash.cancelMedicineReservation('${r.id}', '${r.request_id}', '${med}')">❌ Annuler</button>
+                </div>
+              `;
+            }
+
+            return `
+              <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                <td style="padding: 10px 4px; font-weight: 500;">💊 ${med}</td>
+                <td style="padding: 10px 4px;">${statusHtml}</td>
+                <td style="padding: 10px 4px; font-size:12px;">${timeHtml}</td>
+                <td style="padding: 10px 4px; text-align: right;">${actionHtml}</td>
+              </tr>
+            `;
+          }).join('');
+
+          return `
+          <div class="stat-detail-item reservation-item" id="res-${r.id}" style="flex-direction: column; align-items: stretch; gap: 8px; padding: 12px 16px;">
+            <div style="font-size:12px; color:var(--dark-300); margin-bottom:4px;">Client: 📱 ${r.patient_phone || 'Anonyme'}</div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+              <thead>
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); text-align: left; color: var(--dark-300); font-size: 12px; text-transform: uppercase;">
+                  <th style="padding: 8px 4px;">Médicaments réservés</th>
+                  <th style="padding: 8px 4px;">Statut Réservation</th>
+                  <th style="padding: 8px 4px;">Temps restant</th>
+                  <th style="padding: 8px 4px; text-align: right;">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${medRows}
+              </tbody>
+            </table>
           </div>`;
         }).join('');
       }
@@ -863,12 +919,17 @@
     const range = getDateRange(filter || 'today');
 
     try {
-      const { data, error } = await supabase.from('responses').select('*').eq('pharmacy_id', currentPharmacy.id).gte('created_at', range.start).lt('created_at', range.end).order('created_at', { ascending: false }).limit(50);
+      const { data, error } = await supabase.from('responses').select('*, requests(insurance_name)').eq('pharmacy_id', currentPharmacy.id).gte('created_at', range.start).lt('created_at', range.end).order('created_at', { ascending: false }).limit(50);
       if (error) throw error;
       if (!data || data.length === 0) {
         container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-text">Aucun historique pour cette période.</div></div>';
         return;
       }
+      
+      const requestIds = data.map(r => r.request_id);
+      const { data: resData } = await supabase.from('reservations').select('*').in('request_id', requestIds).eq('pharmacy_id', currentPharmacy.id);
+      const reservationsMap = {};
+      (resData || []).forEach(r => reservationsMap[r.request_id] = r);
 
       container.innerHTML = data.map(item => {
         const reqTime = new Date(item.created_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -876,16 +937,41 @@
         
         let rowsHtml = '';
         if (item.medicines_status) {
+          const reservation = reservationsMap[item.request_id];
+          const insuranceName = (item.requests && item.requests.insurance_name) ? item.requests.insurance_name : null;
+          
           rowsHtml = Object.entries(item.medicines_status).map(([med, s]) => {
             const statusLabel = s.startsWith('en_stock') ? (window.I18N ? window.I18N.t('status.in_stock') || 'En stock' : 'En stock') : (window.I18N ? window.I18N.t('status.out_of_stock') || 'Rupture' : 'Rupture');
             const badgeClass = s.startsWith('en_stock') ? 'badge-stock' : 'badge-rupture';
             const icon = s.startsWith('en_stock') ? '✅' : '❌';
+            
+            let resStatusHtml = '<span style="color:var(--dark-400);">Non réservé</span>';
+            if (reservation) {
+              const medResStatus = (reservation.medicines_status || {})[med]?.status || 'reserved';
+              let isReserved = false;
+              if (Array.isArray(reservation.medicines) && reservation.medicines.includes(med)) isReserved = true;
+              else if (typeof reservation.medicines === 'string' && reservation.medicines.includes(med)) isReserved = true;
+              
+              if (isReserved) {
+                if (medResStatus === 'purchased') {
+                  resStatusHtml = '<span style="color:var(--green-400);">✅ Acheté</span>';
+                } else if (medResStatus === 'cancelled') {
+                  resStatusHtml = '<span style="color:var(--red-400);">❌ Annulé</span>';
+                } else if (insuranceName) {
+                  resStatusHtml = `<span style="color:var(--gold-400);">🛡️ Réservé (Assuré: ${insuranceName})</span>`;
+                } else {
+                  resStatusHtml = '<span style="color:var(--gold-400);">Réservé (Non assuré)</span>';
+                }
+              }
+            }
+
             return `
               <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
                 <td style="padding: 10px 4px; font-weight: 500;">${med}</td>
                 <td style="padding: 10px 4px; color: var(--dark-300);">${reqTime}</td>
                 <td style="padding: 10px 4px; color: var(--dark-300);">${respTime}</td>
                 <td style="padding: 10px 4px;"><span class="badge ${badgeClass}" style="font-size:11px;">${icon} ${statusLabel}</span></td>
+                <td style="padding: 10px 4px; font-size:12px;">${resStatusHtml}</td>
               </tr>
             `;
           }).join('');
@@ -895,6 +981,7 @@
         const thLabelReqDate = window.I18N ? window.I18N.t('history.req_date') || 'Date demande' : 'Date demande';
         const thLabelRespDate = window.I18N ? window.I18N.t('history.resp_date') || 'Date réponse' : 'Date réponse';
         const thLabelStatus = window.I18N ? window.I18N.t('history.status') || 'Statut' : 'Statut';
+        const thLabelReservation = window.I18N ? window.I18N.t('history.reservation') || 'Réservation' : 'Réservation';
 
         return `
           <div class="history-item" style="flex-direction: column; align-items: stretch; gap: 8px; padding: 12px 16px;">
@@ -905,6 +992,7 @@
                   <th style="padding: 8px 4px;">${thLabelReqDate}</th>
                   <th style="padding: 8px 4px;">${thLabelRespDate}</th>
                   <th style="padding: 8px 4px;">${thLabelStatus}</th>
+                  <th style="padding: 8px 4px;">${thLabelReservation}</th>
                 </tr>
               </thead>
               <tbody>
@@ -974,7 +1062,43 @@
       const el3 = $('#stats-response-rate'); if (el3) el3.textContent = totalReq > 0 ? Math.round(((totalResp + ignoredCount) / totalReq) * 100) + '%' : '0%';
       const el4 = $('#stats-ignored'); if (el4) el4.textContent = ignoredCount;
 
-      // 4. Update Chart.js Doughnut
+      // 4. Calculate reservation stats
+      const { data: resData } = await supabase.from('reservations')
+        .select('*')
+        .eq('pharmacy_id', currentPharmacy.id)
+        .gte('created_at', range.start)
+        .lt('created_at', range.end);
+        
+      const resStats = { purchased: 0, expired: 0, rejected: 0, rupture: 0 };
+      
+      (resData || []).forEach(r => {
+        let medsArray = [];
+        if (Array.isArray(r.medicines)) medsArray = r.medicines;
+        else if (typeof r.medicines === 'string') medsArray = r.medicines.split(',').map(m => m.trim());
+        
+        medsArray.forEach(med => {
+          const status = (r.medicines_status || {})[med]?.status || 'reserved';
+          if (status === 'purchased') resStats.purchased++;
+          else if (status === 'cancelled') resStats.rejected++;
+          else {
+            const expiresAt = new Date(r.expires_at).getTime();
+            if (Date.now() > expiresAt) resStats.expired++;
+          }
+        });
+      });
+      
+      responses.filter(r => !r.ignored && r.medicines_status).forEach(r => {
+        Object.values(r.medicines_status).forEach(status => {
+          if (status === 'rupture' || status === 'out_of_stock') resStats.rupture++;
+        });
+      });
+
+      const elResPurchased = $('#stats-res-purchased'); if (elResPurchased) elResPurchased.textContent = resStats.purchased;
+      const elResExpired = $('#stats-res-expired'); if (elResExpired) elResExpired.textContent = resStats.expired;
+      const elResRejected = $('#stats-res-rejected'); if (elResRejected) elResRejected.textContent = resStats.rejected;
+      const elResRupture = $('#stats-res-rupture'); if (elResRupture) elResRupture.textContent = resStats.rupture;
+
+      // 5. Update Chart.js Doughnut
       const ctx = $('#stats-chart');
       if (ctx && window.Chart) {
         if (statsChartInstance) statsChartInstance.destroy();
@@ -1322,7 +1446,61 @@
     prepareResponse,
     confirmAction,
     cancelReservation,
+    cancelMedicineReservation,
+    confirmMedicinePurchase,
+    deletePharmacy,
   };
 
   document.addEventListener('DOMContentLoaded', init);
+  // ═══════════════════════════════════════════════════════
+  //  GRANULAR RESERVATION ACTIONS
+  // ═══════════════════════════════════════════════════════
+  async function cancelMedicineReservation(resId, reqId, medicine) {
+    if (!confirm(`Voulez-vous annuler la réservation pour le médicament "${medicine}" ? Cela le marquera "Rupture" chez le patient.`)) return;
+
+    try {
+      const { data: resData, error: errRes } = await supabase.from('reservations').select('medicines_status').eq('id', resId).single();
+      if (errRes) throw errRes;
+
+      const currentStatus = resData.medicines_status || {};
+      currentStatus[medicine] = { status: 'cancelled', updated_at: new Date().toISOString() };
+
+      const { error: errUpdate } = await supabase.from('reservations').update({ medicines_status: currentStatus }).eq('id', resId);
+      if (errUpdate) throw errUpdate;
+
+      // Update response to match rupture so patient sees it
+      const { data: respData } = await supabase.from('responses').select('medicines_status').eq('request_id', reqId).eq('pharmacy_id', currentPharmacy.id).single();
+      if (respData) {
+        const respStatus = respData.medicines_status || {};
+        respStatus[medicine] = 'rupture';
+        await supabase.from('responses').update({ medicines_status: respStatus }).eq('request_id', reqId).eq('pharmacy_id', currentPharmacy.id);
+      }
+
+      loadStatDetail('reservations');
+    } catch (err) {
+      console.error('Cancel medicine error:', err);
+      alert('Erreur lors de l\'annulation.');
+    }
+  }
+
+  async function confirmMedicinePurchase(resId, medicine) {
+    if (!confirm(`Confirmer l'achat pour "${medicine}" ?`)) return;
+
+    try {
+      const { data: resData, error: errRes } = await supabase.from('reservations').select('medicines_status').eq('id', resId).single();
+      if (errRes) throw errRes;
+
+      const currentStatus = resData.medicines_status || {};
+      currentStatus[medicine] = { status: 'purchased', updated_at: new Date().toISOString() };
+
+      const { error: errUpdate } = await supabase.from('reservations').update({ medicines_status: currentStatus }).eq('id', resId);
+      if (errUpdate) throw errUpdate;
+
+      loadStatDetail('reservations');
+    } catch (err) {
+      console.error('Confirm purchase error:', err);
+      alert('Erreur lors de la confirmation.');
+    }
+  }
+
 })();

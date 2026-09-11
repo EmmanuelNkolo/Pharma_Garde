@@ -96,6 +96,13 @@ const I18N = (() => {
       'settings.title': 'Paramètres',
       'settings.location': 'Localisation',
       'settings.radius': 'Rayon par défaut',
+      
+      // History
+      'history.req_meds': 'Médicaments demandés',
+      'history.req_date': 'Date demande',
+      'history.resp_date': 'Date réponse',
+      'history.status': 'Statut',
+      'history.reservation': 'Réservation',
       'settings.radius_desc': 'Distance maximale de recherche',
       'settings.city': 'Ville',
       'settings.city_desc': 'Changer de ville',
@@ -281,6 +288,13 @@ const I18N = (() => {
       'settings.title': 'Settings',
       'settings.location': 'Location',
       'settings.radius': 'Default radius',
+      
+      // History
+      'history.req_meds': 'Requested Medicines',
+      'history.req_date': 'Request Date',
+      'history.resp_date': 'Response Date',
+      'history.status': 'Status',
+      'history.reservation': 'Reservation',
       'settings.radius_desc': 'Maximum search distance',
       'settings.city': 'City',
       'settings.city_desc': 'Change city',
