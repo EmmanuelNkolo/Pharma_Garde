@@ -38,6 +38,10 @@ const App = (() => {
 
     bindEvents();
     initDemoSlides();
+    
+    document.addEventListener('languageChanged', () => {
+      updatePharmacies();
+    });
   }
 
   // ── Event Bindings ─────────────────────────────────────
@@ -381,8 +385,8 @@ const App = (() => {
     const guardCount = displayPharmacies.filter(p => p.isOnDuty).length;
     const openCountEl = $('#open-count');
     const guardCountEl = $('#guard-count');
-    if (openCountEl) openCountEl.textContent = `${openCount} pharmacie${openCount > 1 ? 's' : ''} ouverte${openCount > 1 ? 's' : ''}`;
-    if (guardCountEl) guardCountEl.textContent = `${guardCount} de garde`;
+    if (openCountEl) openCountEl.textContent = window.I18N ? window.I18N.t('map.open_count', { n: openCount }) : `${openCount} pharmacie${openCount > 1 ? 's' : ''} ouverte${openCount > 1 ? 's' : ''}`;
+    if (guardCountEl) guardCountEl.textContent = window.I18N ? window.I18N.t('map.guard_count', { n: guardCount }) : `${guardCount} de garde`;
 
     // Render pharmacy list
     renderPharmacyList(displayPharmacies);
@@ -397,7 +401,7 @@ const App = (() => {
       list.innerHTML = `
         <div class="empty-state">
           <div class="empty-state-icon">🔍</div>
-          <div class="empty-state-text">Aucune pharmacie trouvée dans un rayon de ${currentRadius} km. Essayez d'élargir le rayon de recherche.</div>
+          <div class="empty-state-text">${window.I18N ? window.I18N.t('map.empty', { r: currentRadius }) : `Aucune pharmacie trouvée dans un rayon de ${currentRadius} km. Essayez d'élargir le rayon de recherche.`}</div>
         </div>
       `;
       return;
@@ -406,11 +410,11 @@ const App = (() => {
     list.innerHTML = pharmacies.map(p => {
       let statusBadge;
       if (p.isOnDuty) {
-        statusBadge = '<span class="badge badge-guard">🌙 De garde</span>';
+        statusBadge = `<span class="badge badge-guard">🌙 ${window.I18N ? window.I18N.t('pharmacy.on_duty') : 'De garde'}</span>`;
       } else if (p.isOpen) {
-        statusBadge = '<span class="badge badge-open">Ouvert</span>';
+        statusBadge = `<span class="badge badge-open">${window.I18N ? window.I18N.t('pharmacy.open') : 'Ouvert'}</span>`;
       } else {
-        statusBadge = '<span class="badge badge-closed">Fermé</span>';
+        statusBadge = `<span class="badge badge-closed">${window.I18N ? window.I18N.t('pharmacy.closed') : 'Fermé'}</span>`;
       }
 
       return `
@@ -434,13 +438,13 @@ const App = (() => {
           </div>
           <div class="card-actions">
             <button class="btn btn-call" onclick="event.stopPropagation(); App.callPharmacy('${p.phone}')">
-              📞 Appeler
+              📞 ${window.I18N ? window.I18N.t('detail.call') : 'Appeler'}
             </button>
             <button class="btn btn-whatsapp" onclick="event.stopPropagation(); App.openWhatsApp('${p.whatsapp}')">
               💬 WhatsApp
             </button>
             <button class="btn btn-route" onclick="event.stopPropagation(); App.getRoute(${p.lat}, ${p.lng})">
-              🗺️ Y aller
+              🗺️ ${window.I18N ? window.I18N.t('detail.route') : 'Y aller'}
             </button>
           </div>
         </div>

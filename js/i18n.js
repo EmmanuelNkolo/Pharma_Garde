@@ -31,6 +31,7 @@ const I18N = (() => {
       'map.meds': 'MÉDICAMENTS',
       'map.demo': 'DÉMO',
       'map.camera': 'ORDONNANCE',
+      'map.empty': 'Aucune pharmacie trouvée dans un rayon de {r} km. Essayez d\'élargir le rayon de recherche.',
       
       // Search
       'search.express': 'Recherche Express',
@@ -215,6 +216,7 @@ const I18N = (() => {
       'map.meds': 'MEDICINES',
       'map.demo': 'DEMO',
       'map.camera': 'PRESCRIPTION',
+      'map.empty': 'No pharmacy found within a {r} km radius. Try to expand the search radius.',
       
       // Search
       'search.express': 'Express Search',
@@ -395,6 +397,7 @@ const I18N = (() => {
     currentLang = lang;
     localStorage.setItem(STORAGE_KEY, lang);
     applyTranslations();
+    document.dispatchEvent(new CustomEvent('languageChanged', { detail: { lang } }));
   }
 
   function t(key, params) {
