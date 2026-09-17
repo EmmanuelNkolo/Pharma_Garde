@@ -599,6 +599,9 @@
       }]);
 
       if (error) throw error;
+      
+      // Mettre à jour le statut de la demande à "repondu" pour qu'elle ne reste pas "en attente"
+      await supabase.from('requests').update({ status: 'responded' }).eq('id', requestId);
 
       activeRequests = activeRequests.filter(r => r.id !== requestId);
       renderActiveRequests();
@@ -817,27 +820,15 @@
             </div>`;
           }).join('') + '</div>';
 
-      } else if (type === 'pending') {
-        const { data } = await supabase.from('requests').select('*').eq('status', 'pending').gte('created_at', range.start).lt('created_at', range.end).order('created_at', { ascending: false });
-        if (!data || data.length === 0) { body.innerHTML = '<p style="color:var(--dark-400);text-align:center;padding:20px;">Aucune demande en attente</p>'; return; }
-
-        const filtered = (data || []).filter(r => {
-          if (!currentPharmacy || !r.user_lat || !r.user_lng) return false;
-          return haversine(currentPharmacy.lat, currentPharmacy.lng, r.user_lat, r.user_lng) <= (r.radius || 5);
-        });
-
-        body.innerHTML = filtered.length === 0 ? '<p style="color:var(--dark-400);text-align:center;padding:20px;">Aucune demande en attente</p>' :
-          filtered.map(r => {
-            const created = new Date(r.created_at);
-            const pendingExpires = new Date(created.getTime() + 3600000);
-            const remaining = Math.max(0, Math.floor((pendingExpires - new Date()) / 60000));
-            const meds = Array.isArray(r.medicines) ? r.medicines.join(', ') : r.medicines;
-            return `<div class="stat-detail-item"><div><strong>💊 ${meds}</strong><br><small>⏱️ ${remaining} min restantes</small></div><span class="badge badge-warning">En attente</span></div>`;
-          }).join('');
-
       } else if (type === 'reservations') {
-        const { data } = await supabase.from('reservations').select('*, requests(insurance_name)').eq('pharmacy_id', currentPharmacy.id).eq('status', 'active').order('created_at', { ascending: false });
-        if (!data || data.length === 0) { body.innerHTML = '<p style="color:var(--dark-400);text-align:center;padding:20px;">Aucune réservation active</p>'; return; }
+        const { data } = await supabase.from('reservations')
+          .select('*, requests(insurance_name)')
+          .eq('pharmacy_id', currentPharmacy.id)
+          .gte('created_at', range.start)
+          .lt('created_at', range.end)
+          .order('created_at', { ascending: false });
+          
+        if (!data || data.length === 0) { body.innerHTML = '<p style="color:var(--dark-400);text-align:center;padding:20px;">Aucune réservation pour cette période</p>'; return; }
 
         body.innerHTML = data.map(r => {
           const expiresAt = new Date(r.expires_at);
@@ -1223,13 +1214,8 @@
   //  UPDATE STAT COUNTERS
   // ═══════════════════════════════════════════════════════
   async function updateStatCounters() {
-    const pending = activeRequests.filter(r => r.status === 'pending').length;
-    const statPending = $('#stat-pending');
     const statToday = $('#stat-today');
-    const activeBadge = $('#active-badge');
-    if (statPending) statPending.textContent = pending;
     if (statToday) statToday.textContent = activeRequests.length;
-    if (activeBadge) activeBadge.textContent = pending;
 
     if (!currentPharmacy) return;
     try {

@@ -237,11 +237,7 @@
         <div class="stat-label" data-i18n="dash.responded">Répondues</div>
         <span class="stat-icon">✅</span>
       </div>
-      <div class="stat-card stat-warning" data-stat="pending" id="stat-card-pending">
-        <div class="stat-value" id="stat-pending">0</div>
-        <div class="stat-label" data-i18n="dash.pending">En attente</div>
-        <span class="stat-icon">⏳</span>
-      </div>
+
       <div class="stat-card stat-info" data-stat="reservations" id="stat-card-reservations">
         <div class="stat-value" id="stat-reserved">0</div>
         <div class="stat-label" data-i18n="dash.reservations">Réservations</div>
@@ -267,20 +263,12 @@
 
     <!-- ─── NAVIGATION TABS ─── -->
     <nav class="dash-tabs">
-      <button class="dash-tab active" data-tab="active">📥 <span data-i18n="dash.tab_requests">Demandes</span><span class="tab-badge" id="active-badge">0</span></button>
-      <button class="dash-tab" data-tab="history">📋 <span data-i18n="dash.tab_history">Historique</span></button>
+      <button class="dash-tab active" data-tab="history">📋 <span data-i18n="dash.tab_history">Historique</span></button>
       <button class="dash-tab" data-tab="stats">📊 <span data-i18n="dash.tab_stats">Statistiques</span></button>
     </nav>
 
-    <!-- Tab: Active Requests -->
-    <div class="dash-tab-content active" id="tab-active">
-      <div id="active-requests">
-        <div class="empty-state"><div class="empty-state-icon">📭</div><div class="empty-state-text" data-i18n="dash.empty_requests">Aucune demande en cours. Les demandes de patients apparaîtront ici en temps réel.</div></div>
-      </div>
-    </div>
-
     <!-- Tab: History -->
-    <div class="dash-tab-content" id="tab-history">
+    <div class="dash-tab-content active" id="tab-history">
       <div class="history-filters">
         <button class="filter-btn active" data-filter="today" data-i18n="dash.filter_today">Aujourd'hui</button>
         <button class="filter-btn" data-filter="week" data-i18n="dash.filter_week">Semaine</button>
