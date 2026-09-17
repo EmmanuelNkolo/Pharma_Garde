@@ -740,11 +740,7 @@
     const filters = panel ? panel.querySelector('.stat-detail-filters') : null;
     if (!panel || !body) return;
 
-    if (type === 'reservations') {
-      if (filters) filters.style.display = 'none';
-    } else {
-      if (filters) filters.style.display = 'flex';
-    }
+    if (filters) filters.style.display = 'flex';
 
     const titles = { requests: '📥 Demandes', responded: '✅ Répondues', pending: '⏳ En attente', reservations: '🔒 Réservations' };
     if (title) title.textContent = titles[type] || type;
@@ -1224,7 +1220,7 @@
       const statResponded = $('#stat-responded');
       if (statResponded) statResponded.textContent = respondedCount || 0;
 
-      const { count: reservedCount } = await supabase.from('reservations').select('*', { count: 'exact', head: true }).eq('pharmacy_id', currentPharmacy.id).eq('status', 'active');
+      const { count: reservedCount } = await supabase.from('reservations').select('*', { count: 'exact', head: true }).eq('pharmacy_id', currentPharmacy.id).gte('created_at', today.toISOString());
       const statReserved = $('#stat-reserved');
       if (statReserved) statReserved.textContent = reservedCount || 0;
     } catch (e) { console.error('Counter error:', e); }
