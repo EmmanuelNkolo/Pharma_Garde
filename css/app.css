@@ -1668,9 +1668,8 @@
 }
 
 /* ── Recenter Button ─────────────────────────────────────── */
-.recenter-btn {
+.recenter-btn, .fullscreen-btn {
   position: fixed;
-  top: 226px;
   bottom: auto;
   right: 14px;
   width: 44px;
@@ -1689,12 +1688,20 @@
   box-shadow: var(--shadow-md);
 }
 
+.recenter-btn {
+  top: 226px;
+}
+
+.fullscreen-btn {
+  top: 280px;
+}
+
 .leaflet-top.leaflet-right {
   top: 130px !important;
   right: 14px !important;
 }
 
-.recenter-btn:hover {
+.recenter-btn:hover, .fullscreen-btn:hover {
   background: rgba(255, 255, 255, 0.15);
   transform: scale(1.1);
   color: var(--green-400);
@@ -1870,6 +1877,13 @@
   .recenter-btn {
     bottom: 80px;
     right: 24px;
+    top: auto;
+  }
+  
+  .fullscreen-btn {
+    bottom: 134px;
+    right: 24px;
+    top: auto;
   }
 }
 

@@ -186,6 +186,20 @@ const App = (() => {
       PharmMap.recenterOnUser();
     });
 
+    // Fullscreen button
+    const btnFullscreen = $('#btn-fullscreen');
+    if (btnFullscreen) {
+      btnFullscreen.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(err => {
+            console.error(`Erreur plein écran: ${err.message} (${err.name})`);
+          });
+        } else {
+          document.exitFullscreen();
+        }
+      });
+    }
+
     // Toggle switches
     $$('.toggle').forEach(toggle => {
       toggle.addEventListener('click', () => {
@@ -369,6 +383,12 @@ const App = (() => {
     let displayPharmacies = showClosed 
       ? pharmaciesInRadius 
       : pharmaciesInRadius.filter(p => p.isOpen || p.isOnDuty);
+
+    // If an active search is ongoing, only show pharmacies that have responded
+    if (activeRequestIds.length > 0) {
+      const respondedPharmacyIds = new Set(realResponses.map(r => r.pharmacy_id));
+      displayPharmacies = displayPharmacies.filter(p => respondedPharmacyIds.has(p.id));
+    }
 
     // Sort: on-duty first, then open, then by distance
     displayPharmacies.sort((a, b) => {
@@ -805,6 +825,9 @@ const App = (() => {
       }
 
       subscribeToResponses();
+      
+      // Update map to hide non-responding pharmacies immediately
+      updatePharmacies();
 
     } catch(e) {
       console.error('Search request error:', e);
@@ -857,6 +880,8 @@ const App = (() => {
           renderPatientResponses();
         }
         
+        updatePharmacies(); // Refresh map based on loaded active requests
+        
         subscribeToResponses();
       } else {
         localStorage.removeItem('pharma_active_requests');
@@ -880,6 +905,7 @@ const App = (() => {
           const resp = payload.new;
           realResponses.push(resp);
           renderPatientResponses();
+          updatePharmacies(); // Update map markers to show the new responder
           showToast('🔔 Nouvelle réponse d\'une pharmacie !', 'info');
         })
         .on('postgres_changes', {
@@ -891,6 +917,7 @@ const App = (() => {
           if (idx !== -1) {
             realResponses[idx] = updatedResp;
             renderPatientResponses();
+            updatePharmacies();
             showToast('⚠️ Une pharmacie a mis à jour sa réponse.', 'warning');
           }
         })
