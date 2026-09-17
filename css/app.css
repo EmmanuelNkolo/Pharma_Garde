@@ -1923,3 +1923,44 @@
   }
 }
 
+/* ── Landscape Mobile Optimization for Keyboard ── */
+@media (max-height: 500px) and (orientation: landscape) {
+  .search-subtitle {
+    display: none;
+  }
+  
+  #search-step-1 {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    align-items: start;
+  }
+  
+  .search-title {
+    grid-column: 1 / -1;
+    margin-bottom: 4px;
+  }
+  
+  #search-input-area {
+    grid-column: 1 / 2;
+    margin-bottom: 0 !important;
+  }
+  
+  #medicines-tags-container {
+    grid-column: 1 / 2;
+    margin-bottom: 0 !important;
+  }
+  
+  .search-info {
+    grid-column: 2 / 3;
+    grid-row: 2 / 3;
+    margin-bottom: 0 !important;
+    padding: 8px;
+  }
+  
+  #btn-proceed-payment {
+    grid-column: 2 / 3;
+    grid-row: 3 / 4;
+  }
+}
+
