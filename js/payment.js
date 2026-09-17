@@ -93,7 +93,7 @@ const Payment = (() => {
   }
 
   /**
-   * Process a payment via Supabase Edge Function (campay-payment)
+   * Process a payment via Supabase Edge Function — Push USSD direct (sans popup)
    */
   async function processPayment(phone, method, amount) {
     const validation = validatePhone(phone, method);
@@ -116,61 +116,47 @@ const Payment = (() => {
         return { success: false, error: "Erreur de configuration serveur (Supabase manquant)" };
       }
 
-      // Pre-open popup to avoid browser blockers since the API call is async
-      let popup = null;
-      try {
-        popup = window.open('about:blank', 'NotchPayCheckout', 'width=500,height=700');
-      } catch(e) {}
-
-      // Appeler l'Edge Function pour initier le paiement
+      // Appeler l'Edge Function pour initier + compléter le paiement (push USSD direct)
       const { data, error } = await supabase.functions.invoke('notchpay-payment', {
         body: {
           action: 'collect',
           phone: validation.cleaned,
+          method: method, // 'om' ou 'momo' — détermine le canal (cm.orange ou cm.mtn)
           amount: amount,
           description: 'Pharma-Garde - Recherche Express'
         }
       });
 
       if (error || !data) {
-        if (popup) popup.close();
-        throw new Error(error?.message || "Erreur de connexion à l'Edge Function");
+        throw new Error(error?.message || "Erreur de connexion au serveur");
       }
 
       if (data.success && data.reference) {
-        // Rediriger la popup vers l'URL de paiement Notch Pay
-        if (data.authorization_url && popup) {
-          popup.location.href = data.authorization_url;
-        } else if (data.authorization_url) {
-           // Fallback if popup was blocked
-           window.location.href = data.authorization_url;
+        // Si le push USSD direct a fonctionné, on attend la validation
+        // Si pas de push direct, on redirige dans la page actuelle (pas de popup)
+        if (!data.direct_charge && data.authorization_url) {
+          // Fallback: rediriger dans la même fenêtre vers le checkout Notch Pay
+          window.location.href = data.authorization_url;
+          return { success: false, error: 'Redirection vers la page de paiement...' };
         }
 
-        // Le paiement a été initié avec succès sur Notch Pay.
-        // On fait maintenant du polling pour attendre que l'utilisateur valide sur son téléphone.
-        
+        // Push USSD envoyé — le client tape son code PIN sur son téléphone
+        // On fait du polling pour attendre la confirmation
         let isPaid = false;
         let attempts = 0;
-        let finalMessage = 'Paiement initié. Veuillez valider sur votre téléphone.';
+        let finalMessage = data.message || 'Veuillez entrer votre code PIN sur votre téléphone pour confirmer.';
         
         while (attempts < 60) { // Attend jusqu'à ~5 minutes (60 * 5s)
           await new Promise(r => setTimeout(r, 5000));
           attempts++;
           
           const statusCheck = await checkPaymentStatus(data.reference);
-          
-          // Si la popup a été fermée par l'utilisateur
-          if (popup && popup.closed && statusCheck.status !== 'SUCCESSFUL') {
-              return { success: false, error: 'La fenêtre de paiement a été fermée.' };
-          }
 
           if (statusCheck.status === 'SUCCESSFUL') {
             isPaid = true;
-            finalMessage = 'Paiement confirmé avec succès.';
-            if (popup) popup.close();
+            finalMessage = 'Paiement confirmé avec succès ! 🎉';
             break;
           } else if (statusCheck.status === 'FAILED') {
-            if (popup) popup.close();
             return { success: false, error: 'Le paiement a échoué ou a été annulé.' };
           }
         }
@@ -179,11 +165,9 @@ const Payment = (() => {
           createSession(data.reference);
           return { success: true, transactionId: data.reference, message: finalMessage, amount: amount };
         } else {
-          if (popup) popup.close();
           return { success: false, error: 'Temps d\'attente dépassé. Si vous avez payé, l\'application l\'enregistrera en arrière-plan. Veuillez réessayer la recherche.' };
         }
       } else {
-        if (popup) popup.close();
         return { success: false, error: data.error || 'Paiement refusé.' };
       }
     } catch (err) {

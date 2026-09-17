@@ -35,7 +35,8 @@ serve(async (req) => {
     }
 
     if (action === 'collect') {
-      // Initialize a new payment — format conforme à la doc officielle Notch Pay
+      // Étape 1: Initialiser le paiement
+      const method = reqData.method; // 'om' ou 'momo'
       const payload = {
         amount: amount || 100,
         currency: "XAF",
@@ -45,10 +46,9 @@ serve(async (req) => {
         phone: "+237" + phone,
       };
 
-      console.log('[NotchPay] Clé utilisée (préfixe):', API_KEY.substring(0, 12) + '...');
-      console.log('[NotchPay] Payload:', JSON.stringify(payload));
+      console.log('[NotchPay] Initialisation du paiement...');
 
-      const response = await fetch('https://api.notchpay.co/payments', {
+      const initResponse = await fetch('https://api.notchpay.co/payments', {
         method: 'POST',
         headers: {
           'Authorization': API_KEY,
@@ -58,17 +58,61 @@ serve(async (req) => {
         body: JSON.stringify(payload)
       });
 
-      const data = await response.json();
+      const initData = await initResponse.json();
       
-      if (!response.ok) {
-        console.error("Notch Pay API Error:", data);
-        throw new Error(data.message || data.error || 'Erreur lors de l\'initialisation du paiement');
+      if (!initResponse.ok) {
+        console.error("Notch Pay Init Error:", initData);
+        throw new Error(initData.message || initData.error || 'Erreur lors de l\'initialisation du paiement');
       }
 
+      const txReference = initData.transaction.reference;
+      console.log('[NotchPay] Paiement initialisé:', txReference);
+
+      // Étape 2: Compléter le paiement avec le canal Mobile Money (push USSD direct)
+      const channel = method === 'momo' ? 'cm.mtn' : 'cm.orange';
+      const completePayload = {
+        channel: channel,
+        data: {
+          phone: "+237" + phone,
+        }
+      };
+
+      console.log('[NotchPay] Envoi du push USSD via', channel, '...');
+
+      const completeResponse = await fetch(`https://api.notchpay.co/payments/${txReference}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': API_KEY,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(completePayload)
+      });
+
+      const completeData = await completeResponse.json();
+      console.log('[NotchPay] Réponse complete:', JSON.stringify(completeData));
+
+      if (!completeResponse.ok) {
+        // Si le canal direct échoue, on retourne quand même la référence
+        // pour que le frontend puisse rediriger vers le checkout classique
+        console.error("Notch Pay Complete Error:", completeData);
+        return new Response(JSON.stringify({ 
+          success: true,
+          reference: txReference,
+          authorization_url: initData.authorization_url,
+          direct_charge: false,
+          error_detail: completeData.message || 'Canal mobile money non disponible'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Push USSD envoyé avec succès — le client va recevoir la notification sur son téléphone
       return new Response(JSON.stringify({ 
         success: true, 
-        reference: data.transaction.reference,
-        authorization_url: data.authorization_url
+        reference: txReference,
+        direct_charge: true,
+        message: 'Un message USSD a été envoyé sur votre téléphone. Veuillez entrer votre code PIN pour confirmer.'
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
