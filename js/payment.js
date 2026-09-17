@@ -103,10 +103,11 @@ const Payment = (() => {
 
     // If session is active, no payment needed
     if (hasActiveSession()) {
+      const remainingHours = Math.ceil(getSessionTimeRemaining() / 3600000);
       return {
         success: true,
         transactionId: 'SESSION_ACTIVE',
-        message: 'Session active — Recherche gratuite',
+        message: `Session active · Valide encore ${remainingHours}h`,
         amount: 0
       };
     }
@@ -145,9 +146,13 @@ const Payment = (() => {
         let isPaid = false;
         let attempts = 0;
         let finalMessage = data.message || 'Veuillez entrer votre code PIN sur votre téléphone pour confirmer.';
+        let delayMs = 3000;
+        let totalElapsed = 0;
+        const MAX_TIMEOUT = 120000; // 2 minutes
         
-        while (attempts < 60) { // Attend jusqu'à ~5 minutes (60 * 5s)
-          await new Promise(r => setTimeout(r, 5000));
+        while (totalElapsed < MAX_TIMEOUT) {
+          await new Promise(r => setTimeout(r, delayMs));
+          totalElapsed += delayMs;
           attempts++;
           
           const statusCheck = await checkPaymentStatus(data.reference);
@@ -159,6 +164,9 @@ const Payment = (() => {
           } else if (statusCheck.status === 'FAILED') {
             return { success: false, error: 'Le paiement a échoué ou a été annulé.' };
           }
+
+          // Backoff exponentiel (max 8s)
+          delayMs = Math.min(8000, delayMs * 1.5);
         }
 
         if (isPaid) {

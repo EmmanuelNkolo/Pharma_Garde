@@ -487,24 +487,40 @@
 
       const medRows = meds.map(med => {
         let buttonsHtml = '';
+        const selectedStatus = req._myStatus ? req._myStatus[med] : null;
+        const groupStyle = req._myStatus ? 'opacity: 0.6; pointer-events: none;' : '';
+
         if (hasInsurance) {
           buttonsHtml = `
-            <button class="resp-btn" data-status="en_stock_assure">✅ En stock assuré</button>
-            <button class="resp-btn" data-status="en_stock_non_assure">⚠️ En stock non assuré</button>
-            <button class="resp-btn resp-btn-danger" data-status="rupture">❌ Rupture</button>
+            <button class="resp-btn ${selectedStatus === 'en_stock_assure' ? 'active' : ''}" data-status="en_stock_assure">✅ En stock assuré</button>
+            <button class="resp-btn ${selectedStatus === 'en_stock_non_assure' ? 'active' : ''}" data-status="en_stock_non_assure">⚠️ En stock non assuré</button>
+            <button class="resp-btn resp-btn-danger ${selectedStatus === 'rupture' ? 'active' : ''}" data-status="rupture">❌ Rupture</button>
           `;
         } else {
           buttonsHtml = `
-            <button class="resp-btn" data-status="en_stock">✅ En stock</button>
-            <button class="resp-btn resp-btn-danger" data-status="rupture">❌ Rupture</button>
+            <button class="resp-btn ${selectedStatus === 'en_stock' ? 'active' : ''}" data-status="en_stock">✅ En stock</button>
+            <button class="resp-btn resp-btn-danger ${selectedStatus === 'rupture' ? 'active' : ''}" data-status="rupture">❌ Rupture</button>
           `;
         }
         return `
           <div class="med-response-row">
             <div class="med-name">💊 ${med}</div>
-            <div class="med-btn-group" data-med="${med}">${buttonsHtml}</div>
+            <div class="med-btn-group" data-med="${med}" style="${groupStyle}">${buttonsHtml}</div>
           </div>`;
       }).join('');
+
+      let actionButton = '';
+      if (req._myStatus) {
+        actionButton = `
+          <button class="btn btn-danger btn-block" disabled style="opacity: 0.8; cursor: default;">
+            ✅ Réponse envoyée
+          </button>`;
+      } else {
+        actionButton = `
+          <button class="btn btn-primary btn-block" onclick="PharmDash.prepareResponse('${req.id}')">
+            📤 Envoyer la réponse
+          </button>`;
+      }
 
       return `
         <div class="request-card" id="request-${req.id}">
@@ -520,9 +536,7 @@
             </div>
           </div>
           <div class="request-medicines-list">${medRows}</div>
-          <button class="btn btn-primary btn-block" onclick="PharmDash.prepareResponse('${req.id}')">
-            📤 Envoyer la réponse
-          </button>
+          ${actionButton}
         </div>`;
     }).join('');
 
@@ -603,7 +617,11 @@
       // Removed: await supabase.from('requests').update({ status: 'responded' }).eq('id', requestId);
       // to allow multiple pharmacies to respond.
 
-      activeRequests = activeRequests.filter(r => r.id !== requestId);
+      const reqIdx = activeRequests.findIndex(r => r.id === requestId);
+      if (reqIdx >= 0) {
+        activeRequests[reqIdx]._myStatus = medicinesStatus;
+      }
+      renderActiveRequests();
       
       // Re-render the modal if it's currently showing 'requests'
       const panel = $('#stat-detail-panel');

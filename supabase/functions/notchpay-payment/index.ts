@@ -151,67 +151,6 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
 
-    } else if (action === 'debug') {
-      // Action de diagnostic — teste les deux clés
-      const keyPrefix = NOTCHPAY_SECRET_KEY.substring(0, 12);
-      const keyLength = NOTCHPAY_SECRET_KEY.length;
-      
-      let NOTCHPAY_PUBLIC_KEY = Deno.env.get('NOTCHPAY_PUBLIC_KEY') || '';
-      NOTCHPAY_PUBLIC_KEY = NOTCHPAY_PUBLIC_KEY.replace(/^["']|["']$/g, '').trim();
-      const pubKeyPrefix = NOTCHPAY_PUBLIC_KEY ? NOTCHPAY_PUBLIC_KEY.substring(0, 12) : 'NON DEFINIE';
-      
-      const testPayload = {
-        amount: 100,
-        currency: "XAF",
-        email: "test@pharmagarde.cm",
-        phone: "+237694929909",
-        reference: "debug_" + Date.now(),
-        description: "Debug test"
-      };
-
-      // Test 1: avec la clé secrète (sk.)
-      const testSK = await fetch('https://api.notchpay.co/payments', {
-        method: 'POST',
-        headers: {
-          'Authorization': NOTCHPAY_SECRET_KEY,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(testPayload)
-      });
-      const dataSK = await testSK.json();
-
-      // Test 2: avec la clé publique (pk.) si elle existe
-      let dataPK = null;
-      let statusPK = 0;
-      if (NOTCHPAY_PUBLIC_KEY) {
-        testPayload.reference = "debug_pk_" + Date.now();
-        const testPK = await fetch('https://api.notchpay.co/payments', {
-          method: 'POST',
-          headers: {
-            'Authorization': NOTCHPAY_PUBLIC_KEY,
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(testPayload)
-        });
-        statusPK = testPK.status;
-        dataPK = await testPK.json();
-      }
-
-      return new Response(JSON.stringify({ 
-        diagnostic: true,
-        secret_key_prefix: keyPrefix + '...',
-        secret_key_length: keyLength,
-        secret_key_status: testSK.status,
-        secret_key_response: dataSK,
-        public_key_prefix: pubKeyPrefix + '...',
-        public_key_status: statusPK,
-        public_key_response: dataPK,
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-
     } else {
       throw new Error('Action non reconnue');
     }

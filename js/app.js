@@ -28,13 +28,31 @@ const App = (() => {
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => document.querySelectorAll(sel);
 
+  let reservationInterval = null;
+
+  function escapeHtml(unsafe) {
+    if (!unsafe) return '';
+    return unsafe.toString()
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+  }
+
+  function getRouteToPharmacy(pharmacyId) {
+    var p = findPharmacy(pharmacyId);
+    if (p) getRoute(p.lat, p.lng);
+    else showToast('Position introuvable pour le calcul de l\'itinéraire.', 'error');
+  }
+
   // ── Initialize ─────────────────────────────────────────
   function init() {
     // Splash screen timer
     setTimeout(() => {
       $('#splash-screen').classList.add('hidden');
       showLocationModal();
-    }, 2500);
+    }, 1200);
 
     bindEvents();
     initDemoSlides();
@@ -970,9 +988,9 @@ const App = (() => {
     listEl.innerHTML = confirmBtnHtml + sortedResponses.map(resp => {
       const pos = Geolocation.getPosition();
       let distance = '—';
-      if (pos && resp.pharmacy_id) {
-        // Try to find pharmacy coords from our Supabase data
-        // For now we show address
+      const p = findPharmacy(resp.pharmacy_id);
+      if (pos && p) {
+        distance = parseFloat(Geolocation.haversine(pos.lat, pos.lng, p.lat, p.lng).toFixed(1)) + ' km';
       }
 
       let medsHtml = '';
@@ -1000,9 +1018,9 @@ const App = (() => {
         <div class="pharmacy-card" data-pharmacy-id="${resp.pharmacy_id}">
           <div class="card-header" style="margin-bottom: 12px;">
             <div class="card-info">
-              <div class="card-name">${resp.pharmacy_name || 'Pharmacie'}</div>
+              <div class="card-name">${escapeHtml(resp.pharmacy_name || 'Pharmacie')}</div>
               <div class="card-address" style="font-size: 13px; color: var(--dark-300);">
-                📍 ${resp.pharmacy_address || 'Adresse inconnue'}
+                📍 ${escapeHtml(resp.pharmacy_address || 'Adresse inconnue')} • 🗺️ ${distance}
               </div>
             </div>
           </div>
@@ -1011,10 +1029,10 @@ const App = (() => {
           </div>
           <div class="card-actions">
             ${resp.pharmacy_phone ? `
-              <button class="btn btn-call" onclick="App.callPharmacy('${resp.pharmacy_phone}')">📞 Appeler</button>
-              <button class="btn btn-whatsapp" onclick="App.openWhatsApp('237${resp.pharmacy_phone}')">💬 WhatsApp</button>
+              <button class="btn btn-call" onclick="App.callPharmacy('${escapeHtml(resp.pharmacy_phone)}')">📞 Appeler</button>
+              <button class="btn btn-whatsapp" onclick="App.openWhatsApp('237${escapeHtml(resp.pharmacy_phone)}')">💬 WhatsApp</button>
             ` : ''}
-            <button class="btn btn-route" onclick="App.getRoute(0, 0)">🗺️ Y aller</button>
+            <button class="btn btn-route" onclick="App.getRouteToPharmacy('${resp.pharmacy_id}')">🗺️ Y aller</button>
           </div>
         </div>
       `;
@@ -1072,14 +1090,14 @@ const App = (() => {
     var confirmHtml = entries.map(function(entry) {
       var pid = entry[0]; var data = entry[1];
       var medsHtml = data.meds.map(function(m) { return '<div style="padding:4px 0;font-size:13px;">💊 ' + m + '</div>'; }).join('');
-      var phoneBtn = data.phone ? '<button class="btn btn-call" onclick="App.callPharmacy(\'' + data.phone + '\')">📞 Appeler</button>' : '';
-      var waBtn = data.phone ? '<button class="btn btn-whatsapp" onclick="App.openWhatsApp(\'237' + data.phone + '\')">💬 WhatsApp</button>' : '';
+      var phoneBtn = data.phone ? '<button class="btn btn-call" onclick="App.callPharmacy(\'' + escapeHtml(data.phone) + '\')">📞 Appeler</button>' : '';
+      var waBtn = data.phone ? '<button class="btn btn-whatsapp" onclick="App.openWhatsApp(\'237' + escapeHtml(data.phone) + '\')">💬 WhatsApp</button>' : '';
       return '<div style="background:var(--dark-800);border:1px solid var(--color-border);border-radius:12px;padding:16px;margin-bottom:12px;">' +
-        '<div style="font-weight:700;font-size:16px;margin-bottom:8px;">🏥 ' + (data.name || 'Pharmacie') + '</div>' +
-        '<div style="font-size:13px;color:var(--dark-300);margin-bottom:12px;">📍 ' + (data.address || '') + '</div>' +
+        '<div style="font-weight:700;font-size:16px;margin-bottom:8px;">🏥 ' + escapeHtml(data.name || 'Pharmacie') + '</div>' +
+        '<div style="font-size:13px;color:var(--dark-300);margin-bottom:12px;">📍 ' + escapeHtml(data.address || '') + '</div>' +
         '<div style="background:rgba(0,0,0,0.2);padding:10px;border-radius:8px;margin-bottom:12px;">' + medsHtml + '</div>' +
         '<div class="reservation-confirm-timer" data-expires="' + expiresIso + '" style="color:var(--gold-500);font-size:13px;margin-bottom:12px;">⏱️ Expire dans <strong>60 min</strong></div>' +
-        '<div style="display:flex;gap:8px;flex-wrap:wrap;">' + phoneBtn + waBtn + '<button class="btn btn-route" onclick="App.getRoute(0,0)">🗺️ Y aller</button></div></div>';
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;">' + phoneBtn + waBtn + '<button class="btn btn-route" onclick="App.getRouteToPharmacy(\'' + escapeHtml(pid) + '\')">🗺️ Y aller</button></div></div>';
     }).join('');
 
     var listEl = $('#pharmacy-list');
@@ -1087,7 +1105,8 @@ const App = (() => {
       listEl.innerHTML = '<div style="padding:16px;"><div style="text-align:center;margin-bottom:20px;"><span style="font-size:28px;">🎉</span><h3 style="margin:8px 0 4px;">Vos réservations</h3><p style="font-size:13px;color:var(--dark-400);">Pharmacies notifiées. Récupérez vos médicaments sous 1h.</p></div>' + confirmHtml + '<button class="btn btn-outline btn-block" style="margin-top:16px;" onclick="App.resetAfterReservation()">🔍 Nouvelle recherche</button></div>';
     }
     showToast('✅ Réservations confirmées !', 'success');
-    setInterval(function() {
+    if (reservationInterval) clearInterval(reservationInterval);
+    reservationInterval = setInterval(function() {
       document.querySelectorAll('.reservation-confirm-timer[data-expires]').forEach(function(el) {
         var rem = Math.max(0, Math.floor((new Date(el.getAttribute('data-expires')) - new Date()) / 60000));
         el.innerHTML = rem > 0 ? '⏱️ Expire dans <strong>' + rem + ' min</strong>' : '⏱️ <strong style="color:var(--red-400)">Expirée</strong>';
@@ -1096,10 +1115,12 @@ const App = (() => {
   }
 
   function resetAfterReservation() {
+    if (reservationInterval) clearInterval(reservationInterval);
     reservedMedicines = {};
     realResponses = [];
-    currentRequestId = null;
-    if (responseChannel) { supabase.removeChannel(responseChannel); responseChannel = null; }
+    activeRequestIds = [];
+    responseChannels.forEach(ch => supabase.removeChannel(ch));
+    responseChannels = [];
     var mainActions = $('#main-actions');
     var banner = $('#responses-banner');
     if (mainActions) mainActions.style.display = '';
@@ -1502,6 +1523,7 @@ const App = (() => {
     callPharmacy,
     openWhatsApp,
     getRoute,
+    getRouteToPharmacy,
     findPharmacy,
     addMedicine,
     removeMedicine,
