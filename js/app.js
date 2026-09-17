@@ -430,7 +430,9 @@ const App = (() => {
     if (guardCountEl) guardCountEl.textContent = window.I18N ? window.I18N.t('map.guard_count', { n: guardCount }) : `${guardCount} de garde`;
 
     // Render pharmacy list
-    renderPharmacyList(displayPharmacies);
+    if (activeRequestIds.length === 0) {
+      renderPharmacyList(displayPharmacies);
+    }
   }
 
   // ── Pharmacy List Rendering ────────────────────────────
