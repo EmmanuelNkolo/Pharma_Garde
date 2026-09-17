@@ -739,14 +739,15 @@
 .search-panel {
   position: relative;
   width: 100%;
-  margin-top: auto;
+  height: 100%;
   background: var(--dark-900);
-  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
-  border-top: 1px solid var(--glass-border);
   padding: var(--space-6);
   padding-bottom: max(var(--space-6), env(safe-area-inset-bottom));
   transform: translateY(100%);
   transition: transform var(--transition-slow);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
 }
 
 #search-modal.active .search-panel {
@@ -1927,40 +1928,6 @@
 @media (max-height: 500px) and (orientation: landscape) {
   .search-subtitle {
     display: none;
-  }
-  
-  #search-step-1 {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    align-items: start;
-  }
-  
-  .search-title {
-    grid-column: 1 / -1;
-    margin-bottom: 4px;
-  }
-  
-  #search-input-area {
-    grid-column: 1 / 2;
-    margin-bottom: 0 !important;
-  }
-  
-  #medicines-tags-container {
-    grid-column: 1 / 2;
-    margin-bottom: 0 !important;
-  }
-  
-  .search-info {
-    grid-column: 2 / 3;
-    grid-row: 2 / 3;
-    margin-bottom: 0 !important;
-    padding: 8px;
-  }
-  
-  #btn-proceed-payment {
-    grid-column: 2 / 3;
-    grid-row: 3 / 4;
   }
 }
 
