@@ -19,12 +19,19 @@ serve(async (req) => {
     const amount = reqData.amount;
     const description = reqData.description;
     
-    // On nettoie la clé (PowerShell rajoute parfois des guillemets invisibles)
+    // On nettoie les clés (PowerShell rajoute parfois des guillemets invisibles)
     let NOTCHPAY_SECRET_KEY = Deno.env.get('NOTCHPAY_SECRET_KEY') || '';
     NOTCHPAY_SECRET_KEY = NOTCHPAY_SECRET_KEY.replace(/^["']|["']$/g, '').trim();
 
-    if (!NOTCHPAY_SECRET_KEY) {
-      throw new Error('La clé secrète Notch Pay est manquante');
+    let NOTCHPAY_PUBLIC_KEY = Deno.env.get('NOTCHPAY_PUBLIC_KEY') || '';
+    NOTCHPAY_PUBLIC_KEY = NOTCHPAY_PUBLIC_KEY.replace(/^["']|["']$/g, '').trim();
+
+    // La clé publique est utilisée pour initialiser les paiements (requis par Notch Pay)
+    // La clé secrète est utilisée pour vérifier le statut des paiements
+    const API_KEY = NOTCHPAY_PUBLIC_KEY || NOTCHPAY_SECRET_KEY;
+
+    if (!API_KEY) {
+      throw new Error('Les clés API Notch Pay sont manquantes');
     }
 
     if (action === 'collect') {
@@ -38,14 +45,13 @@ serve(async (req) => {
         phone: "+237" + phone,
       };
 
-      // Log pour diagnostic (visible dans les logs Supabase)
-      console.log('[NotchPay] Clé utilisée (préfixe):', NOTCHPAY_SECRET_KEY.substring(0, 8) + '...');
+      console.log('[NotchPay] Clé utilisée (préfixe):', API_KEY.substring(0, 12) + '...');
       console.log('[NotchPay] Payload:', JSON.stringify(payload));
 
       const response = await fetch('https://api.notchpay.co/payments', {
         method: 'POST',
         headers: {
-          'Authorization': NOTCHPAY_SECRET_KEY,
+          'Authorization': API_KEY,
           'Accept': 'application/json',
           'Content-Type': 'application/json'
         },
@@ -74,7 +80,7 @@ serve(async (req) => {
       const response = await fetch(`https://api.notchpay.co/payments/${reference}`, {
         method: 'GET',
         headers: {
-          'Authorization': NOTCHPAY_SECRET_KEY,
+          'Authorization': API_KEY,
           'Accept': 'application/json'
         }
       });
@@ -97,6 +103,67 @@ serve(async (req) => {
         success: true,
         status: mappedStatus,
         raw_status: data.transaction.status
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+
+    } else if (action === 'debug') {
+      // Action de diagnostic — teste les deux clés
+      const keyPrefix = NOTCHPAY_SECRET_KEY.substring(0, 12);
+      const keyLength = NOTCHPAY_SECRET_KEY.length;
+      
+      let NOTCHPAY_PUBLIC_KEY = Deno.env.get('NOTCHPAY_PUBLIC_KEY') || '';
+      NOTCHPAY_PUBLIC_KEY = NOTCHPAY_PUBLIC_KEY.replace(/^["']|["']$/g, '').trim();
+      const pubKeyPrefix = NOTCHPAY_PUBLIC_KEY ? NOTCHPAY_PUBLIC_KEY.substring(0, 12) : 'NON DEFINIE';
+      
+      const testPayload = {
+        amount: 100,
+        currency: "XAF",
+        email: "test@pharmagarde.cm",
+        phone: "+237694929909",
+        reference: "debug_" + Date.now(),
+        description: "Debug test"
+      };
+
+      // Test 1: avec la clé secrète (sk.)
+      const testSK = await fetch('https://api.notchpay.co/payments', {
+        method: 'POST',
+        headers: {
+          'Authorization': NOTCHPAY_SECRET_KEY,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(testPayload)
+      });
+      const dataSK = await testSK.json();
+
+      // Test 2: avec la clé publique (pk.) si elle existe
+      let dataPK = null;
+      let statusPK = 0;
+      if (NOTCHPAY_PUBLIC_KEY) {
+        testPayload.reference = "debug_pk_" + Date.now();
+        const testPK = await fetch('https://api.notchpay.co/payments', {
+          method: 'POST',
+          headers: {
+            'Authorization': NOTCHPAY_PUBLIC_KEY,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(testPayload)
+        });
+        statusPK = testPK.status;
+        dataPK = await testPK.json();
+      }
+
+      return new Response(JSON.stringify({ 
+        diagnostic: true,
+        secret_key_prefix: keyPrefix + '...',
+        secret_key_length: keyLength,
+        secret_key_status: testSK.status,
+        secret_key_response: dataSK,
+        public_key_prefix: pubKeyPrefix + '...',
+        public_key_status: statusPK,
+        public_key_response: dataPK,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
