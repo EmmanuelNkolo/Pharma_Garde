@@ -600,11 +600,17 @@
 
       if (error) throw error;
       
-      // Mettre à jour le statut de la demande à "repondu" pour qu'elle ne reste pas "en attente"
-      await supabase.from('requests').update({ status: 'responded' }).eq('id', requestId);
+      // Removed: await supabase.from('requests').update({ status: 'responded' }).eq('id', requestId);
+      // to allow multiple pharmacies to respond.
 
       activeRequests = activeRequests.filter(r => r.id !== requestId);
-      renderActiveRequests();
+      
+      // Re-render the modal if it's currently showing 'requests'
+      const panel = $('#stat-detail-panel');
+      if (panel && panel.style.display !== 'none' && panel.getAttribute('data-current-type') === 'requests') {
+        openStatDetail('requests', currentStatFilter);
+      }
+      
       updateStatCounters();
       showToast('✅ Réponse envoyée au patient', 'success');
       loadHistory(currentStatFilter);
@@ -744,6 +750,7 @@
 
     const titles = { requests: '📥 Demandes', responded: '✅ Répondues', pending: '⏳ En attente', reservations: '🔒 Réservations' };
     if (title) title.textContent = titles[type] || type;
+    panel.setAttribute('data-current-type', type);
     panel.style.display = 'block';
     body.innerHTML = '<div style="text-align:center;padding:20px;"><div class="loading-dots" style="justify-content:center"><span></span><span></span><span></span></div></div>';
 
@@ -756,9 +763,14 @@
           if (!currentPharmacy || !r.user_lat || !r.user_lng) return false;
           return haversine(currentPharmacy.lat, currentPharmacy.lng, r.user_lat, r.user_lng) <= (r.radius || 5);
         });
+        const { data: myResponses } = await supabase.from('responses').select('request_id, medicines_status').eq('pharmacy_id', currentPharmacy.id).in('request_id', filtered.map(r => r.id));
+        const respondedMap = {};
+        (myResponses || []).forEach(r => respondedMap[r.request_id] = r.medicines_status);
+
         body.innerHTML = filtered.length === 0 ? '<p style="color:var(--dark-400);text-align:center;padding:20px;">Aucune demande</p>' :
           filtered.map(req => {
             if (req.status === 'pending') {
+              const myStatus = respondedMap[req.id];
               const meds = Array.isArray(req.medicines) ? req.medicines : [req.medicines];
               const timeAgo = getTimeAgo(req.created_at);
               const timeExact = new Date(req.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
@@ -770,24 +782,40 @@
 
               const medRows = meds.map(med => {
                 let buttonsHtml = '';
+                const selectedStatus = myStatus ? myStatus[med] : null;
+                const groupStyle = myStatus ? 'opacity: 0.6; pointer-events: none;' : '';
+                
                 if (hasInsurance) {
                   buttonsHtml = `
-                    <button class="resp-btn" data-status="en_stock_assure">✅ En stock assuré</button>
-                    <button class="resp-btn" data-status="en_stock_non_assure">⚠️ En stock non assuré</button>
-                    <button class="resp-btn resp-btn-danger" data-status="rupture">❌ Rupture</button>
+                    <button class="resp-btn ${selectedStatus === 'en_stock_assure' ? 'active' : ''}" data-status="en_stock_assure">✅ En stock assuré</button>
+                    <button class="resp-btn ${selectedStatus === 'en_stock_non_assure' ? 'active' : ''}" data-status="en_stock_non_assure">⚠️ En stock non assuré</button>
+                    <button class="resp-btn resp-btn-danger ${selectedStatus === 'rupture' ? 'active' : ''}" data-status="rupture">❌ Rupture</button>
                   `;
                 } else {
                   buttonsHtml = `
-                    <button class="resp-btn" data-status="en_stock">✅ En stock</button>
-                    <button class="resp-btn resp-btn-danger" data-status="rupture">❌ Rupture</button>
+                    <button class="resp-btn ${selectedStatus === 'en_stock' ? 'active' : ''}" data-status="en_stock">✅ En stock</button>
+                    <button class="resp-btn resp-btn-danger ${selectedStatus === 'rupture' ? 'active' : ''}" data-status="rupture">❌ Rupture</button>
                   `;
                 }
                 return `
                   <div class="med-response-row">
                     <div class="med-name">💊 ${med}</div>
-                    <div class="med-btn-group" data-med="${med}">${buttonsHtml}</div>
+                    <div class="med-btn-group" data-med="${med}" style="${groupStyle}">${buttonsHtml}</div>
                   </div>`;
               }).join('');
+              
+              let actionButton = '';
+              if (myStatus) {
+                actionButton = `
+                  <button class="btn btn-danger btn-block" disabled style="opacity: 0.8; cursor: default;">
+                    ✅ Réponse envoyée
+                  </button>`;
+              } else {
+                actionButton = `
+                  <button class="btn btn-primary btn-block" onclick="PharmDash.prepareResponse('${req.id}')">
+                    📤 Envoyer la réponse
+                  </button>`;
+              }
 
               return `
                 <div class="request-card" id="request-${req.id}">
@@ -805,9 +833,7 @@
                   <div class="request-medicines-list">
                     ${medRows}
                   </div>
-                  <button class="btn btn-primary btn-block" onclick="PharmDash.prepareResponse('${req.id}')">
-                    📤 Envoyer la réponse
-                  </button>
+                  ${actionButton}
                 </div>`;
             } else {
               const time = new Date(req.created_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });

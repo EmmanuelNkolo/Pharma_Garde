@@ -42,6 +42,9 @@ const App = (() => {
     document.addEventListener('languageChanged', () => {
       updatePharmacies();
     });
+    
+    // Load active requests for patient
+    loadActiveRequests();
   }
 
   // ── Event Bindings ─────────────────────────────────────
@@ -703,8 +706,8 @@ const App = (() => {
   }
 
   // ── Search Request (REAL — Supabase) ────────────────────
-  let currentRequestId = null;
-  let responseChannel = null;
+  let activeRequestIds = [];
+  let responseChannels = [];
   let realResponses = [];
   let reservedMedicines = {}; // { pharmacyId: { meds: [...], resp: respObj } }
 
@@ -772,7 +775,11 @@ const App = (() => {
         return;
       }
 
-      currentRequestId = data.id;
+      // Store in localStorage
+      let storedIds = JSON.parse(localStorage.getItem('pharma_active_requests') || '[]');
+      storedIds.push(data.id);
+      localStorage.setItem('pharma_active_requests', JSON.stringify(storedIds));
+      activeRequestIds = storedIds;
 
       // Close modal, show waiting in bottom sheet
       const modal = $('#search-modal');
@@ -797,13 +804,78 @@ const App = (() => {
           </div>`;
       }
 
-      // Subscribe to responses
-      if (responseChannel) supabase.removeChannel(responseChannel);
-      responseChannel = supabase
-        .channel(`responses_for_${currentRequestId}`)
+      subscribeToResponses();
+
+    } catch(e) {
+      console.error('Search request error:', e);
+      if (pingStatus) pingStatus.textContent = '❌ Erreur.';
+    }
+  }
+
+  async function loadActiveRequests() {
+    let storedIds = JSON.parse(localStorage.getItem('pharma_active_requests') || '[]');
+    if (storedIds.length === 0) return;
+
+    try {
+      const { data } = await supabase.from('requests').select('*').in('id', storedIds).eq('status', 'pending');
+      
+      const validIds = [];
+      const now = new Date();
+      (data || []).forEach(req => {
+        const created = new Date(req.created_at);
+        const expiresAt = req.expires_at ? new Date(req.expires_at) : new Date(created.getTime() + 2 * 3600000);
+        if (now < expiresAt) {
+          validIds.push(req.id);
+        }
+      });
+
+      if (validIds.length > 0) {
+        activeRequestIds = validIds;
+        localStorage.setItem('pharma_active_requests', JSON.stringify(validIds));
+        
+        const { data: existingResp } = await supabase.from('responses').select('*').in('request_id', validIds);
+        realResponses = existingResp || [];
+        
+        const mainActions = $('#main-actions');
+        const banner = $('#responses-banner');
+        if (mainActions) mainActions.style.display = 'none';
+        if (banner) banner.style.display = 'flex';
+        
+        const listEl = $('#pharmacy-list');
+        if (listEl && realResponses.length === 0) {
+          listEl.innerHTML = `
+            <div style="padding: 30px 20px; text-align: center; color: var(--dark-400);">
+              <div class="loading-dots" style="justify-content: center; margin-bottom: 16px;">
+                <span style="background: var(--green-500)"></span>
+                <span style="background: var(--green-500)"></span>
+                <span style="background: var(--green-500)"></span>
+              </div>
+              <div style="font-weight: 500;">Recherche de pharmacies en cours...</div>
+              <div style="font-size: 13px; margin-top: 8px;">Vos demandes précédentes sont toujours actives.</div>
+            </div>`;
+        } else {
+          renderPatientResponses();
+        }
+        
+        subscribeToResponses();
+      } else {
+        localStorage.removeItem('pharma_active_requests');
+      }
+    } catch (e) {
+      console.error('Error loading active requests:', e);
+    }
+  }
+
+  function subscribeToResponses() {
+    responseChannels.forEach(ch => supabase.removeChannel(ch));
+    responseChannels = [];
+
+    activeRequestIds.forEach(reqId => {
+      const channel = supabase
+        .channel(`responses_for_${reqId}`)
         .on('postgres_changes', {
           event: 'INSERT', schema: 'public', table: 'responses',
-          filter: `request_id=eq.${currentRequestId}`
+          filter: `request_id=eq.${reqId}`
         }, (payload) => {
           const resp = payload.new;
           realResponses.push(resp);
@@ -812,23 +884,19 @@ const App = (() => {
         })
         .on('postgres_changes', {
           event: 'UPDATE', schema: 'public', table: 'responses',
-          filter: `request_id=eq.${currentRequestId}`
+          filter: `request_id=eq.${reqId}`
         }, (payload) => {
           const updatedResp = payload.new;
           const idx = realResponses.findIndex(r => r.id === updatedResp.id);
           if (idx !== -1) {
             realResponses[idx] = updatedResp;
             renderPatientResponses();
-            // Optionally, show a toast if something went out of stock
             showToast('⚠️ Une pharmacie a mis à jour sa réponse.', 'warning');
           }
         })
         .subscribe();
-
-    } catch(e) {
-      console.error('Search request error:', e);
-      if (pingStatus) pingStatus.textContent = '❌ Erreur.';
-    }
+      responseChannels.push(channel);
+    });
   }
 
   // ── Render Patient Responses (Multi-Pharmacy Per-Medicine Reserve) ──
@@ -859,7 +927,7 @@ const App = (() => {
           else if (status === 'en_stock') badge = '<span style="color:var(--green-500)">✅ En stock</span>';
           else badge = '<span style="color:var(--red-500)">❌ Rupture</span>';
           const reserveBtn = isInStock
-            ? `<button class="btn btn-sm reserve-med-btn" data-pharmacy-id="${resp.pharmacy_id}" data-med="${med}" data-pharmacy-name="${resp.pharmacy_name || ''}" data-pharmacy-phone="${resp.pharmacy_phone || ''}" data-pharmacy-address="${resp.pharmacy_address || ''}" onclick="App.toggleReserveMedicine(this)">Réserver</button>`
+            ? `<button class="btn btn-sm reserve-med-btn" data-request-id="${resp.request_id}" data-pharmacy-id="${resp.pharmacy_id}" data-med="${med}" data-pharmacy-name="${resp.pharmacy_name || ''}" data-pharmacy-phone="${resp.pharmacy_phone || ''}" data-pharmacy-address="${resp.pharmacy_address || ''}" onclick="App.toggleReserveMedicine(this)">Réserver</button>`
             : '';
 
           return `<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 13px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
@@ -897,6 +965,7 @@ const App = (() => {
 
   function toggleReserveMedicine(btnEl) {
     var pharmacyId = btnEl.getAttribute('data-pharmacy-id');
+    var reqId = btnEl.getAttribute('data-request-id');
     var med = btnEl.getAttribute('data-med');
     var pharmacyName = btnEl.getAttribute('data-pharmacy-name');
     var pharmacyPhone = btnEl.getAttribute('data-pharmacy-phone');
@@ -914,7 +983,7 @@ const App = (() => {
       btnEl.textContent = '✅ Réservé';
       btnEl.style.background = 'var(--green-600)';
       if (!reservedMedicines[pharmacyId]) {
-        reservedMedicines[pharmacyId] = { meds: [], name: pharmacyName, phone: pharmacyPhone, address: pharmacyAddress };
+        reservedMedicines[pharmacyId] = { meds: [], name: pharmacyName, phone: pharmacyPhone, address: pharmacyAddress, request_id: reqId };
       }
       reservedMedicines[pharmacyId].meds.push(med);
     }
@@ -930,7 +999,7 @@ const App = (() => {
     var entries = Object.entries(reservedMedicines);
     var insertPromises = entries.map(function(entry) {
       return supabase.from('reservations').insert([{
-        request_id: currentRequestId, pharmacy_id: entry[0], patient_phone: patientPhone,
+        request_id: entry[1].request_id, pharmacy_id: entry[0], patient_phone: patientPhone,
         medicines: entry[1].meds, status: 'active', created_at: new Date().toISOString(),
         expires_at: new Date(Date.now() + 3600000).toISOString(),
       }]);
