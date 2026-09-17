@@ -575,19 +575,19 @@
   <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabaseClient.js?v=4"></script>
-  <script src="js/i18n.js?v=4"></script>
+  <script src="js/supabaseClient.js?v=5"></script>
+  <script src="js/i18n.js?v=5"></script>
   <!-- Scripts Data -->
-  <script src="js/data/pharmacies.js?v=4"></script>
-  <script src="js/data/medicines.js?v=4"></script>
-  <script src="js/pharmacies.js?v=4"></script>
+  <script src="js/data/pharmacies.js?v=5"></script>
+  <script src="js/data/medicines.js?v=5"></script>
+  <script src="js/pharmacies.js?v=5"></script>
   
   <!-- Scripts App -->
-  <script src="js/geolocation.js?v=4"></script>
-  <script src="js/map.js?v=4"></script>
-  <script src="js/search.js?v=4"></script>
-  <script src="js/payment.js?v=4"></script>
-  <script src="js/app.js?v=4"></script>
+  <script src="js/geolocation.js?v=5"></script>
+  <script src="js/map.js?v=5"></script>
+  <script src="js/search.js?v=5"></script>
+  <script src="js/payment.js?v=5"></script>
+  <script src="js/app.js?v=5"></script>
 
   <!-- Force landscape on mobile/tablet -->
   <script>
@@ -615,6 +615,25 @@
     document.addEventListener('DOMContentLoaded', () => {
       if (window.I18N) setTimeout(updateSplashLangToggles, 100);
     });
+  </script>
+
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').then(reg => {
+        // Force update check on every page load
+        reg.update();
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'activated') {
+              // New SW activated — reload to get fresh content
+              window.location.reload();
+            }
+          });
+        });
+      }).catch(err => console.log('SW registration failed:', err));
+    }
   </script>
 
 </body>

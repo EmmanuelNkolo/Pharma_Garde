@@ -1510,24 +1510,27 @@
   function playNotificationSound() {
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.value = 880;
-      osc.type = 'sine';
-      gain.gain.value = 0.3;
-      osc.start();
-      osc.stop(ctx.currentTime + 0.2);
-      setTimeout(() => {
-        const osc2 = ctx.createOscillator();
-        osc2.connect(gain);
-        osc2.frequency.value = 1100;
-        osc2.type = 'sine';
-        osc2.start();
-        osc2.stop(ctx.currentTime + 0.2);
-      }, 250);
-    } catch (e) { }
+      // Resume context if suspended (mobile browsers require user interaction)
+      if (ctx.state === 'suspended') ctx.resume();
+
+      function beep(freq, startTime, duration) {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.connect(g);
+        g.connect(ctx.destination);
+        osc.frequency.value = freq;
+        osc.type = 'sine';
+        g.gain.setValueAtTime(0.8, startTime);
+        g.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+        osc.start(startTime);
+        osc.stop(startTime + duration);
+      }
+
+      const t = ctx.currentTime;
+      beep(880, t, 0.15);        // Bip 1
+      beep(1100, t + 0.2, 0.15); // Bip 2 (plus aigu)
+      beep(1320, t + 0.4, 0.2);  // Bip 3 (encore plus aigu, plus long)
+    } catch (e) { console.log('Audio notification unavailable'); }
   }
 
   // ═══════════════════════════════════════════════════════

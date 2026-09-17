@@ -1530,6 +1530,7 @@ const App = (() => {
     showToast,
     toggleReserveMedicine,
     confirmAllReservations,
+    resetAfterReservation,
   };
 
   // ── Start ──────────────────────────────────────────────
