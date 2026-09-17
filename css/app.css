@@ -715,9 +715,12 @@
   z-index: var(--z-modal);
   display: flex;
   flex-direction: column;
+  justify-content: flex-end;
   opacity: 0;
   visibility: hidden;
   transition: all var(--transition-base);
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 #search-modal.active {
@@ -726,7 +729,7 @@
 }
 
 .search-backdrop {
-  position: absolute;
+  position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(12px);
@@ -734,17 +737,14 @@
 }
 
 .search-panel {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  position: relative;
+  width: 100%;
+  margin-top: auto;
   background: var(--dark-900);
   border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
   border-top: 1px solid var(--glass-border);
   padding: var(--space-6);
   padding-bottom: max(var(--space-6), env(safe-area-inset-bottom));
-  max-height: 85vh;
-  overflow-y: auto;
   transform: translateY(100%);
   transition: transform var(--transition-slow);
 }
