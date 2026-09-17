@@ -757,11 +757,74 @@
           return haversine(currentPharmacy.lat, currentPharmacy.lng, r.user_lat, r.user_lng) <= (r.radius || 5);
         });
         body.innerHTML = filtered.length === 0 ? '<p style="color:var(--dark-400);text-align:center;padding:20px;">Aucune demande</p>' :
-          filtered.map(r => {
-            const time = new Date(r.created_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-            const meds = Array.isArray(r.medicines) ? r.medicines.join(', ') : r.medicines;
-            return `<div class="stat-detail-item"><div><strong>💊 ${meds}</strong><br><small>🕐 ${time} ${r.insurance_name ? '• 🛡️ ' + r.insurance_name : ''}</small></div><span class="badge badge-${r.status === 'pending' ? 'warning' : 'success'}">${r.status}</span></div>`;
+          filtered.map(req => {
+            if (req.status === 'pending') {
+              const meds = Array.isArray(req.medicines) ? req.medicines : [req.medicines];
+              const timeAgo = getTimeAgo(req.created_at);
+              const timeExact = new Date(req.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+              const hasInsurance = !!req.insurance_name;
+              const created = new Date(req.created_at);
+              const expiresAt = req.expires_at ? new Date(req.expires_at) : new Date(created.getTime() + 2 * 3600000);
+              const remainingMs = expiresAt - new Date();
+              const remainingMin = Math.max(0, Math.floor(remainingMs / 60000));
+
+              const medRows = meds.map(med => {
+                let buttonsHtml = '';
+                if (hasInsurance) {
+                  buttonsHtml = `
+                    <button class="resp-btn" data-status="en_stock_assure">✅ En stock assuré</button>
+                    <button class="resp-btn" data-status="en_stock_non_assure">⚠️ En stock non assuré</button>
+                    <button class="resp-btn resp-btn-danger" data-status="rupture">❌ Rupture</button>
+                  `;
+                } else {
+                  buttonsHtml = `
+                    <button class="resp-btn" data-status="en_stock">✅ En stock</button>
+                    <button class="resp-btn resp-btn-danger" data-status="rupture">❌ Rupture</button>
+                  `;
+                }
+                return `
+                  <div class="med-response-row">
+                    <div class="med-name">💊 ${med}</div>
+                    <div class="med-btn-group" data-med="${med}">${buttonsHtml}</div>
+                  </div>`;
+              }).join('');
+
+              return `
+                <div class="request-card" id="request-${req.id}">
+                  <div class="request-header">
+                    <div class="request-patient-info">
+                      ${req.user_phone ? '📱 ' + req.user_phone : '📱 Anonyme'}
+                      ${req.insurance_name ? ' • 🛡️ ' + req.insurance_name : ''}
+                      ${req.radius ? ' • 📍 ' + req.radius + ' km' : ''}
+                    </div>
+                    <div class="request-meta">
+                      <span class="request-time">🕐 ${timeExact} (${timeAgo})</span>
+                      <span class="request-countdown ${remainingMin < 15 ? 'urgent' : ''}" data-expires="${expiresAt.toISOString()}">⏱️ ${remainingMin} min</span>
+                    </div>
+                  </div>
+                  <div class="request-medicines-list">
+                    ${medRows}
+                  </div>
+                  <button class="btn btn-primary btn-block" onclick="PharmDash.prepareResponse('${req.id}')">
+                    📤 Envoyer la réponse
+                  </button>
+                </div>`;
+            } else {
+              const time = new Date(req.created_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+              const meds = Array.isArray(req.medicines) ? req.medicines.join(', ') : req.medicines;
+              return `<div class="stat-detail-item"><div><strong>💊 ${meds}</strong><br><small>🕐 ${time} ${req.insurance_name ? '• 🛡️ ' + req.insurance_name : ''}</small></div><span class="badge badge-success">${req.status}</span></div>`;
+            }
           }).join('');
+          
+        // Bind med buttons for pending requests
+        body.querySelectorAll('.med-btn-group .resp-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const group = e.target.closest('.med-btn-group');
+            group.querySelectorAll('.resp-btn').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            group.setAttribute('data-selected', e.target.getAttribute('data-status'));
+          });
+        });
 
       } else if (type === 'responded') {
         const { data } = await supabase.from('responses').select('*, request:requests(created_at)').eq('pharmacy_id', currentPharmacy.id).gte('created_at', range.start).lt('created_at', range.end).order('created_at', { ascending: false }).limit(200);
