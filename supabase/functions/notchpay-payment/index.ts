@@ -28,19 +28,21 @@ serve(async (req) => {
     }
 
     if (action === 'collect') {
-      // Initialize a new payment
+      // Initialize a new payment — format conforme à la doc officielle Notch Pay
       const payload = {
         amount: amount || 100,
         currency: "XAF",
-        reference: "phg_" + Date.now() + "_" + Math.floor(Math.random() * 1000), // Ajout d'une référence unique
+        reference: "phg_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
         description: description || "Recherche Pharma-Garde",
-        customer: {
-          email: "client@pharmagarde.cm", // Obligatoire pour Notch Pay
-          phone: phone, // Pass the phone number to pre-fill the checkout
-        }
+        email: "client@pharmagarde.cm",
+        phone: "+237" + phone,
       };
 
-      const response = await fetch('https://api.notchpay.co/payments/initialize', {
+      // Log pour diagnostic (visible dans les logs Supabase)
+      console.log('[NotchPay] Clé utilisée (préfixe):', NOTCHPAY_SECRET_KEY.substring(0, 8) + '...');
+      console.log('[NotchPay] Payload:', JSON.stringify(payload));
+
+      const response = await fetch('https://api.notchpay.co/payments', {
         method: 'POST',
         headers: {
           'Authorization': NOTCHPAY_SECRET_KEY,
