@@ -789,8 +789,8 @@ const App = (() => {
     try {
       const pos = Geolocation.getPosition();
       const phoneInput = $('#phone-input');
-      // Request expires in 24 hours
-      const expiresAt = new Date(Date.now() + 24 * 3600000).toISOString();
+      // Request expires in 2 hours
+      const expiresAt = new Date(Date.now() + 2 * 3600000).toISOString();
       
       const { data, error } = await supabase
         .from('requests')
@@ -865,7 +865,7 @@ const App = (() => {
       const now = new Date();
       (data || []).forEach(req => {
         const created = new Date(req.created_at);
-        const expiresAt = req.expires_at ? new Date(req.expires_at) : new Date(created.getTime() + 24 * 3600000);
+        const expiresAt = req.expires_at ? new Date(req.expires_at) : new Date(created.getTime() + 2 * 3600000);
         if (now < expiresAt) {
           validIds.push(req.id);
         }
