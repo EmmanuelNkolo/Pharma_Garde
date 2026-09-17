@@ -142,6 +142,24 @@ const App = (() => {
     const btnNewSearch = $('#btn-new-search');
     if (btnNewSearch) btnNewSearch.addEventListener('click', resetSearch);
 
+    // Cancel / Quitter search
+    const btnCancelSearch = $('#btn-cancel-search');
+    if (btnCancelSearch) {
+      btnCancelSearch.addEventListener('click', () => {
+        activeRequestIds = [];
+        localStorage.removeItem('pharma_active_requests');
+        responseChannels.forEach(ch => supabase.removeChannel(ch));
+        responseChannels = [];
+        realResponses = [];
+        
+        $('#responses-banner').style.display = 'none';
+        $('#main-actions').style.display = 'flex';
+        $('#pharmacy-list').innerHTML = '';
+        
+        updatePharmacies();
+      });
+    }
+
     // Settings
     const settingsOpen = $('#settings-open');
     const settingsClose = $('#settings-close');
@@ -771,7 +789,8 @@ const App = (() => {
     try {
       const pos = Geolocation.getPosition();
       const phoneInput = $('#phone-input');
-      const expiresAt = new Date(Date.now() + 2 * 3600000).toISOString();
+      // Request expires in 24 hours
+      const expiresAt = new Date(Date.now() + 24 * 3600000).toISOString();
       
       const { data, error } = await supabase
         .from('requests')
@@ -846,7 +865,7 @@ const App = (() => {
       const now = new Date();
       (data || []).forEach(req => {
         const created = new Date(req.created_at);
-        const expiresAt = req.expires_at ? new Date(req.expires_at) : new Date(created.getTime() + 2 * 3600000);
+        const expiresAt = req.expires_at ? new Date(req.expires_at) : new Date(created.getTime() + 24 * 3600000);
         if (now < expiresAt) {
           validIds.push(req.id);
         }
@@ -936,7 +955,17 @@ const App = (() => {
       '<p style="font-size: 13px; color: var(--green-400); margin-bottom: 8px;">Médicaments sélectionnés de plusieurs pharmacies</p>' +
       '<button class="btn btn-primary btn-block" onclick="App.confirmAllReservations()">✅ Confirmer les réservations</button></div>';
 
-    listEl.innerHTML = confirmBtnHtml + realResponses.map(resp => {
+    // Sort responses: newer requests first, then by creation date of the response
+    const sortedResponses = [...realResponses].sort((a, b) => {
+      const aReqIdx = activeRequestIds.indexOf(a.request_id);
+      const bReqIdx = activeRequestIds.indexOf(b.request_id);
+      if (aReqIdx !== bReqIdx) {
+        return bReqIdx - aReqIdx; // Newer requests (higher index) first
+      }
+      return new Date(b.created_at) - new Date(a.created_at); // Newer responses first if same request
+    });
+
+    listEl.innerHTML = confirmBtnHtml + sortedResponses.map(resp => {
       const pos = Geolocation.getPosition();
       let distance = '—';
       if (pos && resp.pharmacy_id) {
