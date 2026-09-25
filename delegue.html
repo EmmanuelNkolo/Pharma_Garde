@@ -248,6 +248,20 @@
 
       <!-- Content Panels -->
       <div id="panel-pharmacies" class="sheet-panel active">
+        <h3 style="font-size: 15px; font-weight: 700; color: var(--dark-200); margin-bottom: 12px; padding: 0 4px; text-align: center;">Pharmacies à proximité</h3>
+        
+        <!-- Stats -->
+        <div class="stats-row" style="padding: 0 4px 12px;">
+          <div class="stats-count">
+            <span class="stats-dot" style="background: var(--green-400);"></span>
+            <span id="open-count">0 pharmacie(s) ouverte(s)</span>
+          </div>
+          <div class="stats-count">
+            <span class="stats-dot stats-guard-dot" style="background: var(--yellow-400);"></span>
+            <span id="guard-count">0 de garde</span>
+          </div>
+        </div>
+
         <div id="pharmacy-list">
           <!-- Pharmacy cards inserted dynamically -->
         </div>

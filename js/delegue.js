@@ -490,9 +490,19 @@
     if (!container) return;
 
     if (pharmaciesInRadius.length === 0) {
+      if ($('open-count')) $('open-count').textContent = '0 pharmacie(s) ouverte(s)';
+      if ($('guard-count')) $('guard-count').textContent = '0 de garde';
+      
       container.innerHTML = '<div style="text-align:center;padding:40px 16px;color:var(--dark-400);">Aucune pharmacie dans ce rayon.<br>Essayez un rayon plus large.</div>';
       return;
     }
+
+    const openCount = pharmaciesInRadius.filter(p => p.status === 'open' || p.status === 'guard').length;
+    const guardCount = pharmaciesInRadius.filter(p => p.status === 'guard').length;
+    
+    if ($('open-count')) $('open-count').textContent = `${openCount} pharmacie(s) ouverte(s)`;
+    if ($('guard-count')) $('guard-count').textContent = `${guardCount} de garde`;
+
 
     container.innerHTML = pharmaciesInRadius.map(p => {
       const dist = haversine(userLat, userLng, p.lat, p.lng).toFixed(1);
