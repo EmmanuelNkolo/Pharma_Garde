@@ -354,9 +354,9 @@
 
     // If map not initialized, show location modal
     if (!delegateMap) {
-      $('location-modal').style.display = 'flex';
+      $('location-modal').classList.add('active');
     } else {
-      $('location-modal').style.display = 'none';
+      $('location-modal').classList.remove('active');
       loadPharmacies();
       loadPromotions();
       loadStats();
@@ -394,7 +394,7 @@
       } catch (e) { /* silent */ }
 
       // Hide location modal
-      $('location-modal').style.display = 'none';
+      $('location-modal').classList.remove('active');
 
       // Initialize map
       initMap(userLat, userLng);
