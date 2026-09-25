@@ -267,7 +267,7 @@
         </div>
       </div>
 
-      <div id="panel-promotions" class="sheet-panel" style="display: none;">
+      <div id="panel-promotions" class="sheet-panel" style="display: none; overflow-x: auto;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 4px;">
           <h3 style="font-size: 15px; font-weight: 700; color: var(--dark-200);">Mes Promotions</h3>
           <button id="btn-new-promo" class="btn btn-primary btn-sm" style="font-size: 13px;">+ Nouvelle</button>
@@ -396,10 +396,11 @@
         <label>Lien document (Catalogue / Bon de commande)</label>
         <input type="url" id="promo-doc" class="input-field" placeholder="https://lien-vers-le-document.pdf">
       </div>
-      <div style="display: flex; gap: 12px; margin-top: 24px;">
-        <button class="btn btn-outline" style="flex: 1;" id="btn-cancel-promo">Annuler</button>
-        <button id="btn-save-promo" class="btn btn-primary" style="flex: 1;">Enregistrer</button>
-      </div>
+              <div style="display: flex; gap: 12px; margin-top: 24px; flex-direction: column;">
+          <button id="btn-save-promo-all" class="btn btn-primary" style="width: 100%;">Diffuser à toutes les pharmacies (Rayon)</button>
+          <button id="btn-save-promo-specific" class="btn btn-outline" style="width: 100%; color: var(--green-400); border-color: var(--green-400);">Choisir une pharmacie spécifique</button>
+          <button class="btn btn-outline" style="width: 100%; border-color: var(--dark-400); color: var(--dark-400);" id="btn-cancel-promo">Annuler</button>
+        </div>
     </div>
   </div>
 

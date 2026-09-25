@@ -161,7 +161,8 @@
       $('new-promo-modal').classList.add('active');
     });
     bindClick('btn-cancel-promo', () => $('new-promo-modal').classList.remove('active'));
-    bindClick('btn-save-promo', handleSavePromotion);
+    bindClick('btn-save-promo-all', () => handleSavePromotion('all'));
+    bindClick('btn-save-promo-specific', () => handleSavePromotion('specific'));
 
     // Visit modal
     bindClick('btn-cancel-visit', () => $('visit-modal').classList.remove('active'));
@@ -547,12 +548,18 @@
   async function loadPromotions() {
     if (!currentDelegate) return;
     try {
-      const { data, error } = await supabase
-        .from('delegate_promotions').select('*')
+      const { data: promos, error } = await supabase
+        .from('delegate_promotions')
+        .select(`
+          *,
+          promotion_targets (
+            pharmacy:pharmacies ( name )
+          )
+        `)
         .eq('delegate_id', currentDelegate.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      myPromotions = data || [];
+      myPromotions = promos || [];
       renderPromotionsList();
     } catch (err) {
       console.error('Load promotions error:', err);
@@ -568,28 +575,46 @@
       return;
     }
 
-    container.innerHTML = myPromotions.map(p => {
-      const typeLabels = { medicament: '💊 Médicament', complement: '🧪 Complément', materiel: '🩺 Matériel', cosmetique: '💄 Cosmétique' };
+    let html = `
+      <div style="overflow-x: auto;">
+      <table style="width:100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+        <thead>
+          <tr style="background: var(--dark-800); border-bottom: 2px solid var(--glass-border);">
+            <th style="padding: 12px; color: var(--dark-200);">Identité Promo</th>
+            <th style="padding: 12px; color: var(--dark-200);">Date</th>
+            <th style="padding: 12px; color: var(--dark-200);">Nom Produit</th>
+            <th style="padding: 12px; color: var(--dark-200);">Laboratoire</th>
+            <th style="padding: 12px; color: var(--dark-200);">Description</th>
+            <th style="padding: 12px; color: var(--dark-200);">Pharmacies (Diffusion)</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    myPromotions.forEach(p => {
       const date = new Date(p.created_at).toLocaleDateString('fr-FR');
-      return `
-        <div class="promo-card">
-          <div class="promo-card-header">
-            <strong>${escapeHtml(p.product_name)}</strong>
-            <span class="promo-type-badge">${typeLabels[p.product_type] || p.product_type}</span>
-          </div>
-          <div class="promo-card-lab">🏭 ${escapeHtml(p.lab_name)}</div>
-          ${p.description ? `<div class="promo-card-desc">${escapeHtml(p.description)}</div>` : ''}
-          ${p.document_url ? `<a href="${p.document_url}" target="_blank" class="promo-doc-link">📎 Document joint</a>` : ''}
-          <div class="promo-card-footer">
-            <span>📅 ${date}</span>
-            <span style="color: ${p.is_active ? 'var(--green-400)' : 'var(--dark-400)'};">${p.is_active ? '● Active' : '○ Inactive'}</span>
-          </div>
-        </div>
+      const pharmaciesList = (p.promotion_targets || [])
+        .map(t => t.pharmacy?.name)
+        .filter(n => n)
+        .join(', ');
+      
+      html += `
+        <tr style="border-bottom: 1px solid var(--glass-border);">
+          <td style="padding: 12px;">#${p.id.split('-')[0].toUpperCase()}</td>
+          <td style="padding: 12px;">${date}</td>
+          <td style="padding: 12px; font-weight: 600; color: var(--green-400);">${escapeHtml(p.product_name)}</td>
+          <td style="padding: 12px;">${escapeHtml(p.lab_name)}</td>
+          <td style="padding: 12px; color: var(--dark-300);">${escapeHtml(p.description || '-')}</td>
+          <td style="padding: 12px; font-size:12px;">${escapeHtml(pharmaciesList) || '-'}</td>
+        </tr>
       `;
-    }).join('');
+    });
+    
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
   }
 
-  async function handleSavePromotion() {
+  async function handleSavePromotion(targetType) {
     const lab = ($('promo-lab') || {}).value;
     const name = ($('promo-name') || {}).value?.trim();
     const type = ($('promo-type') || {}).value;
@@ -599,29 +624,47 @@
     if (!name) return showToast('Veuillez saisir le nom du produit.', 'error');
     if (!lab) return showToast('Veuillez sélectionner un laboratoire.', 'error');
 
-    const btn = $('btn-save-promo');
-    btn.disabled = true; btn.textContent = 'Enregistrement...';
+    const btn = targetType === 'all' ? $('btn-save-promo-all') : $('btn-save-promo-specific');
+    const oldText = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Traitement...';
 
     try {
-      const { error } = await supabase.from('delegate_promotions').insert([{
+      const { data: newPromo, error } = await supabase.from('delegate_promotions').insert([{
         delegate_id: currentDelegate.id,
         lab_name: lab,
         product_name: name,
         product_type: type,
         description: desc || null,
         document_url: doc || null,
-      }]);
+      }]).select().single();
       if (error) throw error;
 
       showToast('✅ Promotion enregistrée !', 'success');
       $('new-promo-modal').classList.remove('active');
+      
+      // If targeting 'all' pharmacies in radius
+      if (targetType === 'all' && pharmaciesInRadius.length > 0) {
+        const targetsToInsert = pharmaciesInRadius.map(p => ({
+          promotion_id: newPromo.id,
+          pharmacy_id: p.id,
+        }));
+        await supabase.from('promotion_targets').insert(targetsToInsert);
+        showToast('✅ Diffusée à toutes les pharmacies dans le rayon !', 'success');
+      } 
+      else if (targetType === 'specific') {
+         switchPanel('pharmacies');
+         showToast('ℹ️ Veuillez cliquer sur "📤 Envoyer Promo" sur la pharmacie ciblée.', 'info');
+      }
+
       // Clear form
       ['promo-name', 'promo-desc', 'promo-doc'].forEach(id => { const el = $(id); if (el) el.value = ''; });
+      
       await loadPromotions();
+      await loadStats();
     } catch (err) {
       showToast('❌ Erreur: ' + (err.message || ''), 'error');
     } finally {
-      btn.disabled = false; btn.textContent = 'Enregistrer';
+      if(btn) { btn.disabled = false; btn.textContent = oldText; }
     }
   }
 
