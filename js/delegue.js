@@ -411,6 +411,7 @@
     if (delegateMap) delegateMap.remove();
 
     delegateMap = L.map('map', { zoomControl: false }).setView([lat, lng], 14);
+    L.control.zoom({ position: 'bottomright' }).addTo(delegateMap);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap',
@@ -465,11 +466,17 @@
     });
 
     pharmaciesInRadius.forEach(p => {
-      const statusColor = p.status === 'open' ? '#00d26a' : p.status === 'guard' ? '#ff9500' : '#ff3b30';
+      let markerClass = 'marker-closed';
+      let emoji = '💊';
+      if (p.status === 'open') { markerClass = 'marker-open'; emoji = '💊'; }
+      else if (p.status === 'guard') { markerClass = 'marker-guard'; emoji = '🌙'; }
+
       const icon = L.divIcon({
-        className: 'pharmacy-marker-delegate',
-        html: `<div style="background:${statusColor};width:12px;height:12px;border-radius:50%;border:2px solid white;box-shadow:0 0 6px ${statusColor};"></div>`,
-        iconSize: [16, 16], iconAnchor: [8, 8],
+        html: `<div class="pharmacy-marker ${markerClass}">
+                 <div class="pharmacy-marker-dot">${emoji}</div>
+               </div>`,
+        className: 'pharmacy-marker-wrapper',
+        iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -20],
       });
       const marker = L.marker([p.lat, p.lng], { icon }).addTo(delegateMap);
       marker._isPharmacyMarker = true;
@@ -480,7 +487,7 @@
     delegateMap.eachLayer(layer => { if (layer._isRadiusCircle) delegateMap.removeLayer(layer); });
     const circle = L.circle([userLat, userLng], {
       radius: currentRadius * 1000, color: '#059669', fillColor: '#059669',
-      fillOpacity: 0.05, weight: 1, dashArray: '5, 5',
+      fillOpacity: 0.15, weight: 3, dashArray: '8, 8',
     }).addTo(delegateMap);
     circle._isRadiusCircle = true;
   }
@@ -849,6 +856,16 @@
       const el = $(id);
       if (el) el.classList.toggle('action-btn-active', key === panel);
     });
+
+    // Fullscreen for Stats
+    const sheet = $('bottom-sheet');
+    if (sheet) {
+      if (panel === 'stats') {
+        sheet.classList.add('stats-fullscreen');
+      } else {
+        sheet.classList.remove('stats-fullscreen');
+      }
+    }
   }
 
   // ═══════════════════════════════════════════════════════
