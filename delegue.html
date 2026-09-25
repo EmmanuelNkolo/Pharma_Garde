@@ -396,10 +396,16 @@
         <label>Lien document (Catalogue / Bon de commande)</label>
         <input type="url" id="promo-doc" class="input-field" placeholder="https://lien-vers-le-document.pdf">
       </div>
-              <div style="display: flex; gap: 12px; margin-top: 24px; flex-direction: column;">
+                      <div id="promo-buttons-container" style="display: flex; gap: 12px; margin-top: 24px; flex-direction: column;">
           <button id="btn-save-promo-all" class="btn btn-primary" style="width: 100%;">Diffuser à toutes les pharmacies (Rayon)</button>
           <button id="btn-save-promo-specific" class="btn btn-outline" style="width: 100%; color: var(--green-400); border-color: var(--green-400);">Choisir une pharmacie spécifique</button>
           <button class="btn btn-outline" style="width: 100%; border-color: var(--dark-400); color: var(--dark-400);" id="btn-cancel-promo">Annuler</button>
+        </div>
+        <div id="promo-specific-container" style="display: none; margin-top: 24px; flex-direction: column; gap: 12px;">
+          <label style="font-size: 13px; font-weight: 600; color: var(--dark-200);">Sélectionnez la pharmacie cible :</label>
+          <select id="promo-specific-pharmacy" class="input-field"></select>
+          <button id="btn-save-promo-specific-confirm" class="btn btn-primary" style="width: 100%;">Confirmer l'envoi</button>
+          <button class="btn btn-outline" style="width: 100%; border-color: var(--dark-400); color: var(--dark-400);" id="btn-cancel-specific">Retour</button>
         </div>
     </div>
   </div>

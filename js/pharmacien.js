@@ -418,7 +418,7 @@
   // ═══════════════════════════════════════════════════════
   //  REAL-TIME SUBSCRIPTIONS
   // ═══════════════════════════════════════════════════════
-  function subscribeToRealTimeRequests() {
+    function subscribeToRealTimeRequests() {
     if (realtimeChannel) supabase.removeChannel(realtimeChannel);
 
     realtimeChannel = supabase
@@ -426,7 +426,6 @@
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'requests' }, (payload) => {
         const req = payload.new;
         if (req.status !== 'pending' || !currentPharmacy) return;
-        // Check radius
         if (req.user_lat && req.user_lng) {
           const dist = haversine(currentPharmacy.lat, currentPharmacy.lng, req.user_lat, req.user_lng);
           if (dist > (req.radius || 5)) return;
@@ -440,13 +439,23 @@
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'requests' }, (payload) => {
         const idx = activeRequests.findIndex(r => r.id === payload.new.id);
         if (idx >= 0) {
-          if (payload.new.status !== 'pending') {
-            activeRequests.splice(idx, 1);
-          } else {
-            activeRequests[idx] = payload.new;
-          }
+          if (payload.new.status !== 'pending') activeRequests.splice(idx, 1);
+          else activeRequests[idx] = payload.new;
           renderActiveRequests();
-          updateStatCounters();
+        }
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'promotion_targets' }, (payload) => {
+        if (currentPharmacy && payload.new.pharmacy_id === currentPharmacy.id) {
+           loadReceivedPromotions();
+           showToast('📢 Nouvelle promotion reçue !', 'info');
+           playNotificationSound();
+        }
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'visit_requests' }, (payload) => {
+        if (currentPharmacy && payload.new.pharmacy_id === currentPharmacy.id) {
+           loadReceivedVisits();
+           showToast('📅 Nouvelle demande de visite !', 'info');
+           playNotificationSound();
         }
       })
       .subscribe();
