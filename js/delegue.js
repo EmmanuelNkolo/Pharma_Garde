@@ -105,8 +105,7 @@
     bindClick('btn-login', handleLogin);
     bindClick('btn-register', handleRegister);
     bindClick('btn-reset-password', handlePasswordReset);
-    bindClick('btn-logout', handleLogout,
-    getRoute);
+    bindClick('btn-logout', handleLogout);
 
     // Add lab button
     bindClick('btn-add-lab', () => {
@@ -180,6 +179,7 @@
     // Settings
     bindClick('settings-open', () => $('settings-panel').classList.add('open'));
     bindClick('settings-close', () => $('settings-panel').classList.remove('open'));
+    bindClick('settings-save', handleSaveSettings);
 
     // Download report
     bindClick('btn-download-report', handleDownloadReport);
@@ -311,8 +311,7 @@
     }
   }
 
-  function handleLogout,
-    getRoute() {
+  function handleLogout() {
     currentDelegate = null;
     sessionLabs = [];
     clearSession();
@@ -329,8 +328,7 @@
       await supabase.from('delegates').delete().eq('id', currentDelegate.id);
       showToast('✅ Compte supprimé définitivement.', 'success');
       $('delete-modal').style.display = 'none';
-      handleLogout,
-    getRoute();
+      handleLogout();
     } catch (err) {
       showToast('❌ Erreur lors de la suppression.', 'error');
     }
@@ -538,7 +536,6 @@
               <button class="btn btn-sm btn-outline" style="flex: 1; display:flex; justify-content:center; align-items:center; gap:4px;" onclick="DelegateApp.getRoute(${p.lat}, ${p.lng})">🗺️ Y aller</button>
             </div>
           </div>
-        </div>
         </div>
       `;
     }).join('');
@@ -759,14 +756,14 @@
         const interested = myTargets.filter(t => t.status === 'interested').length;
         
         // Med
-        if (!medStats[p.med_name]) medStats[p.med_name] = { sent: 0, interested: 0 };
-        medStats[p.med_name].sent += myTargets.length;
-        medStats[p.med_name].interested += interested;
+        if (!medStats[p.product_name]) medStats[p.product_name] = { sent: 0, interested: 0 };
+        medStats[p.product_name].sent += myTargets.length;
+        medStats[p.product_name].interested += interested;
 
         // Lab
-        if (!labStats[p.laboratory]) labStats[p.laboratory] = { sent: 0, interested: 0 };
-        labStats[p.laboratory].sent += myTargets.length;
-        labStats[p.laboratory].interested += interested;
+        if (!labStats[p.lab_name]) labStats[p.lab_name] = { sent: 0, interested: 0 };
+        labStats[p.lab_name].sent += myTargets.length;
+        labStats[p.lab_name].interested += interested;
       });
 
       // Render Med List
@@ -963,6 +960,44 @@
     });
   }
 
+
+
+  async function handleSaveSettings() {
+    if (!currentDelegate) return;
+    const firstName = ($('settings-firstname') || {}).value?.trim();
+    const lastName = ($('settings-lastname') || {}).value?.trim();
+    const phone = ($('settings-phone') || {}).value?.trim();
+
+    if (!firstName || !lastName) return showToast('Nom et prénom obligatoires.', 'error');
+
+    try {
+      const { error } = await supabase.from('delegates').update({
+        first_name: firstName,
+        last_name: lastName,
+        phone: phone || null,
+      }).eq('id', currentDelegate.id);
+      if (error) throw error;
+
+      currentDelegate.first_name = firstName;
+      currentDelegate.last_name = lastName;
+      currentDelegate.phone = phone;
+      saveSession(currentDelegate, sessionLabs);
+
+      showToast('✅ Profil mis à jour !', 'success');
+      $('settings-panel').classList.remove('open');
+    } catch (err) {
+      showToast('❌ Erreur: ' + (err.message || ''), 'error');
+    }
+  }
+
+  function getRoute(lat, lng) {
+    if (!userLat || !userLng) {
+      return showToast('Veuillez d\'abord détecter votre position.', 'error');
+    }
+    window.open(`https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${lat},${lng}&travelmode=driving`, '_blank');
+  }
+
+
   // ═══════════════════════════════════════════════════════
   //  UTILITIES
   // ═══════════════════════════════════════════════════════
@@ -992,7 +1027,7 @@
     const select = $(selectId);
     if (!select) return;
     const currentVal = select.value;
-    select.innerHTML = '<option value="">— Sélectionner —</option>';
+    select.innerHTML = '<option value="">— Sélectionner un laboratoire —</option>';
     sessionLabs.forEach(lab => {
       select.innerHTML += `<option value="${escapeHtml(lab)}">${escapeHtml(lab)}</option>`;
     });
@@ -1005,6 +1040,7 @@
   window.DelegateApp = {
     openSendPromo,
     openVisitRequest,
+    getRoute,
   };
 
   // ── Boot ───────────────────────────────────────────────
