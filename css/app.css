@@ -1996,3 +1996,6 @@
   }
 }
 
+
+.hidden { display: none !important; }
+

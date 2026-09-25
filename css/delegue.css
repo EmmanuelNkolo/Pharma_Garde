@@ -298,3 +298,1419 @@
     right: -100%;
   }
 }
+
+
+/* ============================================================
+   PHARMA-GARDE — Pharmacist Dashboard Styles (Espace Pharmacie)
+   ============================================================ */
+
+body {
+  overflow-y: auto;
+  position: static;
+}
+
+/* ── Login Screen ─────────────────────────────────────────── */
+#login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  background: var(--dark-950);
+  background-image: 
+    radial-gradient(ellipse at 20% 50%, rgba(5, 150, 105, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(245, 158, 11, 0.05) 0%, transparent 50%);
+}
+
+#login-screen.hidden {
+  display: none;
+}
+
+.login-card {
+  background: var(--dark-800);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-2xl);
+  padding: var(--space-8);
+  max-width: 480px;
+  width: 100%;
+  text-align: center;
+  animation: scaleIn var(--transition-slow) ease;
+}
+
+.login-icon {
+  font-size: 56px;
+  margin-bottom: var(--space-4);
+}
+
+.login-title {
+  font-size: var(--font-2xl);
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--green-300), var(--green-500));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: var(--space-1);
+}
+
+.login-subtitle {
+  font-size: var(--font-md);
+  color: var(--dark-400);
+  margin-bottom: var(--space-6);
+}
+
+/* ── Login Tabs ──────────────────────────────────────────── */
+.login-tabs {
+  display: flex;
+  background: var(--dark-700);
+  border-radius: var(--radius-full);
+  padding: 3px;
+  margin-bottom: var(--space-6);
+}
+
+.login-tab {
+  flex: 1;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-full);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--dark-400);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.login-tab.active {
+  background: var(--color-primary);
+  color: white;
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.4);
+}
+
+.login-tab:not(.active):hover {
+  color: var(--dark-200);
+}
+
+.login-form {
+  text-align: left;
+}
+
+.form-group {
+  margin-bottom: var(--space-4);
+}
+
+.form-group label {
+  display: block;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--dark-300);
+  margin-bottom: var(--space-2);
+}
+
+/* ── Services Checkboxes ─────────────────────────────────── */
+.services-checkboxes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-sm);
+  color: var(--dark-300);
+  cursor: pointer;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  transition: background var(--transition-fast);
+}
+
+.checkbox-label:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--green-500);
+  cursor: pointer;
+}
+
+/* ── Advantages Section ──────────────────────────────────── */
+.advantages-section {
+  margin-top: var(--space-8);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--color-border);
+}
+
+.advantage-cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+}
+
+.advantage-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-lg);
+  text-align: left;
+  transition: all var(--transition-fast);
+}
+
+.advantage-card:hover {
+  background: rgba(5, 150, 105, 0.06);
+  border-color: rgba(5, 150, 105, 0.2);
+}
+
+.advantage-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.advantage-card strong {
+  display: block;
+  font-size: var(--font-sm);
+  font-weight: 700;
+  color: var(--dark-100);
+  margin-bottom: 2px;
+}
+
+.advantage-card p {
+  font-size: var(--font-xs);
+  color: var(--dark-400);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.back-link {
+  display: inline-block;
+  margin-top: var(--space-6);
+  font-size: var(--font-sm);
+  color: var(--dark-400);
+  transition: color var(--transition-fast);
+}
+
+.back-link:hover {
+  color: var(--green-400);
+}
+
+/* ── Dashboard Hidden State ───────────────────────────────── */
+#dashboard.hidden {
+  display: none;
+}
+
+/* ── Dashboard Header ─────────────────────────────────────── */
+.dash-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  padding-top: max(var(--space-4), env(safe-area-inset-top));
+  background: var(--dark-800);
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.dash-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.dash-logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-md);
+  font-weight: 800;
+  color: var(--green-400);
+}
+
+.guard-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.guard-toggle-label {
+  font-size: var(--font-xs);
+  color: var(--dark-400);
+  white-space: nowrap;
+}
+
+.guard-switch {
+  display: flex;
+  background: var(--dark-700);
+  border-radius: var(--radius-full);
+  padding: 3px;
+  gap: 2px;
+}
+
+.guard-option {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--dark-400);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.guard-option.active {
+  color: white;
+}
+
+.guard-option[data-status="open"].active {
+  background: var(--green-600);
+}
+
+.guard-option[data-status="guard"].active {
+  background: var(--gold-600);
+}
+
+.guard-option[data-status="closed"].active {
+  background: var(--dark-500);
+}
+
+.guard-option:hover:not(.active) {
+  color: var(--dark-200);
+}
+
+/* ── Info Bar ─────────────────────────────────────────────── */
+.dash-info-bar {
+  padding: var(--space-4) var(--space-5);
+  background: rgba(5, 150, 105, 0.06);
+  border-bottom: 1px solid rgba(5, 150, 105, 0.1);
+}
+
+.dash-pharmacy-name {
+  font-size: var(--font-lg);
+  font-weight: 700;
+  margin-bottom: var(--space-1);
+}
+
+.dash-pharmacy-detail {
+  font-size: var(--font-sm);
+  color: var(--dark-400);
+}
+
+/* ── Stats Cards ──────────────────────────────────────────── */
+.dash-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+}
+
+@media (min-width: 768px) {
+  .dash-stats {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.stat-card {
+  background: var(--dark-800);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-4);
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+}
+
+.stat-primary::before { background: linear-gradient(90deg, var(--green-500), var(--green-300)); }
+.stat-success::before { background: linear-gradient(90deg, #22c55e, #86efac); }
+.stat-warning::before { background: linear-gradient(90deg, var(--gold-500), var(--gold-300)); }
+.stat-info::before { background: linear-gradient(90deg, #3b82f6, #93c5fd); }
+
+.stat-value {
+  font-size: var(--font-3xl);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  margin-bottom: var(--space-1);
+}
+
+.stat-primary .stat-value { color: var(--green-400); }
+.stat-success .stat-value { color: #4ade80; }
+.stat-warning .stat-value { color: var(--gold-400); }
+.stat-info .stat-value { color: #60a5fa; }
+
+.stat-label {
+  font-size: var(--font-xs);
+  color: var(--dark-400);
+  line-height: 1.4;
+}
+
+.stat-icon {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  font-size: 20px;
+  opacity: 0.5;
+}
+
+/* ── Tabs ─────────────────────────────────────────────────── */
+.dash-tabs {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dash-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--dark-400);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.dash-tab:hover {
+  color: var(--dark-200);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.dash-tab.active {
+  color: var(--green-400);
+  background: rgba(5, 150, 105, 0.1);
+}
+
+.tab-badge {
+  background: var(--red-600);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  min-width: 20px;
+  text-align: center;
+}
+
+/* ── Tab Content ──────────────────────────────────────────── */
+.dash-tab-content {
+  display: none;
+  padding: var(--space-4) var(--space-5);
+}
+
+.dash-tab-content.active {
+  display: block;
+}
+
+/* ── Request Cards ────────────────────────────────────────── */
+.request-card {
+  background: var(--dark-800);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5);
+  margin-bottom: var(--space-3);
+  animation: fadeIn var(--transition-base);
+  position: relative;
+  overflow: hidden;
+}
+
+.request-card.urgent {
+  border-color: rgba(220, 38, 38, 0.3);
+}
+
+.request-card.urgent::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--red-500), var(--red-400));
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.request-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.request-medicine {
+  font-size: var(--font-lg);
+  font-weight: 700;
+  color: var(--dark-100);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.request-time {
+  font-size: var(--font-xs);
+  color: var(--dark-500);
+  white-space: nowrap;
+}
+
+.request-patient-info {
+  font-size: var(--font-sm);
+  color: var(--dark-400);
+  margin-bottom: var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.request-actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.request-actions .btn {
+  flex: 1;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-base);
+  font-weight: 700;
+}
+
+.btn-in-stock {
+  background: linear-gradient(135deg, var(--green-600), var(--green-700));
+  color: white;
+  border-radius: var(--radius-lg);
+}
+
+.btn-in-stock:hover {
+  box-shadow: var(--shadow-glow-green);
+}
+
+.btn-out-stock {
+  background: rgba(220, 38, 38, 0.1);
+  color: var(--red-400);
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  border-radius: var(--radius-lg);
+}
+
+.btn-out-stock:hover {
+  background: rgba(220, 38, 38, 0.2);
+}
+
+/* ── History Items ────────────────────────────────────────── */
+.history-filters {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4);
+  background: var(--dark-800);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-2);
+}
+
+.history-item-info {
+  flex: 1;
+}
+
+.history-item-medicine {
+  font-weight: 600;
+  font-size: var(--font-base);
+  margin-bottom: var(--space-1);
+}
+
+.history-item-meta {
+  font-size: var(--font-xs);
+  color: var(--dark-500);
+  display: flex;
+  gap: var(--space-3);
+}
+
+.history-item-status {
+  display: flex;
+  align-items: center;
+}
+
+/* ── Reservation Items ────────────────────────────────────── */
+.reservation-item {
+  background: var(--dark-800);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5);
+  margin-bottom: var(--space-3);
+}
+
+.reservation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.reservation-medicine {
+  font-weight: 700;
+  font-size: var(--font-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.reservation-timer {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--gold-400);
+  background: rgba(245, 158, 11, 0.1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-full);
+}
+
+.reservation-details {
+  font-size: var(--font-sm);
+  color: var(--dark-400);
+  margin-bottom: var(--space-3);
+}
+
+.reservation-actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+/* ── Performance Grid ─────────────────────────────────────── */
+.performance-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+}
+
+.perf-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5);
+  text-align: center;
+}
+
+.perf-value {
+  font-size: var(--font-2xl);
+  font-weight: 800;
+  margin-bottom: var(--space-1);
+}
+
+.perf-label {
+  font-size: var(--font-xs);
+  color: var(--dark-400);
+}
+
+/* ── Dashboard Footer ─────────────────────────────────────── */
+.dash-footer {
+  padding: var(--space-5);
+  border-top: 1px solid var(--color-border);
+  margin-top: var(--space-4);
+}
+
+/* ── Section ──────────────────────────────────────────────── */
+.dash-section {
+  padding: var(--space-5);
+}
+
+.dash-section-title {
+  font-size: var(--font-md);
+  font-weight: 700;
+  margin-bottom: var(--space-4);
+}
+
+/* ── Top Medications Chart ────────────────────────────────── */
+.top-meds {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.med-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.med-bar-label {
+  font-size: var(--font-sm);
+  font-weight: 500;
+  min-width: 160px;
+  color: var(--dark-200);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.med-bar-track {
+  flex: 1;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  position: relative;
+}
+
+.med-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, var(--green-600), var(--green-400));
+  transition: width 1s ease;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: var(--space-3);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  color: white;
+  min-width: 40px;
+}
+
+.med-bar:nth-child(2) .med-bar-fill {
+  background: linear-gradient(90deg, var(--gold-600), var(--gold-400));
+}
+
+.med-bar:nth-child(3) .med-bar-fill {
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+}
+
+.med-bar:nth-child(4) .med-bar-fill {
+  background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+}
+
+.med-bar:nth-child(5) .med-bar-fill {
+  background: linear-gradient(90deg, var(--red-600), var(--red-400));
+}
+
+/* ── Empty State ──────────────────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: var(--space-10) var(--space-4);
+}
+
+.empty-state-icon {
+  font-size: 48px;
+  margin-bottom: var(--space-4);
+  opacity: 0.5;
+}
+
+.empty-state-text {
+  font-size: var(--font-sm);
+  color: var(--dark-400);
+  line-height: 1.6;
+}
+
+/* ── Nav Btn (Reuse from app.css) ─────────────────────────── */
+.nav-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all var(--transition-fast);
+  color: var(--dark-200);
+  border: 1px solid var(--glass-border);
+}
+
+.nav-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: scale(1.05);
+}
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .dash-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .guard-toggle {
+    width: 100%;
+  }
+
+  .guard-switch {
+    flex: 1;
+  }
+
+  .med-bar-label {
+    min-width: 120px;
+    font-size: var(--font-xs);
+  }
+
+  .services-checkboxes {
+    grid-template-columns: 1fr;
+  }
+
+  .performance-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 768px) {
+  .login-card {
+    padding: var(--space-10);
+  }
+
+  .advantage-cards {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 1024px) {
+  #dashboard {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .dash-stats {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   V2.0 — NEW STYLES
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Stat Cards Clickable ─────────────────────────────── */
+.stat-card {
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+.stat-card:active {
+  transform: scale(0.97);
+}
+
+/* ── Stat Detail Panel ────────────────────────────────── */
+.stat-detail-panel {
+  background: var(--dark-800);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  margin: 0 var(--space-4) var(--space-4);
+  overflow: hidden;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.stat-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(255,255,255,0.03);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.stat-detail-header h3 {
+  font-size: 15px;
+  font-weight: 700;
+  flex: 1;
+}
+
+.stat-detail-filters {
+  display: flex;
+  gap: 6px;
+}
+
+.stat-detail-close {
+  background: rgba(255,255,255,0.1);
+  border: none;
+  color: var(--dark-300);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.stat-detail-close:hover { background: rgba(255,255,255,0.2); }
+
+.stat-detail-body {
+  padding: 16px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.stat-detail-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  gap: 12px;
+}
+.stat-detail-item:last-child { border-bottom: none; }
+
+/* ── Filter Buttons ───────────────────────────────────── */
+.filter-btn {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid transparent;
+  color: var(--dark-300);
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.filter-btn.active {
+  background: rgba(16,185,129,0.15);
+  color: var(--green-400);
+  border-color: rgba(16,185,129,0.3);
+}
+.filter-btn:hover:not(.active) {
+  background: rgba(255,255,255,0.1);
+}
+
+.history-filters, .stats-filters {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  justify-content: center;
+}
+
+/* ── Request Cards (Dashboard) ────────────────────────── */
+.request-card {
+  background: var(--dark-800);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 12px;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.request-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.request-patient-info {
+  font-size: 13px;
+  color: var(--dark-300);
+}
+
+.request-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--dark-400);
+}
+
+.request-countdown {
+  font-weight: 600;
+}
+.request-countdown.urgent {
+  color: var(--red-400);
+  animation: pulse 1.5s ease infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.request-medicines-list {
+  margin-bottom: 12px;
+}
+
+/* ── Medicine Response Row ────────────────────────────── */
+.med-response-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  flex-wrap: wrap;
+}
+.med-response-row:last-child { border-bottom: none; }
+
+.med-name {
+  font-size: 14px;
+  font-weight: 600;
+  flex: 1;
+  min-width: 120px;
+}
+
+.med-btn-group {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.resp-btn {
+  background: rgba(16,185,129,0.12);
+  border: 1px solid rgba(16,185,129,0.25);
+  color: var(--green-400);
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.resp-btn:hover {
+  background: rgba(16,185,129,0.25);
+  transform: scale(1.02);
+}
+.resp-btn.active {
+  background: var(--green-600);
+  color: white;
+  border-color: var(--green-500);
+  box-shadow: 0 2px 8px rgba(16,185,129,0.3);
+}
+.resp-btn-danger {
+  background: rgba(239,68,68,0.12);
+  border-color: rgba(239,68,68,0.25);
+  color: var(--red-400);
+}
+.resp-btn-danger:hover {
+  background: rgba(239,68,68,0.25);
+}
+.resp-btn-danger.active {
+  background: var(--red-600);
+  color: white;
+  border-color: var(--red-500);
+  box-shadow: 0 2px 8px rgba(239,68,68,0.3);
+}
+
+/* ── Confirm Response Modal ───────────────────────────── */
+.confirm-response-panel {
+  position: relative;
+  background: var(--dark-800);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 420px;
+  width: 90%;
+  z-index: 10001;
+}
+.confirm-response-panel h3 {
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.confirm-med-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.confirm-med-row:last-child { border-bottom: none; }
+
+.confirm-med-name {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.confirm-badge {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-weight: 600;
+}
+.confirm-badge-success {
+  background: rgba(16,185,129,0.15);
+  color: var(--green-400);
+}
+.confirm-badge-warning {
+  background: rgba(245,158,11,0.15);
+  color: var(--gold-400);
+}
+.confirm-badge-danger {
+  background: rgba(239,68,68,0.15);
+  color: var(--red-400);
+}
+
+/* ── History Items ────────────────────────────────────── */
+.history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.history-item:last-child { border-bottom: none; }
+
+.history-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.history-item-medicine {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-item-meta {
+  font-size: 11px;
+  color: var(--dark-400);
+}
+
+/* ── Badges ───────────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.badge-stock {
+  background: rgba(16,185,129,0.15);
+  color: var(--green-400);
+}
+.badge-rupture {
+  background: rgba(239,68,68,0.15);
+  color: var(--red-400);
+}
+.badge-warning {
+  background: rgba(245,158,11,0.15);
+  color: var(--gold-400);
+}
+.badge-muted {
+  background: rgba(255,255,255,0.06);
+  color: var(--dark-400);
+}
+.badge-success {
+  background: rgba(16,185,129,0.15);
+  color: var(--green-400);
+}
+
+/* ── Responded Stats ──────────────────────────────────── */
+.responded-stats-grid {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.responded-med-card {
+  background: rgba(255,255,255,0.03);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.responded-med-name {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.responded-med-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.responded-stat { opacity: 0.9; }
+.text-success { color: var(--green-400); }
+.text-danger { color: var(--red-400); }
+.text-muted { color: var(--dark-400); }
+
+/* ── Reservation Items ────────────────────────────────── */
+.reservation-item {
+  gap: 12px;
+}
+
+.reservation-countdown {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--gold-400);
+}
+.reservation-countdown.urgent {
+  color: var(--red-400);
+  animation: pulse 1.5s ease infinite;
+}
+
+/* ── Tab Badge ────────────────────────────────────────── */
+.tab-badge {
+  background: var(--green-600);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  margin-left: 4px;
+  min-width: 16px;
+  text-align: center;
+}
+
+/* ── Stats Grid (Statistics Tab) ──────────────────────── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.mini-stat {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 14px;
+  text-align: center;
+}
+
+.mini-stat-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--green-400);
+  margin-bottom: 4px;
+}
+
+.mini-stat-label {
+  font-size: 11px;
+  color: var(--dark-400);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ── Dashboard Footer ─────────────────────────────────── */
+.dash-footer {
+  padding: 16px;
+  margin-top: 20px;
+  border-top: 1px solid var(--color-border);
+}
+
+/* ── Landscape mode forced ────────────────────────────── */
+/* (Removed broken CSS rotation that sent the page off-screen on mobile) */
+
+/* ── Loading dots ─────────────────────────────────────── */
+.loading-dots {
+  display: flex;
+  gap: 6px;
+}
+.loading-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green-500);
+  animation: loadingDot 1.2s ease-in-out infinite;
+}
+.loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes loadingDot {
+  0%, 100% { transform: scale(0.5); opacity: 0.3; }
+  50% { transform: scale(1); opacity: 1; }
+}
+
+/* ── Guard Switch v2 ──────────────────────────────────── */
+.guard-switch {
+  display: flex;
+  gap: 4px;
+  background: rgba(0,0,0,0.3);
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.guard-option {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: transparent;
+  color: var(--dark-400);
+  white-space: nowrap;
+}
+.guard-option.active {
+  background: var(--green-600);
+  color: white;
+  box-shadow: 0 2px 8px rgba(16,185,129,0.3);
+}
+.guard-option:hover:not(.active) {
+  background: rgba(255,255,255,0.08);
+}
+
+/* ── Info Bar ─────────────────────────────────────────── */
+.dash-info-bar {
+  padding: 12px 16px;
+  background: rgba(16,185,129,0.06);
+  border-bottom: 1px solid var(--color-border);
+}
+.dash-pharmacy-name {
+  font-size: 16px;
+  font-weight: 700;
+}
+.dash-pharmacy-detail {
+  font-size: 12px;
+  color: var(--dark-400);
+  margin-top: 2px;
+}
+
+/* ── Mobile responsive dashboard ──────────────────────── */
+@media (max-width: 600px) {
+  .stat-detail-header {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .stat-detail-close {
+    position: absolute;
+    right: 12px;
+    top: 12px;
+  }
+
+  .stat-detail-panel {
+    margin: 0 8px 8px;
+  }
+
+  .med-response-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .med-btn-group {
+    width: 100%;
+  }
+
+  .request-header {
+    flex-direction: column;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .guard-switch {
+    flex-wrap: wrap;
+  }
+}
+
+/* ── Reserve button in patient results ────────────────── */
+.reserve-med-btn {
+  background: rgba(16,185,129,0.15) !important;
+  color: var(--green-400) !important;
+  border: 1px solid rgba(16,185,129,0.3) !important;
+  padding: 4px 12px !important;
+  border-radius: 6px !important;
+  font-size: 11px !important;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.reserve-med-btn:hover {
+  background: rgba(16,185,129,0.3) !important;
+}
+.reserve-med-btn.reserved {
+  background: var(--green-600) !important;
+  color: white !important;
+}
+
+/* ── Reservation confirmation card ────────────────────── */
+.reservation-confirm-card {
+  background: var(--dark-800);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+/* ═══════════════════════════════════════════
+   SETTINGS — Response Mode (Phase 5)
+   ═══════════════════════════════════════════ */
+.response-mode-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.response-mode-option {
+  cursor: pointer;
+  display: block;
+}
+
+.response-mode-option input[type="radio"] {
+  display: none;
+}
+
+.response-mode-card {
+  background: var(--dark-800);
+  border: 2px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 16px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.response-mode-card strong {
+  display: block;
+  color: var(--dark-100);
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+
+.response-mode-card p {
+  font-size: 13px;
+  color: var(--dark-400);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.response-mode-option input[type="radio"]:checked + .response-mode-card {
+  border-color: var(--green-400);
+  box-shadow: 0 0 0 1px var(--green-400), 0 4px 12px rgba(5, 150, 105, 0.15);
+}
+
+/* ── Dash Tabs 4-column adjustment ────────────────────── */
+@media (max-width: 600px) {
+  .dash-tabs {
+    gap: 2px;
+    padding: var(--space-2) var(--space-3);
+  }
+  .dash-tab {
+    padding: var(--space-2) var(--space-3);
+    font-size: 12px;
+  }
+}
