@@ -523,11 +523,16 @@
               <div class="pharmacy-card-status">${statusLabel} &nbsp; ⏰ ${escapeHtml(p.hours || '—')}</div>
             </div>
           </div>
-          <div class="pharmacy-card-actions">
-            <button class="btn btn-sm btn-primary" onclick="DelegateApp.openSendPromo('${p.id}', '${escapeHtml(p.name)}')">📤 Envoyer Promo</button>
-            <button class="btn btn-sm btn-outline" onclick="DelegateApp.openVisitRequest('${p.id}', '${escapeHtml(p.name)}')">📅 Visite</button>
-            ${p.phone ? `<a href="tel:${p.phone}" class="btn btn-sm btn-outline">📞</a>` : ''}
-            ${p.whatsapp ? `<a href="https://wa.me/${p.whatsapp}" target="_blank" class="btn btn-sm btn-outline" style="color:#25D366;">💬</a>` : ''}
+                    <div class="pharmacy-card-actions" style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn btn-sm btn-primary" style="flex: 1; min-width: 120px;" onclick="DelegateApp.openSendPromo('${p.id}', '${escapeHtml(p.name)}')">📤 Envoyer Promo</button>
+            <button class="btn btn-sm btn-outline" style="flex: 1; min-width: 80px;" onclick="DelegateApp.openVisitRequest('${p.id}', '${escapeHtml(p.name)}')">📅 Visite</button>
+            <div style="display: flex; gap: 8px; width: 100%;">
+              ${p.phone ? `<a href="tel:${p.phone}" class="btn btn-sm btn-outline" style="flex: 1; display:flex; justify-content:center; align-items:center; gap:4px;">📞 Appeler</a>` : ''}
+              ${p.whatsapp || p.phone ? `<a href="https://wa.me/${p.whatsapp || p.phone}" target="_blank" class="btn btn-sm btn-outline" style="flex: 1; display:flex; justify-content:center; align-items:center; gap:4px; color:#25D366; border-color: rgba(37, 211, 102, 0.3); background: rgba(37, 211, 102, 0.05);">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.888-.788-1.489-1.761-1.663-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.885-9.885 9.885m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                WhatsApp
+              </a>` : ''}
+            </div>
           </div>
         </div>
       `;
@@ -706,32 +711,82 @@
     if (!currentDelegate) return;
 
     try {
-      // Load all promotion targets for this delegate's promotions
+      // 1. Fetch Promos
       const { data: promos } = await supabase
-        .from('delegate_promotions').select('id').eq('delegate_id', currentDelegate.id);
+        .from('delegate_promotions').select('*').eq('delegate_id', currentDelegate.id);
       const promoIds = (promos || []).map(p => p.id);
 
       let targets = [];
       if (promoIds.length > 0) {
-        const { data } = await supabase.from('promotion_targets').select('*').in('promotion_id', promoIds);
+        const { data } = await supabase.from('promotion_targets').select('*, pharmacy:pharmacy_id(name)').in('promotion_id', promoIds);
         targets = data || [];
       }
 
-      // Load visits
+      // 2. Fetch Visits
       const { data: visits } = await supabase
         .from('visit_requests').select('*').eq('delegate_id', currentDelegate.id);
 
-      // Update stat cards
+      // --- STATS SUMMARY ---
       const setVal = (id, val) => { const el = $(id); if (el) el.textContent = val; };
       setVal('stat-promos-sent', targets.length);
-      setVal('stat-promos-read', targets.filter(t => t.status !== 'sent').length);
-      setVal('stat-promos-interested', targets.filter(t => t.status === 'interested').length);
       setVal('stat-visits', (visits || []).length);
       setVal('stat-pharmacies-covered', new Set(targets.map(t => t.pharmacy_id)).size);
       setVal('stat-labs-active', sessionLabs.length);
 
-      // Chart
+      const readCount = targets.filter(t => t.status !== 'sent').length;
+      const interestedCount = targets.filter(t => t.status === 'interested').length;
+      const ignoredCount = targets.filter(t => t.status === 'ignored').length;
+
+      setVal('stat-promos-read', readCount);
+      setVal('stat-promos-interested', interestedCount);
+      const ignEl = $('stat-promos-ignored');
+      if (ignEl) ignEl.textContent = ignoredCount;
+
+      // --- CHART ---
       renderStatsChart(targets);
+
+      // --- PAR MEDICAMENT & PAR LABORATOIRE ---
+      const medStats = {};
+      const labStats = {};
+      
+      promos.forEach(p => {
+        const myTargets = targets.filter(t => t.promotion_id === p.id);
+        const interested = myTargets.filter(t => t.status === 'interested').length;
+        
+        // Med
+        if (!medStats[p.med_name]) medStats[p.med_name] = { sent: 0, interested: 0 };
+        medStats[p.med_name].sent += myTargets.length;
+        medStats[p.med_name].interested += interested;
+
+        // Lab
+        if (!labStats[p.laboratory]) labStats[p.laboratory] = { sent: 0, interested: 0 };
+        labStats[p.laboratory].sent += myTargets.length;
+        labStats[p.laboratory].interested += interested;
+      });
+
+      // Render Med List
+      const medListEl = $('med-stats-list');
+      if (medListEl) {
+        const medHtml = Object.entries(medStats).sort((a,b) => b[1].interested - a[1].interested).map(([med, s]) => `
+          <div style="display:flex; justify-content:space-between; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--glass-border);">
+            <strong style="color:var(--dark-200);">${escapeHtml(med)}</strong>
+            <span style="color:var(--green-400); font-weight:600;">${s.interested} intéressées / ${s.sent}</span>
+          </div>
+        `).join('');
+        medListEl.innerHTML = medHtml || '<div style="text-align:center; padding:20px;">Aucune donnée.</div>';
+      }
+
+      // Render Lab List
+      const labListEl = $('lab-stats-list');
+      if (labListEl) {
+        const labHtml = Object.entries(labStats).sort((a,b) => b[1].interested - a[1].interested).map(([lab, s]) => `
+          <div style="display:flex; justify-content:space-between; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--glass-border);">
+            <strong style="color:var(--dark-200);">${escapeHtml(lab)}</strong>
+            <span style="color:var(--blue-400); font-weight:600;">${s.sent} cibles | ${s.interested} retours positifs</span>
+          </div>
+        `).join('');
+        labListEl.innerHTML = labHtml || '<div style="text-align:center; padding:20px;">Aucune donnée.</div>';
+      }
 
       // Populate lab report dropdown
       populateLabSelect('report-lab');
@@ -745,7 +800,9 @@
     if (!ctx) return;
 
     const counts = { sent: 0, read: 0, interested: 0, already_stocked: 0, ignored: 0 };
-    targets.forEach(t => { if (counts[t.status] !== undefined) counts[t.status]++; });
+    if(targets) {
+        targets.forEach(t => { if (counts[t.status] !== undefined) counts[t.status]++; });
+    }
 
     if (statsChart) statsChart.destroy();
     statsChart = new Chart(ctx, {
@@ -760,8 +817,9 @@
       },
       options: {
         responsive: true,
+        maintainAspectRatio: false,
         plugins: {
-          legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 } } },
+          legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 12 } } },
         },
       },
     });
