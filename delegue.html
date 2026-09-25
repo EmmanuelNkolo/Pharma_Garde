@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+  <meta name="description" content="Espace Délégués Médicaux — Promouvez vos produits pharmaceutiques auprès des pharmacies sur Pharma-Garde.">
+  <meta name="theme-color" content="#059669">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <title>Espace Délégués Médicaux — Pharma-Garde</title>
+
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <!-- App CSS -->
+  <link rel="stylesheet" href="css/index.css">
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/delegue.css">
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════
+       LOGIN / REGISTRATION SCREEN
+       ═══════════════════════════════════════════════════════ -->
+  <div id="login-screen">
+    <div class="login-card">
+      <!-- Navigation Back -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <a href="index.html" class="btn btn-outline btn-sm" style="display: flex; align-items: center; gap: 6px; padding: 8px 16px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+          <span>Retour</span>
+        </a>
+      </div>
+
+      <div class="login-icon">💼</div>
+      <h1 class="login-title">Espace Délégués Médicaux</h1>
+      <p class="login-subtitle">Connectez-vous pour promouvoir vos produits</p>
+
+      <!-- Tab Switcher -->
+      <div class="login-tabs">
+        <button class="login-tab active" data-form="login" id="tab-login">Connexion</button>
+        <button class="login-tab" data-form="register" id="tab-register">Inscription</button>
+        <button class="login-tab" data-form="reset" id="tab-reset">Mot de passe oublié</button>
+      </div>
+
+      <!-- ─── Login Form ─── -->
+      <div class="login-form" id="form-login">
+        <div class="form-group">
+          <label>Email professionnel</label>
+          <input type="email" id="login-email" class="input-field" placeholder="delegue@lab.com" required>
+        </div>
+        <div class="form-group">
+          <label>Mot de passe</label>
+          <input type="password" id="login-password" class="input-field" placeholder="Votre mot de passe" required>
+        </div>
+        <div class="form-group">
+          <label style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            Laboratoire(s) d'attache *
+            <button type="button" id="btn-add-lab" class="btn btn-outline btn-sm" style="padding: 2px 8px; font-size: 14px; border-radius: 4px; display: flex; align-items: center; gap: 4px;" title="Ajouter un laboratoire">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Ajouter
+            </button>
+          </label>
+          <div id="login-labs-container">
+            <div style="display: flex; gap: 8px; margin-bottom: 8px;" class="login-lab-row">
+              <input type="text" class="input-field login-lab-input" placeholder="Nom du laboratoire" required>
+            </div>
+          </div>
+        </div>
+        <button id="btn-login" class="btn btn-primary btn-lg btn-block" style="margin-top: 16px;">
+          Se connecter
+        </button>
+        <p style="text-align: center; margin-top: 12px;">
+          <a href="#" id="link-forgot" style="color: var(--green-400); font-size: 13px;">Mot de passe oublié ?</a>
+        </p>
+      </div>
+
+      <!-- ─── Register Form ─── -->
+      <div class="login-form" id="form-register" style="display: none;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div class="form-group">
+            <label>Noms *</label>
+            <input type="text" id="reg-nom" class="input-field" placeholder="Vos noms" required>
+          </div>
+          <div class="form-group">
+            <label>Prénoms *</label>
+            <input type="text" id="reg-prenom" class="input-field" placeholder="Vos prénoms" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Numéro de carte professionnelle *</label>
+          <input type="text" id="reg-pro-card" class="input-field" placeholder="N° de carte pro" required>
+        </div>
+        <div class="form-group">
+          <label>Numéro CNI *</label>
+          <input type="text" id="reg-cni" class="input-field" placeholder="N° de CNI" required>
+        </div>
+        <div class="form-group">
+          <label>Numéro de téléphone *</label>
+          <input type="tel" id="reg-phone" class="input-field" placeholder="6XX XXX XXX" required>
+        </div>
+        <div class="form-group">
+          <label>Email professionnel *</label>
+          <input type="email" id="reg-email" class="input-field" placeholder="delegue@lab.com" required>
+        </div>
+        <div class="form-group">
+          <label>Mot de passe * (min 6 caractères)</label>
+          <input type="password" id="reg-password" class="input-field" placeholder="Créer un mot de passe" required minlength="6">
+        </div>
+        <div class="form-group">
+          <label>Confirmer le mot de passe *</label>
+          <input type="password" id="reg-confirm-password" class="input-field" placeholder="Confirmer le mot de passe" required minlength="6">
+        </div>
+        <button id="btn-register" class="btn btn-primary btn-lg btn-block">
+          Demander une inscription
+        </button>
+      </div>
+
+      <!-- ─── Password Reset Form ─── -->
+      <div class="login-form" id="form-reset" style="display: none;">
+        <p style="font-size: 14px; color: var(--dark-400); margin-bottom: 16px; line-height: 1.6;">
+          Entrez l'email associé à votre compte délégué. Un lien de réinitialisation vous sera envoyé.
+        </p>
+        <div class="form-group">
+          <label>Email enregistré</label>
+          <input type="email" id="reset-email" class="input-field" placeholder="delegue@lab.com" required>
+        </div>
+        <button id="btn-reset-password" class="btn btn-primary btn-lg btn-block">
+          Réinitialiser le mot de passe
+        </button>
+      </div>
+
+      <!-- Advantages Section -->
+      <div class="advantages-section">
+        <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 16px; color: var(--green-400); text-align: center;">
+          ✨ Pourquoi rejoindre Pharma-Garde ?
+        </h3>
+        <div class="advantage-cards">
+          <div class="advantage-card"><span class="advantage-icon">🎯</span><div><strong>Ciblage Précis</strong><p>Diffusez vos campagnes directement aux pharmacies de votre secteur</p></div></div>
+          <div class="advantage-card"><span class="advantage-icon">⚡</span><div><strong>Temps Réel</strong><p>Communiquez instantanément vos nouveautés et offres</p></div></div>
+          <div class="advantage-card"><span class="advantage-icon">🚀</span><div><strong>Boost des Ventes</strong><p>Maximisez la visibilité de vos produits auprès des décideurs</p></div></div>
+          <div class="advantage-card"><span class="advantage-icon">📊</span><div><strong>Statistiques Détaillées</strong><p>Suivez l'impact et le taux de conversion de vos campagnes</p></div></div>
+          <div class="advantage-card"><span class="advantage-icon">🤝</span><div><strong>Gestion Centralisée</strong><p>Retrouvez tout votre réseau et vos interactions au même endroit</p></div></div>
+          <div class="advantage-card"><span class="advantage-icon">📄</span><div><strong>Rapports Laboratoire</strong><p>Générez des rapports d'activité PDF pour vos partenaires</p></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       DASHBOARD (Map + Bottom Sheet)
+       ═══════════════════════════════════════════════════════ -->
+  <div id="dashboard" class="hidden">
+
+    <!-- Location Permission Modal -->
+    <div id="location-modal">
+      <div class="location-card" style="position: relative;">
+        <div class="location-icon">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--green-400)"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+        </div>
+        <h2>Votre Position</h2>
+        <p>Pour trouver les pharmacies les plus proches, nous avons besoin de connaître votre position. Vos données restent privées et sécurisées.</p>
+        <div class="location-actions">
+          <button id="btn-gps" class="btn btn-primary btn-lg btn-block">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span>Détecter ma position</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top Bar -->
+    <header id="top-bar">
+      <div class="top-logo">
+        <div class="top-nav-buttons">
+          <button class="nav-btn" id="nav-back" aria-label="Retour" title="Retour">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <button class="nav-btn" id="nav-home" aria-label="Accueil" title="Accueil">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          </button>
+          <button class="nav-btn" id="nav-forward" aria-label="Avancer" title="Avancer">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+        <div class="top-logo-cross" aria-hidden="true"></div>
+        <span class="top-logo-text">Pharma-Garde</span>
+      </div>
+      <div class="top-right">
+        <div class="city-badge" id="current-city-badge">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/></svg>
+          <span id="city-name-display">—</span>
+        </div>
+        <!-- Radius Selector -->
+        <div id="radius-selector">
+          <button class="radius-pill" data-radius="2">2 km</button>
+          <button class="radius-pill active" data-radius="5">5 km</button>
+          <button class="radius-pill" data-radius="10">10 km</button>
+          <button class="radius-pill" data-radius="15">15 km</button>
+          <button class="radius-pill" data-radius="20">20 km</button>
+        </div>
+        <button class="settings-btn" id="settings-open" aria-label="Paramètres" title="Paramètres">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Recenter Button -->
+    <button id="btn-recenter" class="recenter-btn" title="Recentrer sur ma position">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/></svg>
+    </button>
+
+    <!-- Fullscreen Button -->
+    <button id="btn-fullscreen" class="fullscreen-btn" title="Plein écran">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+    </button>
+
+    <!-- Map Container -->
+    <div id="map"></div>
+
+    <!-- Bottom Sheet -->
+    <div id="bottom-sheet">
+      <div class="sheet-handle-area" id="sheet-handle">
+        <div class="sheet-handle"></div>
+      </div>
+
+      <div class="sheet-header">
+        <!-- Action Buttons -->
+        <div class="action-buttons-row" id="main-actions">
+          <button id="btn-promotions" class="action-btn" style="background: rgba(255, 59, 48, 0.1); color: #ff3b30; border: 1px solid rgba(255, 59, 48, 0.2);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+            <span>PROMOTIONS</span>
+          </button>
+          <button id="btn-pharmacies" class="action-btn" style="background: rgba(0, 210, 106, 0.1); color: #00d26a; border: 1px solid rgba(0, 210, 106, 0.2);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            <span>PHARMACIES</span>
+          </button>
+          <button id="btn-stats" class="action-btn" style="background: rgba(255, 149, 0, 0.1); color: #ff9500; border: 1px solid rgba(255, 149, 0, 0.2);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+            <span>STATISTIQUES</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Content Panels -->
+      <div id="panel-pharmacies" class="sheet-panel active">
+        <div id="pharmacy-list">
+          <!-- Pharmacy cards inserted dynamically -->
+        </div>
+      </div>
+
+      <div id="panel-promotions" class="sheet-panel" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 4px;">
+          <h3 style="font-size: 15px; font-weight: 700; color: var(--dark-200);">Mes Promotions</h3>
+          <button id="btn-new-promo" class="btn btn-primary btn-sm" style="font-size: 13px;">+ Nouvelle</button>
+        </div>
+        <div id="promotions-list">
+          <!-- Promotion cards inserted dynamically -->
+        </div>
+      </div>
+
+      <div id="panel-stats" class="sheet-panel" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 4px;">
+          <h3 style="font-size: 15px; font-weight: 700; color: var(--dark-200);">Tableau de Bord</h3>
+          <button id="btn-download-report" class="btn btn-outline btn-sm" style="font-size: 13px; display: flex; align-items: center; gap: 4px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Rapport PDF
+          </button>
+        </div>
+        <!-- Stats Summary Cards -->
+        <div class="stats-grid-delegate">
+          <div class="mini-stat"><div class="mini-stat-value" id="stat-promos-sent">0</div><div class="mini-stat-label">Promotions envoyées</div></div>
+          <div class="mini-stat"><div class="mini-stat-value" id="stat-promos-read">0</div><div class="mini-stat-label">Lues</div></div>
+          <div class="mini-stat"><div class="mini-stat-value" id="stat-promos-interested">0</div><div class="mini-stat-label">Intéressées</div></div>
+          <div class="mini-stat"><div class="mini-stat-value" id="stat-visits">0</div><div class="mini-stat-label">Visites</div></div>
+          <div class="mini-stat"><div class="mini-stat-value" id="stat-pharmacies-covered">0</div><div class="mini-stat-label">Pharmacies couvertes</div></div>
+          <div class="mini-stat"><div class="mini-stat-value" id="stat-labs-active">0</div><div class="mini-stat-label">Laboratoires actifs</div></div>
+        </div>
+        <!-- Chart -->
+        <div style="background: var(--dark-800); border: 1px solid var(--glass-border); border-radius: 12px; padding: 16px; margin-top: 16px;">
+          <h4 style="font-size: 13px; font-weight: 600; color: var(--dark-300); margin-bottom: 12px;">Répartition des réponses</h4>
+          <div style="width: 100%; max-width: 280px; margin: 0 auto;">
+            <canvas id="delegate-chart"></canvas>
+          </div>
+        </div>
+        <!-- Lab Report Section -->
+        <div id="lab-report-section" style="margin-top: 16px;">
+          <h4 style="font-size: 13px; font-weight: 600; color: var(--dark-300); margin-bottom: 8px;">Générer un rapport</h4>
+          <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+            <select id="report-lab" class="input-field" style="flex: 1;"><option value="">— Laboratoire —</option></select>
+            <input type="date" id="report-from" class="input-field" style="flex: 1;">
+            <input type="date" id="report-to" class="input-field" style="flex: 1;">
+          </div>
+          <button id="btn-generate-report" class="btn btn-primary btn-block">📊 Générer le Rapport</button>
+        </div>
+      </div>
+
+      <!-- Logout / Settings at bottom -->
+      <div id="delegate-footer" style="padding: 16px; border-top: 1px solid var(--glass-border); margin-top: 16px;">
+        <button id="btn-logout" class="btn btn-outline btn-block" style="margin-bottom: 8px;">🚪 Déconnexion</button>
+        <button id="btn-delete-account" class="btn btn-outline btn-block" style="color: var(--red-400); border-color: var(--red-400);">🗑️ Supprimer mon compte</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       NEW PROMOTION MODAL
+       ═══════════════════════════════════════════════════════ -->
+  <div id="new-promo-modal" class="modal-backdrop">
+    <div class="login-card" style="max-width: 500px; padding: 24px;">
+      <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 16px; color: var(--green-500);">Nouvelle Promotion</h3>
+      <div class="form-group">
+        <label>Laboratoire</label>
+        <select id="promo-lab" class="input-field"><option value="">— Sélectionner —</option></select>
+      </div>
+      <div class="form-group">
+        <label>Nom du produit *</label>
+        <input type="text" id="promo-name" class="input-field" placeholder="Ex: Doliprane 1000mg" required>
+      </div>
+      <div class="form-group">
+        <label>Type de produit</label>
+        <select id="promo-type" class="input-field">
+          <option value="medicament">Médicament</option>
+          <option value="complement">Complément alimentaire</option>
+          <option value="materiel">Matériel médical</option>
+          <option value="cosmetique">Cosmétique</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Description de la campagne</label>
+        <textarea id="promo-desc" class="input-field" rows="3" placeholder="Avantages, posologie, offre..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Lien document (Catalogue / Bon de commande)</label>
+        <input type="url" id="promo-doc" class="input-field" placeholder="https://lien-vers-le-document.pdf">
+      </div>
+      <div style="display: flex; gap: 12px; margin-top: 24px;">
+        <button class="btn btn-outline" style="flex: 1;" id="btn-cancel-promo">Annuler</button>
+        <button id="btn-save-promo" class="btn btn-primary" style="flex: 1;">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       VISIT REQUEST MODAL
+       ═══════════════════════════════════════════════════════ -->
+  <div id="visit-modal" class="modal-backdrop">
+    <div class="login-card" style="max-width: 450px; padding: 24px;">
+      <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 16px; color: var(--green-500);">Demander une Visite</h3>
+      <input type="hidden" id="visit-pharmacy-id">
+      <div class="form-group">
+        <label>Pharmacie</label>
+        <input type="text" id="visit-pharmacy-name" class="input-field" disabled>
+      </div>
+      <div class="form-group">
+        <label>Date et heure proposées *</label>
+        <input type="datetime-local" id="visit-date" class="input-field" required>
+      </div>
+      <div class="form-group">
+        <label>Objet de la visite</label>
+        <textarea id="visit-purpose" class="input-field" rows="2" placeholder="Présentation nouveau produit, suivi commande..."></textarea>
+      </div>
+      <div style="display: flex; gap: 12px; margin-top: 24px;">
+        <button class="btn btn-outline" style="flex: 1;" id="btn-cancel-visit">Annuler</button>
+        <button id="btn-send-visit" class="btn btn-primary" style="flex: 1;">Envoyer la demande</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       SEND PROMOTION TO PHARMACY MODAL
+       ═══════════════════════════════════════════════════════ -->
+  <div id="send-promo-modal" class="modal-backdrop">
+    <div class="login-card" style="max-width: 450px; padding: 24px;">
+      <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 16px; color: var(--green-500);">Envoyer une Promotion</h3>
+      <input type="hidden" id="send-promo-pharmacy-id">
+      <div class="form-group">
+        <label>Pharmacie</label>
+        <input type="text" id="send-promo-pharmacy-name" class="input-field" disabled>
+      </div>
+      <div class="form-group">
+        <label>Sélectionner une promotion *</label>
+        <select id="send-promo-select" class="input-field"><option value="">— Choisir —</option></select>
+      </div>
+      <div style="display: flex; gap: 12px; margin-top: 24px;">
+        <button class="btn btn-outline" style="flex: 1;" id="btn-cancel-send-promo">Annuler</button>
+        <button id="btn-confirm-send-promo" class="btn btn-primary" style="flex: 1;">Envoyer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       DELETE ACCOUNT MODAL
+       ═══════════════════════════════════════════════════════ -->
+  <div id="delete-modal" style="display: none; position: fixed; inset: 0; z-index: 10000; align-items: center; justify-content: center;">
+    <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);"></div>
+    <div style="position: relative; background: var(--dark-800); border: 1px solid var(--color-border); border-radius: 16px; padding: 24px; max-width: 400px; width: 90%; text-align: center; z-index: 10001;">
+      <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+      <h3 style="color: var(--red-400); margin-bottom: 12px;">Supprimer mon compte</h3>
+      <p style="color: var(--dark-400); font-size: 14px; line-height: 1.6; margin-bottom: 20px;">Cette action est irréversible. Toutes vos données, promotions et interactions seront définitivement supprimées.</p>
+      <div style="display: flex; gap: 12px;">
+        <button class="btn btn-outline" style="flex: 1;" id="delete-cancel">Annuler</button>
+        <button class="btn" style="flex: 1; background: var(--red-600); color: white;" id="delete-confirm">Supprimer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast toast-success"><span id="toast-message">Message</span></div>
+
+  <!-- Settings Panel -->
+  <div id="settings-panel" class="settings-panel">
+    <div class="settings-header">
+      <h3>⚙️ Paramètres</h3>
+      <button id="settings-close" class="settings-close">✕</button>
+    </div>
+    <div class="settings-body">
+      <div class="form-group">
+        <label>Noms</label>
+        <input type="text" id="settings-lastname" class="input-field" disabled>
+      </div>
+      <div class="form-group">
+        <label>Prénoms</label>
+        <input type="text" id="settings-firstname" class="input-field" disabled>
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="settings-email" class="input-field" disabled>
+      </div>
+      <div class="form-group">
+        <label>Téléphone</label>
+        <input type="text" id="settings-phone" class="input-field" disabled>
+      </div>
+      <div class="form-group">
+        <label>Laboratoires d'attache (session)</label>
+        <div id="settings-labs" style="font-size: 14px; color: var(--dark-300);"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/delegue.js"></script>
+
+</body>
+</html>

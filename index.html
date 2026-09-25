@@ -13,10 +13,13 @@
   <meta property="og:description" content="Trouvez une pharmacie de garde et vos médicaments en un clic, partout au Cameroun.">
   <meta property="og:type" content="website">
 
-  <title>Pharma-Garde — Pharmacies de Garde & Médicaments | Cameroun</title>
-
+  <title>Pharma-Garde - Trouvez votre pharmacie</title>
+  
+  <!-- PWA Manifest -->
   <link rel="manifest" href="manifest.json">
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💊</text></svg>">
+  <meta name="theme-color" content="#059669">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
 
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -42,6 +45,47 @@
     <div class="splash-loader">
       <div class="loading-dots">
         <span></span><span></span><span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       WELCOME SCREEN (ROUTING)
+       ═══════════════════════════════════════════════════════ -->
+  <div id="welcome-screen" class="hidden">
+    <div class="welcome-card">
+      <div class="splash-lang-toggle" style="position: absolute; top: 16px; right: 16px;">
+        <button class="splash-lang-btn active" data-lang="fr" onclick="window.I18N && window.I18N.setLanguage('fr'); updateSplashLangToggles();">FR</button>
+        <button class="splash-lang-btn" data-lang="en" onclick="window.I18N && window.I18N.setLanguage('en'); updateSplashLangToggles();">EN</button>
+      </div>
+      <div class="welcome-icon">⚕️</div>
+      <h2 data-i18n="welcome.title">Bienvenue sur Pharma-Garde</h2>
+      <p data-i18n="welcome.subtitle">Choisissez votre espace pour continuer</p>
+      
+      <div class="welcome-actions">
+        <button id="btn-espace-client" class="btn btn-primary btn-lg btn-block" style="justify-content: flex-start; margin-bottom: 12px;">
+          <span style="font-size: 20px; margin-right: 12px;">💊</span>
+          <div>
+            <div style="font-weight: 700; text-align: left;" data-i18n="welcome.client">Recherche de médicament</div>
+            <div style="font-size: 11px; font-weight: 400; opacity: 0.8; text-align: left;" data-i18n="welcome.client_desc">Espace Client</div>
+          </div>
+        </button>
+        
+        <button id="btn-espace-pharmacie" class="btn btn-outline btn-lg btn-block" style="justify-content: flex-start; margin-bottom: 12px;" onclick="window.location.href='pharmacien.html'">
+          <span style="font-size: 20px; margin-right: 12px;">🏥</span>
+          <div>
+            <div style="font-weight: 700; text-align: left;" data-i18n="welcome.pharmacy">Espace Pharmacie</div>
+            <div style="font-size: 11px; font-weight: 400; opacity: 0.8; text-align: left;" data-i18n="welcome.pharmacy_desc">Gérez vos demandes patients</div>
+          </div>
+        </button>
+        
+        <button id="btn-espace-delegue" class="btn btn-outline btn-lg btn-block" style="justify-content: flex-start;" onclick="window.location.href='delegue.html'">
+          <span style="font-size: 20px; margin-right: 12px;">💼</span>
+          <div>
+            <div style="font-weight: 700; text-align: left;" data-i18n="welcome.delegate">Espace Délégués Médicaux</div>
+            <div style="font-size: 11px; font-weight: 400; opacity: 0.8; text-align: left;" data-i18n="welcome.delegate_desc">Promouvez vos produits</div>
+          </div>
+        </button>
       </div>
     </div>
   </div>
@@ -100,6 +144,9 @@
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/></svg>
           <span id="city-name-display">Douala</span>
         </div>
+        <button class="settings-btn" id="btn-install-pwa" aria-label="Installer l'application" title="Installer l'application" style="display: none; color: var(--green-400);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        </button>
         <!-- Radius Selector -->
         <div id="radius-selector">
           <button class="radius-pill" data-radius="2">2 km</button>
@@ -588,6 +635,7 @@
   <script src="js/search.js?v=5"></script>
   <script src="js/payment.js?v=5"></script>
   <script src="js/app.js?v=5"></script>
+  <script src="js/pwa.js?v=5"></script>
 
   <!-- Force landscape on mobile/tablet -->
   <script>

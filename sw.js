@@ -1,92 +1,70 @@
-/**
- * Pharma-Garde — Service Worker
- * Handles offline caching for the PWA
- */
-
-const CACHE_NAME = 'pharma-garde-v5';
-const STATIC_ASSETS = [
+const CACHE_NAME = 'pharma-garde-v1';
+const ASSETS_TO_CACHE = [
+  '/',
   '/index.html',
   '/pharmacien.html',
-  '/css/index.css',
-  '/css/app.css',
+  '/delegue.html',
+  '/css/style.css',
   '/css/pharmacien.css',
+  '/css/delegue.css',
   '/js/app.js',
-  '/js/map.js',
-  '/js/geolocation.js',
-  '/js/pharmacies.js',
-  '/js/search.js',
-  '/js/payment.js',
   '/js/pharmacien.js',
-  '/js/i18n.js',
-  '/js/supabaseClient.js',
-  '/manifest.json',
-];
-
-const EXTERNAL_ASSETS = [
+  '/js/delegue.js',
+  '/icon.svg',
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
 ];
 
-// Install: Cache static assets
+// Install Event
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log('[SW] Caching static assets');
-      return cache.addAll([...STATIC_ASSETS, ...EXTERNAL_ASSETS]);
-    })
+    caches.open(CACHE_NAME)
+      .then((cache) => {
+        return cache.addAll(ASSETS_TO_CACHE);
+      })
+      .then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
-// Activate: Clean up old caches
+// Activate Event
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
-        cacheNames
-          .filter((name) => name !== CACHE_NAME)
-          .map((name) => caches.delete(name))
+        cacheNames.map((cache) => {
+          if (cache !== CACHE_NAME) {
+            return caches.delete(cache);
+          }
+        })
       );
-    })
+    }).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-// Fetch: Network first, fallback to cache
+// Fetch Event - Stale-while-revalidate for assets, Network-first for API (Supabase is handled by client JS)
 self.addEventListener('fetch', (event) => {
-  // Skip non-GET requests
+  // We only cache GET requests
   if (event.request.method !== 'GET') return;
 
-  // For map tiles, use cache-first strategy
-  if (event.request.url.includes('basemaps.cartocdn.com') ||
-      event.request.url.includes('tile.openstreetmap.org')) {
-    event.respondWith(
-      caches.match(event.request).then((cached) => {
-        if (cached) return cached;
-        return fetch(event.request).then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          return response;
-        });
-      })
-    );
-    return;
-  }
+  // Supabase requests should go to network directly, or handled by client
+  if (event.request.url.includes('supabase.co')) return;
 
-  // For everything else, network first with cache fallback
   event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        return response;
-      })
-      .catch(() => {
-        return caches.match(event.request).then((cached) => {
-          return cached || new Response('Mode hors-ligne. Contenu non disponible.', {
-            headers: { 'Content-Type': 'text/plain' },
+    caches.match(event.request).then((cachedResponse) => {
+      const fetchPromise = fetch(event.request).then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
           });
-        });
-      })
+        }
+        return networkResponse;
+      }).catch(() => {
+        // Return offline fallback if needed
+      });
+
+      return cachedResponse || fetchPromise;
+    })
   );
 });

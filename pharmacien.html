@@ -266,6 +266,8 @@
     <nav class="dash-tabs">
       <button class="dash-tab active" data-tab="history">📋 <span data-i18n="dash.tab_history">Historique</span></button>
       <button class="dash-tab" data-tab="stats">📊 <span data-i18n="dash.tab_stats">Statistiques</span></button>
+      <button class="dash-tab" data-tab="delegates">💼 <span>Délégués</span></button>
+      <button class="dash-tab" data-tab="settings">⚙️ <span>Paramètres</span></button>
     </nav>
 
     <!-- Tab: History -->
@@ -334,6 +336,60 @@
       <div class="dash-section">
         <div class="dash-section-title" data-i18n="dash.top_meds">🏆 Top Médicaments demandés</div>
         <div class="top-meds" id="top-medications"></div>
+      </div>
+    </div>
+
+    <!-- Tab: Delegates -->
+    <div class="dash-tab-content" id="tab-delegates">
+      <div class="dash-section">
+        <div class="dash-section-title">📨 Promotions reçues des délégués</div>
+        <div id="delegate-promos-list">
+          <div class="empty-state"><div class="empty-state-icon">📭</div><div class="empty-state-text">Aucune promotion reçue pour le moment.</div></div>
+        </div>
+      </div>
+      <div class="dash-section" style="margin-top: 20px;">
+        <div class="dash-section-title">📅 Demandes de visite</div>
+        <div id="delegate-visits-list">
+          <div class="empty-state"><div class="empty-state-icon">📅</div><div class="empty-state-text">Aucune demande de visite.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Settings -->
+    <div class="dash-tab-content" id="tab-settings">
+      <div class="dash-section">
+        <div class="dash-section-title">⚙️ Mode de réponse aux demandes</div>
+        <p style="font-size: 13px; color: var(--dark-400); margin-bottom: 16px; line-height: 1.6;">Choisissez comment votre pharmacie répond aux demandes de disponibilité des clients et des délégués.</p>
+        <div class="response-mode-options">
+          <label class="response-mode-option">
+            <input type="radio" name="response-mode" value="manual" id="mode-manual" checked>
+            <div class="response-mode-card">
+              <strong>🖐️ Manuel (par défaut)</strong>
+              <p>Vous validez chaque demande manuellement depuis votre tableau de bord. Vous gardez le contrôle total.</p>
+            </div>
+          </label>
+          <label class="response-mode-option">
+            <input type="radio" name="response-mode" value="automatic" id="mode-auto">
+            <div class="response-mode-card">
+              <strong>🤖 Automatique (API connectée)</strong>
+              <p>Les réponses sont envoyées automatiquement via votre logiciel de gestion de stock.</p>
+              <div id="api-config" style="display:none; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--glass-border);">
+                <div class="form-group" style="margin-bottom: 8px;">
+                  <label style="font-size: 12px;">URL de votre API locale</label>
+                  <input type="url" id="api-endpoint" class="input-field" placeholder="https://votre-logiciel.local/api/stock">
+                </div>
+                <div class="form-group" style="margin-bottom: 8px;">
+                  <label style="font-size: 12px;">Clé API</label>
+                  <input type="text" id="api-key-input" class="input-field" placeholder="Votre clé d'authentification">
+                </div>
+                <button id="btn-test-api" class="btn btn-outline btn-sm" style="margin-bottom: 8px;">🔌 Tester la connexion</button>
+                <div id="api-test-result" style="font-size: 12px; display: none;"></div>
+              </div>
+            </div>
+          </label>
+        </div>
+        <button id="btn-save-settings" class="btn btn-primary btn-block" style="margin-top: 16px;">💾 Enregistrer les paramètres</button>
+        <p style="font-size: 11px; color: var(--dark-500); margin-top: 12px; line-height: 1.5;">⚠️ En mode automatique, Pharma-Garde interroge votre logiciel pour vérifier la disponibilité d'un produit spécifique. Aucun stock n'est téléchargé ni stocké sur notre plateforme.</p>
       </div>
     </div>
 

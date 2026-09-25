@@ -4,7 +4,7 @@
    ============================================================ */
 
 /* ── Google Fonts ─────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2⏳family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 /* ── CSS Custom Properties ────────────────────────────────── */
 :root {
@@ -644,4 +644,48 @@ select.input-field option {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ── Skeleton Loaders ─────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%);
+  background-size: 200% 100%;
+  animation: skeletonLoading 1.5s infinite linear;
+  border-radius: var(--radius-md);
+}
+
+.skeleton-text {
+  height: 14px;
+  margin-bottom: 8px;
+  width: 100%;
+}
+
+.skeleton-text.short {
+  width: 50%;
+}
+
+.skeleton-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+.skeleton-card {
+  background: var(--dark-800);
+  border: 1px solid var(--glass-border);
+  padding: 16px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+@keyframes skeletonLoading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
 }

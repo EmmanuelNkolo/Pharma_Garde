@@ -351,6 +351,8 @@
     subscribeToRealTimeRequests();
     subscribeToReservations();
     startExpirationChecker();
+    loadDelegateInteractions();
+    initSettings();
   }
 
   function handleLogout() {
@@ -1584,6 +1586,265 @@
     }
   }
 
+
+  // ═══════════════════════════════════════════════════════
+  //  DELEGATE INTERACTIONS (Phase 3)
+  // ═══════════════════════════════════════════════════════
+  async function loadDelegateInteractions() {
+    if (!currentPharmacy) return;
+    await loadReceivedPromotions();
+    await loadReceivedVisits();
+  }
+
+  async function loadReceivedPromotions() {
+    const container = $('#delegate-promos-list');
+    if (!container) return;
+    try {
+      const { data: targets, error } = await supabase
+        .from('promotion_targets')
+        .select('*, delegate_promotions(*)')
+        .eq('pharmacy_id', currentPharmacy.id)
+        .order('sent_at', { ascending: false })
+        .limit(50);
+      if (error) throw error;
+
+      if (!targets || targets.length === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><div class="empty-state-text">Aucune promotion reçue pour le moment.</div></div>';
+        return;
+      }
+
+      container.innerHTML = targets.map(t => {
+        const promo = t.delegate_promotions || {};
+        const typeLabels = { medicament: '💊 Médicament', complement: '🧪 Complément', materiel: '🩺 Matériel', cosmetique: '💄 Cosmétique' };
+        const statusLabels = { sent: '📨 Non lue', read: '👁️ Lue', interested: '✅ Intéressé', already_stocked: '📦 Déjà en stock', ignored: '❌ Ignorée' };
+        const statusColors = { sent: '#ff3b30', read: '#8b5cf6', interested: '#10b981', already_stocked: '#f59e0b', ignored: '#6b7280' };
+        const timeAgo = getTimeAgo(t.sent_at);
+        const isNew = t.status === 'sent';
+        
+        let actionBtns = '';
+        if (t.status === 'sent' || t.status === 'read') {
+          actionBtns = `
+            <div class="promo-response-btns" style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
+              <button class="btn btn-sm btn-primary" onclick="PharmDash.respondPromo('${t.id}','interested')" style="font-size:12px;">✅ Intéressé</button>
+              <button class="btn btn-sm btn-outline" onclick="PharmDash.respondPromo('${t.id}','already_stocked')" style="font-size:12px;">📦 Déjà en stock</button>
+              <button class="btn btn-sm btn-outline" onclick="PharmDash.respondPromo('${t.id}','ignored')" style="font-size:12px;color:var(--dark-400);">Ignorer</button>
+            </div>
+          `;
+        }
+
+        return `
+          <div class="delegate-promo-card" style="background:var(--dark-800);border:1px solid var(--glass-border);border-radius:12px;padding:14px;margin-bottom:10px;${isNew ? 'border-left:3px solid #ff3b30;' : ''}">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <strong style="color:var(--dark-100);font-size:15px;">${escapeHtml(promo.product_name || 'Produit')}</strong>
+              <span style="font-size:11px;color:${statusColors[t.status] || '#888'};background:${statusColors[t.status] || '#888'}22;padding:2px 8px;border-radius:12px;">${statusLabels[t.status] || t.status}</span>
+            </div>
+            <div style="font-size:13px;color:var(--dark-300);margin-bottom:4px;">🏭 ${escapeHtml(promo.lab_name || '—')}</div>
+            <div style="font-size:12px;color:var(--dark-400);margin-bottom:4px;">${typeLabels[promo.product_type] || ''}</div>
+            ${promo.description ? `<div style="font-size:13px;color:var(--dark-400);line-height:1.5;margin-bottom:6px;">${escapeHtml(promo.description)}</div>` : ''}
+            ${promo.document_url ? `<a href="${promo.document_url}" target="_blank" style="font-size:12px;color:var(--green-400);">📎 Voir le document</a>` : ''}
+            <div style="font-size:11px;color:var(--dark-500);margin-top:6px;">Reçue ${timeAgo}</div>
+            ${actionBtns}
+          </div>
+        `;
+      }).join('');
+    } catch (err) {
+      console.error('Load promos error:', err);
+    }
+  }
+
+  async function respondToPromotion(targetId, status) {
+    try {
+      const { error } = await supabase.from('promotion_targets').update({
+        status: status,
+        responded_at: new Date().toISOString(),
+        read_at: new Date().toISOString(),
+      }).eq('id', targetId);
+      if (error) throw error;
+      showToast('✅ Réponse envoyée !', 'success');
+      await loadReceivedPromotions();
+    } catch (err) {
+      showToast('❌ Erreur lors de la réponse.', 'error');
+    }
+  }
+
+  async function loadReceivedVisits() {
+    const container = $('#delegate-visits-list');
+    if (!container) return;
+    try {
+      const { data: visits, error } = await supabase
+        .from('visit_requests')
+        .select('*')
+        .eq('pharmacy_id', currentPharmacy.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (error) throw error;
+
+      if (!visits || visits.length === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📅</div><div class="empty-state-text">Aucune demande de visite.</div></div>';
+        return;
+      }
+
+      // For each visit, fetch the delegate name
+      const delegateIds = [...new Set(visits.map(v => v.delegate_id))];
+      let delegateMap = {};
+      if (delegateIds.length > 0) {
+        const { data: delegates } = await supabase.from('delegates').select('id, first_name, last_name').in('id', delegateIds);
+        (delegates || []).forEach(d => { delegateMap[d.id] = `${d.first_name} ${d.last_name}`; });
+      }
+
+      container.innerHTML = visits.map(v => {
+        const statusLabels = { pending: '⏳ En attente', confirmed: '✅ Confirmée', rescheduled: '🔄 Reportée', cancelled: '❌ Annulée', completed: '✔️ Réalisée' };
+        const statusColors = { pending: '#f59e0b', confirmed: '#10b981', rescheduled: '#3b82f6', cancelled: '#ef4444', completed: '#6b7280' };
+        const delegateName = delegateMap[v.delegate_id] || 'Délégué inconnu';
+        const dateStr = new Date(v.proposed_date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const isPending = v.status === 'pending';
+
+        let actionBtns = '';
+        if (isPending) {
+          actionBtns = `
+            <div style="display:flex;gap:6px;margin-top:10px;">
+              <button class="btn btn-sm btn-primary" onclick="PharmDash.respondVisit('${v.id}','confirmed')" style="font-size:12px;">✅ Confirmer</button>
+              <button class="btn btn-sm btn-outline" onclick="PharmDash.respondVisit('${v.id}','cancelled')" style="font-size:12px;color:var(--red-400);">❌ Refuser</button>
+            </div>
+          `;
+        }
+
+        return `
+          <div style="background:var(--dark-800);border:1px solid var(--glass-border);border-radius:12px;padding:14px;margin-bottom:10px;${isPending ? 'border-left:3px solid #f59e0b;' : ''}">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <strong style="color:var(--dark-100);font-size:14px;">👤 ${escapeHtml(delegateName)}</strong>
+              <span style="font-size:11px;color:${statusColors[v.status] || '#888'};background:${statusColors[v.status] || '#888'}22;padding:2px 8px;border-radius:12px;">${statusLabels[v.status] || v.status}</span>
+            </div>
+            <div style="font-size:13px;color:var(--dark-300);margin-bottom:4px;">📅 ${dateStr}</div>
+            ${v.purpose ? `<div style="font-size:13px;color:var(--dark-400);margin-bottom:4px;">📝 ${escapeHtml(v.purpose)}</div>` : ''}
+            ${actionBtns}
+          </div>
+        `;
+      }).join('');
+    } catch (err) {
+      console.error('Load visits error:', err);
+    }
+  }
+
+  async function respondToVisit(visitId, status) {
+    try {
+      const { error } = await supabase.from('visit_requests').update({
+        status: status,
+      }).eq('id', visitId);
+      if (error) throw error;
+      showToast(`✅ Visite ${status === 'confirmed' ? 'confirmée' : 'refusée'} !`, 'success');
+      await loadReceivedVisits();
+    } catch (err) {
+      showToast('❌ Erreur.', 'error');
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════
+  //  SETTINGS (Phase 5 — Automation)
+  // ═══════════════════════════════════════════════════════
+  function initSettings() {
+    // Response mode toggle
+    const modeManual = $('#mode-manual');
+    const modeAuto = $('#mode-auto');
+    const apiConfig = $('#api-config');
+
+    if (modeManual) {
+      modeManual.addEventListener('change', () => { if (apiConfig) apiConfig.style.display = 'none'; });
+    }
+    if (modeAuto) {
+      modeAuto.addEventListener('change', () => { if (apiConfig) apiConfig.style.display = 'block'; });
+    }
+
+    // Load saved settings
+    if (currentPharmacy) {
+      const mode = currentPharmacy.response_mode || 'manual';
+      if (mode === 'automatic' && modeAuto) {
+        modeAuto.checked = true;
+        if (apiConfig) apiConfig.style.display = 'block';
+      }
+      if ($('#api-endpoint') && currentPharmacy.api_endpoint) {
+        $('#api-endpoint').value = currentPharmacy.api_endpoint;
+      }
+      if ($('#api-key-input') && currentPharmacy.api_key) {
+        $('#api-key-input').value = currentPharmacy.api_key;
+      }
+    }
+
+    // Save settings
+    const btnSave = $('#btn-save-settings');
+    if (btnSave) {
+      btnSave.addEventListener('click', handleSaveSettings);
+    }
+
+    // Test API
+    const btnTest = $('#btn-test-api');
+    if (btnTest) {
+      btnTest.addEventListener('click', handleTestAPI);
+    }
+  }
+
+  async function handleSaveSettings() {
+    if (!currentPharmacy) return;
+    const mode = document.querySelector('input[name="response-mode"]:checked')?.value || 'manual';
+    const apiEndpoint = ($('#api-endpoint') || {}).value?.trim() || null;
+    const apiKey = ($('#api-key-input') || {}).value?.trim() || null;
+
+    const btn = $('#btn-save-settings');
+    if (btn) { btn.disabled = true; btn.textContent = 'Enregistrement...'; }
+
+    try {
+      const { error } = await supabase.from('pharmacies').update({
+        response_mode: mode,
+        api_endpoint: mode === 'automatic' ? apiEndpoint : null,
+        api_key: mode === 'automatic' ? apiKey : null,
+      }).eq('id', currentPharmacy.id);
+      if (error) throw error;
+
+      currentPharmacy.response_mode = mode;
+      currentPharmacy.api_endpoint = apiEndpoint;
+      currentPharmacy.api_key = apiKey;
+      saveSession(currentPharmacy);
+
+      showToast('✅ Paramètres enregistrés !', 'success');
+    } catch (err) {
+      showToast('❌ Erreur lors de l\'enregistrement.', 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '💾 Enregistrer les paramètres'; }
+    }
+  }
+
+  async function handleTestAPI() {
+    const endpoint = ($('#api-endpoint') || {}).value?.trim();
+    const apiKey = ($('#api-key-input') || {}).value?.trim();
+    const result = $('#api-test-result');
+
+    if (!endpoint) { showToast('Veuillez saisir l\'URL de votre API.', 'error'); return; }
+
+    if (result) {
+      result.style.display = 'block';
+      result.innerHTML = '<span style="color:var(--dark-300);">🔄 Test en cours...</span>';
+    }
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {}),
+        },
+        body: JSON.stringify({ action: 'ping', product: 'test' }),
+      });
+
+      if (response.ok) {
+        if (result) result.innerHTML = '<span style="color:var(--green-400);">✅ Connexion réussie ! Votre API répond correctement.</span>';
+      } else {
+        if (result) result.innerHTML = `<span style="color:var(--red-400);">❌ Erreur ${response.status}: ${response.statusText}</span>`;
+      }
+    } catch (err) {
+      if (result) result.innerHTML = `<span style="color:var(--red-400);">❌ Impossible de joindre l'API : ${err.message}</span>`;
+    }
+  }
+
   // ═══════════════════════════════════════════════════════
   //  PUBLIC API & INIT
   // ═══════════════════════════════════════════════════════
@@ -1592,7 +1853,9 @@
     confirmAction,
     cancelReservation,
     cancelMedicineReservation,
-    confirmMedicinePurchase
+    confirmMedicinePurchase,
+    respondPromo: respondToPromotion,
+    respondVisit: respondToVisit,
   };
 
   document.addEventListener('DOMContentLoaded', init);

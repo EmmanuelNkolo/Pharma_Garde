@@ -1355,3 +1355,60 @@ body {
   padding: 16px;
   margin-bottom: 12px;
 }
+
+/* ═══════════════════════════════════════════
+   SETTINGS — Response Mode (Phase 5)
+   ═══════════════════════════════════════════ */
+.response-mode-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.response-mode-option {
+  cursor: pointer;
+  display: block;
+}
+
+.response-mode-option input[type="radio"] {
+  display: none;
+}
+
+.response-mode-card {
+  background: var(--dark-800);
+  border: 2px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 16px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.response-mode-card strong {
+  display: block;
+  color: var(--dark-100);
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+
+.response-mode-card p {
+  font-size: 13px;
+  color: var(--dark-400);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.response-mode-option input[type="radio"]:checked + .response-mode-card {
+  border-color: var(--green-400);
+  box-shadow: 0 0 0 1px var(--green-400), 0 4px 12px rgba(5, 150, 105, 0.15);
+}
+
+/* ── Dash Tabs 4-column adjustment ────────────────────── */
+@media (max-width: 600px) {
+  .dash-tabs {
+    gap: 2px;
+    padding: var(--space-2) var(--space-3);
+  }
+  .dash-tab {
+    padding: var(--space-2) var(--space-3);
+    font-size: 12px;
+  }
+}

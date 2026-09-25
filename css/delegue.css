@@ -1,0 +1,300 @@
+/**
+ * Pharma-Garde v4.0 — Delegate Styles
+ * Clean rewrite. Extends index.css base styles.
+ */
+
+/* ═══════════════════════════════════════════
+   PHARMACY CARDS (Delegate View)
+   ═══════════════════════════════════════════ */
+.pharmacy-card-delegate {
+  background: var(--dark-800);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 10px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.pharmacy-card-delegate:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.pharmacy-card-header {
+  margin-bottom: 10px;
+}
+
+.pharmacy-card-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--dark-100);
+  margin-bottom: 4px;
+}
+
+.pharmacy-card-address {
+  font-size: 13px;
+  color: var(--dark-400);
+  margin-bottom: 2px;
+}
+
+.pharmacy-card-status {
+  font-size: 12px;
+  color: var(--dark-300);
+}
+
+.pharmacy-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.pharmacy-card-actions .btn {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+/* ═══════════════════════════════════════════
+   PROMOTION CARDS
+   ═══════════════════════════════════════════ */
+.promo-card {
+  background: var(--dark-800);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 10px;
+}
+
+.promo-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.promo-card-header strong {
+  font-size: 15px;
+  color: var(--dark-100);
+}
+
+.promo-type-badge {
+  font-size: 11px;
+  background: rgba(5, 150, 105, 0.1);
+  color: var(--green-400);
+  padding: 2px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.promo-card-lab {
+  font-size: 13px;
+  color: var(--dark-300);
+  margin-bottom: 6px;
+}
+
+.promo-card-desc {
+  font-size: 13px;
+  color: var(--dark-400);
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+
+.promo-doc-link {
+  display: inline-block;
+  font-size: 12px;
+  color: var(--green-400);
+  text-decoration: none;
+  margin-bottom: 8px;
+}
+
+.promo-doc-link:hover {
+  text-decoration: underline;
+}
+
+.promo-card-footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--dark-400);
+  padding-top: 8px;
+  border-top: 1px solid var(--glass-border);
+}
+
+/* ═══════════════════════════════════════════
+   STATS GRID (Delegate)
+   ═══════════════════════════════════════════ */
+.stats-grid-delegate {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.stats-grid-delegate .mini-stat {
+  background: var(--dark-800);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  padding: 12px 8px;
+  text-align: center;
+}
+
+.stats-grid-delegate .mini-stat-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--green-400);
+}
+
+.stats-grid-delegate .mini-stat-label {
+  font-size: 11px;
+  color: var(--dark-400);
+  margin-top: 4px;
+}
+
+/* ═══════════════════════════════════════════
+   BOTTOM SHEET PANELS
+   ═══════════════════════════════════════════ */
+.sheet-panel {
+  padding: 0 16px;
+}
+
+/* ═══════════════════════════════════════════
+   ACTION BUTTON ACTIVE STATE
+   ═══════════════════════════════════════════ */
+.action-btn-active {
+  transform: scale(1.05);
+  box-shadow: 0 2px 12px rgba(5, 150, 105, 0.3);
+}
+
+/* ═══════════════════════════════════════════
+   MODAL BACKDROP
+   ═══════════════════════════════════════════ */
+.modal-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-backdrop.active {
+  display: flex;
+}
+
+/* ═══════════════════════════════════════════
+   SETTINGS PANEL
+   ═══════════════════════════════════════════ */
+.settings-panel {
+  position: fixed;
+  top: 0;
+  right: -360px;
+  width: 340px;
+  height: 100%;
+  background: var(--dark-900);
+  border-left: 1px solid var(--glass-border);
+  z-index: 9999;
+  transition: right 0.3s ease;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.settings-panel.open {
+  right: 0;
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.settings-header h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--dark-100);
+}
+
+.settings-close {
+  background: none;
+  border: none;
+  color: var(--dark-400);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.settings-body .form-group {
+  margin-bottom: 16px;
+}
+
+.settings-body .form-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dark-300);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  display: block;
+}
+
+/* ═══════════════════════════════════════════
+   USER MARKER (Map)
+   ═══════════════════════════════════════════ */
+.user-marker-icon {
+  background: none !important;
+  border: none !important;
+}
+
+.user-marker-dot {
+  width: 14px;
+  height: 14px;
+  background: #3b82f6;
+  border: 3px solid white;
+  border-radius: 50%;
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.5);
+}
+
+.user-marker-pulse {
+  width: 20px;
+  height: 20px;
+  background: rgba(59, 130, 246, 0.3);
+  border-radius: 50%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  animation: pulse-marker 2s ease-out infinite;
+}
+
+@keyframes pulse-marker {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(3); opacity: 0; }
+}
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════ */
+@media (max-width: 480px) {
+  .stats-grid-delegate {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .pharmacy-card-actions {
+    flex-direction: column;
+  }
+
+  .pharmacy-card-actions .btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .settings-panel {
+    width: 100%;
+    right: -100%;
+  }
+}

@@ -51,7 +51,12 @@ const App = (() => {
     // Splash screen timer
     setTimeout(() => {
       $('#splash-screen').classList.add('hidden');
-      showLocationModal();
+      const welcomeScreen = $('#welcome-screen');
+      if (welcomeScreen) {
+        welcomeScreen.classList.remove('hidden');
+      } else {
+        showLocationModal();
+      }
     }, 1200);
 
     bindEvents();
@@ -67,6 +72,17 @@ const App = (() => {
 
   // ── Event Bindings ─────────────────────────────────────
   function bindEvents() {
+    // Welcome screen Client choice
+    const btnClient = $('#btn-espace-client');
+    if (btnClient) {
+      btnClient.addEventListener('click', () => {
+        $('#welcome-screen').classList.add('hidden');
+        showLocationModal();
+        const pharmBtn = document.querySelector('.pharmacist-btn');
+        if (pharmBtn) pharmBtn.style.display = 'none';
+      });
+    }
+
     // GPS Permission
     const btnGps = $('#btn-gps');
     if (btnGps) {
@@ -573,6 +589,57 @@ const App = (() => {
     showSearchStep('confirm');
   }
 
+  // ── OCR Camera Integration ─────────────────────────────
+  const cameraBtn = $('#camera-btn');
+  const ocrInput = $('#ocr-camera-input');
+
+  if (cameraBtn && ocrInput) {
+    cameraBtn.addEventListener('click', () => {
+      ocrInput.click();
+    });
+
+    ocrInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      showToast('📸 Scan de l\'ordonnance en cours...', 'info');
+
+      try {
+        const result = await Tesseract.recognize(file, 'fra', {
+          logger: m => {
+            if (m.status === 'recognizing text') {
+              console.log(`OCR Progress: ${Math.round(m.progress * 100)}%`);
+            }
+          }
+        });
+
+        const text = result.data.text;
+        if (!text || text.trim() === '') {
+          showToast('❌ Aucun texte lisible trouvé.', 'error');
+          return;
+        }
+
+        // Basic heuristic: split by newlines, keep lines with more than 3 chars
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 3);
+        
+        if (lines.length > 0) {
+          selectedMedicines = [...new Set([...selectedMedicines, ...lines])];
+          showToast('✅ Ordonnance scannée avec succès !', 'success');
+          updateSelectedList();
+          openSearchModal();
+        } else {
+          showToast('❌ Aucun médicament identifié.', 'error');
+        }
+
+      } catch (err) {
+        console.error('OCR Error:', err);
+        showToast('❌ Erreur lors de l\'analyse de l\'image.', 'error');
+      } finally {
+        ocrInput.value = ''; // Reset
+      }
+    });
+  }
+
   // ── Medicine Input ─────────────────────────────────────
   function handleMedicineInput(e) {
     const value = e.target.value.trim();
@@ -812,6 +879,15 @@ const App = (() => {
       // Request expires in 2 hours
       const expiresAt = new Date(Date.now() + 2 * 3600000).toISOString();
       
+      // Session ID handling (9 chars)
+      let sessionId = sessionStorage.getItem('pharma_session_id');
+      if (!sessionId) {
+        sessionId = Math.random().toString(36).substring(2, 11).toUpperCase();
+        while(sessionId.length < 9) sessionId += Math.random().toString(36).substring(2, 3).toUpperCase();
+        sessionId = sessionId.substring(0, 9);
+        sessionStorage.setItem('pharma_session_id', sessionId);
+      }
+      
       const { data, error } = await supabase
         .from('requests')
         .insert([{
@@ -820,6 +896,7 @@ const App = (() => {
           user_lng: pos ? pos.lng : null,
           radius: currentRadius,
           status: 'pending',
+          session_id: sessionId,
           user_phone: (phoneInput && phoneInput.value) ? phoneInput.value : null,
           insurance_name: insuranceName,
           expires_at: expiresAt,
@@ -1014,13 +1091,16 @@ const App = (() => {
         }).join('');
       }
 
+      const sessionId = sessionStorage.getItem('pharma_session_id') || 'INCONNU';
+      
       return `
         <div class="pharmacy-card" data-pharmacy-id="${resp.pharmacy_id}">
           <div class="card-header" style="margin-bottom: 12px;">
             <div class="card-info">
               <div class="card-name">${escapeHtml(resp.pharmacy_name || 'Pharmacie')}</div>
+              <div style="font-size: 11px; color: var(--green-400); margin: 2px 0 4px; font-weight: 600;">ID Session : ${sessionId}</div>
               <div class="card-address" style="font-size: 13px; color: var(--dark-300);">
-                📍 ${escapeHtml(resp.pharmacy_address || 'Adresse inconnue')} • 🗺️ ${distance}
+                📍 ${escapeHtml(resp.pharmacy_address || 'Adresse inconnue')} • Distance : ${distance}
               </div>
             </div>
           </div>
@@ -1515,6 +1595,74 @@ const App = (() => {
   // ── Utility ────────────────────────────────────────────
   function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+  // ── OCR Ordonnance ─────────────────────────────────────
+  function openOCRModal() {
+    const input = $('#ocr-camera-input');
+    if (input) {
+      input.onchange = handleOCRImage;
+      input.click();
+    }
+  }
+
+  async function handleOCRImage(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    showToast("Analysant l'ordonnance... Veuillez patienter.", 'info');
+    
+    try {
+      if (!window.Tesseract) {
+        showToast('Erreur: Tesseract non chargé.', 'error');
+        return;
+      }
+      const worker = await Tesseract.createWorker('fra');
+      const { data: { text } } = await worker.recognize(file);
+      await worker.terminate();
+      
+      console.log('Texte extrait:', text);
+      
+      const knownMeds = (window.LOCAL_MEDICINES || []).map(m => m.toLowerCase());
+      const words = text.split(/[\s,;-]+/);
+      let foundMeds = [];
+      
+      for (const word of words) {
+        const w = word.toLowerCase().trim();
+        if (w.length < 3) continue;
+        if (knownMeds.includes(w) && !foundMeds.includes(w)) {
+          foundMeds.push(w);
+        } else {
+          // Fuzzy match
+          const match = knownMeds.find(m => m.includes(w) || w.includes(m));
+          if (match && !foundMeds.includes(match)) {
+            foundMeds.push(match);
+          }
+        }
+      }
+      
+      if (foundMeds.length > 0) {
+        openSearchModal();
+        foundMeds.forEach(med => {
+          const m = med.charAt(0).toUpperCase() + med.slice(1);
+          if (!selectedMedicines.includes(m)) {
+            selectedMedicines.push(m);
+          }
+        });
+        renderMedicineTags();
+        const btn = $('#btn-proceed-payment');
+        if (btn) btn.disabled = selectedMedicines.length === 0;
+        showToast(`✅ ${foundMeds.length} médicament(s) trouvé(s) !`, 'success');
+      } else {
+        showToast('Aucun médicament reconnu. Veuillez taper manuellement.', 'error');
+        openSearchModal();
+      }
+      
+    } catch(err) {
+      console.error(err);
+      showToast("Erreur lors de l'analyse de l'image.", 'error');
+    }
+    
+    e.target.value = '';
   }
 
   // ── Public API ─────────────────────────────────────────

@@ -1,0 +1,718 @@
+function translateAuthError(errorMsg) {
+  if (errorMsg.includes('User already registered')) return 'Cet email est dÃ©jÃ  utilisÃ©.. Veuillez vous connecter.';
+  if (errorMsg.includes('Invalid login credentials')) return 'Email ou mot de passe incorrect.';
+  if (errorMsg.includes('Email not confirmed')) return 'Veuillez confirmer votre email.';
+  if (errorMsg.includes('Password should be at least')) return 'Le mot de passe doit contenir au moins 6 caractÃ¨res.';
+  return errorMsg;
+}
+// js/delegue.js
+
+const $ = id => document.getElementById(id) || document.querySelector(id);
+const $$ = selector => document.querySelectorAll(selector);
+
+let currentDelegate = null;
+let delegateMap = null;
+let pharmacyMarkers = [];
+let currentDelegateRadius = 5; // Default 5km
+
+// Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+//  INITIALIZATION
+// Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+document.addEventListener('DOMContentLoaded', async () => {
+  if (typeof supabase === 'undefined') {
+    console.error('Supabase not loaded');
+    return;
+  }
+
+  // Check if session exists
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) {
+    await checkDelegateProfile(session.user.id);
+  } else {
+    showLoginScreen();
+  }
+
+  bindEvents();
+});
+
+function bindEvents() {
+  // Tabs
+  $$('.login-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      $$('.login-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      $$('.login-form').forEach(f => f.style.display = 'none');
+      $(`form-${tab.dataset.form}`).style.display = 'block';
+    });
+  });
+
+  $$('.dash-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      $$('.dash-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      $$('.dash-tab-content').forEach(c => c.style.display = 'none');
+      $(`tab-${tab.dataset.tab}`).style.display = 'block';
+      
+      if (tab.dataset.tab === 'pharmacies' && delegateMap) {
+        setTimeout(() => delegateMap.invalidateSize(), 100);
+      }
+    });
+  });
+
+  // Auth buttons
+  $('btn-login')?.addEventListener('click', handleLogin);
+  $('btn-register')?.addEventListener('click', handleRegister);
+  btn-add-lab?.addEventListener('click', () => {
+    const container = login-labs-container;
+    const row = document.createElement('div');
+    row.style.display = 'flex';
+    row.style.gap = '8px';
+    row.style.marginBottom = '8px';
+    row.className = 'login-lab-row';
+    
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'input-field login-lab-input';
+    input.placeholder = 'Nom du laboratoire';
+    input.required = true;
+    
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'btn btn-outline btn-sm';
+    removeBtn.style.padding = '0 12px';
+    removeBtn.style.color = 'var(--red-500)';
+    removeBtn.style.borderColor = 'var(--red-500)';
+    removeBtn.innerHTML = 'x';
+    removeBtn.onclick = () => row.remove();
+    
+    row.appendChild(input);
+    row.appendChild(removeBtn);
+    container.appendChild(row);
+  });
+
+  $('link-forgot')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    $('tab-reset')?.click();
+  });
+
+  // Modals
+  $('btn-new-promo')?.addEventListener('click', () => {
+    $('new-promo-modal').classList.add('active');
+  });
+
+  $('btn-save-promo')?.addEventListener('click', handleSavePromo);
+
+  // Radius Selector
+  $$('#delegate-radius-selector .btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('#delegate-radius-selector .btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentDelegateRadius = parseInt(btn.getAttribute('data-radius'), 10);
+      loadPharmacies(); // Reload to show distance filter or just visual feedback
+    });
+  });
+
+  // Broadcast Button
+  $('btn-broadcast')?.addEventListener('click', broadcastPromotion);
+}
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Earth radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function showToast(msg, type = 'success') {
+  const toast = $('toast');
+  const msgEl = $('toast-message');
+  if (!toast || !msgEl) return;
+  msgEl.textContent = msg;
+  toast.className = `toast toast-${type} show`;
+  setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+// Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+//  AUTHENTICATION
+// Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+async function handleLogin() {
+  const email = $('login-email').value.trim();
+  const password = $('login-password').value;
+  
+  // Get all laboratories
+  const labInputs = document.querySelectorAll('.login-lab-input');
+  const labs = Array.from(labInputs).map(input => input.value.trim()).filter(val => val);
+  
+  if (!email || !password) {
+    return showToast('Veuillez remplir tous les champs.', 'error');
+  }
+
+  if (labs.length === 0) {
+    return showToast('Veuillez renseigner au moins un laboratoire d\'attache.', 'error');
+  }
+
+  const btn = $('btn-login');
+  btn.disabled = true;
+  btn.textContent = 'Connexion...';
+
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    
+    // Store labs for the session
+    localStorage.setItem('delegate_labs', JSON.stringify(labs));
+    
+    await checkDelegateProfile(data.user.id);
+  } catch (error) {
+    showToast(translateAuthError(error.message), 'error');
+    btn.disabled = false;
+    btn.textContent = 'Se connecter';
+  }
+}
+
+async function handleRegister() {
+  const nom = $('reg-nom').value.trim();
+  const prenom = $('reg-prenom').value.trim();
+  const proCard = $('reg-pro-card').value.trim();
+  const cni = $('reg-cni').value.trim();
+  const phone = $('reg-phone').value.trim();
+  const email = $('reg-email').value.trim();
+  const password = $('reg-password').value;
+  const confirmPassword = $('reg-confirm-password').value;
+
+  if (!nom || !prenom || !proCard || !cni || !phone || !email || !password || !confirmPassword) {
+    return showToast('Veuillez remplir tous les champs obligatoires.', 'error');
+  }
+
+  if (password !== confirmPassword) {
+    return showToast('Les mots de passe ne correspondent pas.', 'error');
+  }
+
+  const name = nom + ' ' + prenom;
+  // Laboratoire n'est plus demandÃ© Ã  l'inscription, on passe "Multiple" par dÃ©faut pour satisfaire la BDD
+  const lab = "Multiple";
+
+  const btn = $('btn-register');
+  btn.disabled = true;
+  btn.textContent = 'Inscription en cours...';
+
+  try {
+    // 1. Sign up user
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { user_type: 'delegate' }
+      }
+    });
+
+    if (authError) throw authError;
+
+    // 2. Create delegate profile
+    const { error: profileError } = await supabase.from('delegates').insert([{
+      id: authData.user.id,
+      full_name: name,
+      laboratory: lab,
+      pro_card_number: proCard,
+      cni_number: cni,
+      phone,
+      email
+    }]);
+
+    if (profileError) throw profileError;
+
+    showToast('Inscription rÃƒÂ©ussie !', 'success');
+    await checkDelegateProfile(authData.user.id);
+
+  } catch (error) {
+    showToast(translateAuthError(error.message), 'error');
+    btn.disabled = false;
+    btn.textContent = 'Demander une inscription';
+  }
+}
+
+async function checkDelegateProfile(userId) {
+  try {
+    const { data, error } = await supabase.from('delegates').select('*').eq('id', userId).single();
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // No profile found
+        showToast('Profil dÃƒÂ©lÃƒÂ©guÃƒÂ© non trouvÃƒÂ©.', 'error');
+        await supabase.auth.signOut();
+        showLoginScreen();
+      } else {
+        throw error;
+      }
+    } else {
+      if (data.status === 'pending') {
+        showToast('Votre compte est en attente de validation.', 'info');
+        await supabase.auth.signOut();
+        showLoginScreen();
+        return;
+      } else if (data.status === 'rejected') {
+        showToast('Votre inscription a ÃƒÂ©tÃƒÂ© refusÃƒÂ©e.', 'error');
+        await supabase.auth.signOut();
+        showLoginScreen();
+        return;
+      }
+      currentDelegate = data;
+      showDashboard();
+    }
+  } catch (err) {
+    console.error(err);
+    showToast('Erreur de connexion', 'error');
+    showLoginScreen();
+  }
+}
+
+function showLoginScreen() {
+  $('login-screen').style.display = 'block';
+  $('dashboard').classList.add('hidden');
+}
+
+// Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+//  DASHBOARD & DATA LOADING
+// Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+function showDashboard() {
+  $('login-screen').style.display = 'none';
+  $('dashboard').classList.remove('hidden');
+
+  if ($('dash-delegate-name')) $('dash-delegate-name').textContent = currentDelegate.name;
+  if ($('dash-delegate-lab')) $('dash-delegate-lab').textContent = currentDelegate.laboratory;
+
+  initMap();
+  loadPromotions();
+  loadPharmacies();
+  loadInteractions();
+}
+
+function initMap() {
+  if (delegateMap || typeof L === 'undefined') return;
+
+  delegateMap = L.map('delegate-map').setView([4.0511, 9.7679], 12); // Default to Douala
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+  }).addTo(delegateMap);
+}
+
+async function loadPharmacies() {
+  try {
+    const { data: pharmacies, error } = await supabase.from('pharmacies').select('*').eq('is_active', true);
+    if (error) throw error;
+
+    const list = $('pharmacies-list');
+    list.innerHTML = '';
+
+    // Clear map markers
+    pharmacyMarkers.forEach(m => m.remove());
+    pharmacyMarkers = [];
+
+    // Assuming Delegate location is centered in Douala for now
+    const delegateLat = 4.0511;
+    const delegateLng = 9.7679;
+
+    let visiblePharmacies = 0;
+
+    pharmacies.forEach(pharm => {
+      if (pharm.lat && pharm.lng) {
+        const dist = haversine(delegateLat, delegateLng, pharm.lat, pharm.lng);
+        if (dist <= currentDelegateRadius) {
+          visiblePharmacies++;
+          // Add to list
+          const item = document.createElement('div');
+          item.className = 'pharmacy-item';
+          item.innerHTML = `
+            <div class="pharmacy-item-title">Ã°Å¸ÂÂ¥ ${pharm.name} <span style="font-size: 12px; color: var(--gold-400);">(${dist.toFixed(1)} km)</span></div>
+            <div class="pharmacy-item-detail">Ã°Å¸â€œÂ ${pharm.city} - ${pharm.quarter}</div>
+            <div class="pharmacy-item-detail" style="margin-top: 8px;">
+              <button class="btn btn-outline btn-sm" onclick="proposePromotion('${pharm.id}', '${pharm.name.replace(/'/g, "\\'")}')">Envoyer offre</button>
+            </div>
+          `;
+          list.appendChild(item);
+
+          // Add to map
+          const marker = L.marker([pharm.lat, pharm.lng]).addTo(delegateMap);
+          marker.bindPopup(`<strong>${pharm.name}</strong><br>${pharm.city}`);
+          pharmacyMarkers.push(marker);
+        }
+      }
+    });
+
+    if (visiblePharmacies === 0) {
+      list.innerHTML = '<p style="color: var(--dark-400); text-align: center; padding: 20px;">Aucune pharmacie dans ce rayon.</p>';
+    }
+
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+// Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+//  PROMOTIONS
+// Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+async function loadPromotions() {
+  if (!currentDelegate) return;
+  try {
+    const { data: promos, error } = await supabase
+      .from('delegate_promotions')
+      .select('*')
+      .eq('delegate_id', currentDelegate.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const list = $('promotions-list');
+    if (promos.length === 0) {
+      list.innerHTML = '<p style="color: var(--dark-400); text-align: center; padding: 20px;">Aucune promotion active.</p>';
+      return;
+    }
+
+    let tableHtml = `
+      <table class="promo-table">
+        <thead>
+          <tr>
+            <th>Produit</th>
+            <th>Type</th>
+            <th>Statut</th>
+            <th>Date</th>
+            <th>Doc</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    promos.forEach(p => {
+      const date = new Date(p.created_at).toLocaleDateString('fr-FR');
+      const docLink = p.document_url ? `<a href="${p.document_url}" target="_blank" style="color:var(--gold-400);">Ã°Å¸â€œâ€ž Voir</a>` : '-';
+      const statusBadge = p.status === 'active' 
+        ? '<span style="color:var(--green-400); background:rgba(16,185,129,0.1); padding:2px 6px; border-radius:4px;">Active</span>' 
+        : '<span style="color:var(--dark-400);">Inactive</span>';
+
+      tableHtml += `
+        <tr>
+          <td style="font-weight: 500;">${p.product_name}</td>
+          <td>${p.product_type}</td>
+          <td>${statusBadge}</td>
+          <td>${date}</td>
+          <td>${docLink}</td>
+        </tr>
+      `;
+    });
+
+    tableHtml += `</tbody></table>`;
+    list.innerHTML = tableHtml;
+
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function handleSavePromo() {
+  const name = $('promo-name').value.trim();
+  const type = $('promo-type').value;
+  const desc = $('promo-desc').value.trim();
+  const doc = $('promo-doc').value.trim();
+
+  if (!name) {
+    return showToast('Le nom du produit est requis.', 'error');
+  }
+
+  const btn = $('btn-save-promo');
+  btn.disabled = true;
+  btn.textContent = 'Enregistrement...';
+
+  try {
+    const { error } = await supabase.from('delegate_promotions').insert([{
+      delegate_id: currentDelegate.id,
+      product_name: name,
+      product_type: type,
+      description: desc,
+      document_url: doc || null
+    }]);
+
+    if (error) throw error;
+
+    showToast('Promotion crÃƒÂ©ÃƒÂ©e !', 'success');
+    $('new-promo-modal').classList.remove('active');
+    $('promo-name').value = '';
+    $('promo-desc').value = '';
+    $('promo-doc').value = '';
+    loadPromotions();
+
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Enregistrer';
+  }
+}
+
+// Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+//  INTERACTIONS
+// Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+async function loadInteractions() {
+  if (!currentDelegate) return;
+  const list = $('interactions-list');
+  
+  // Show Skeleton Loaders
+  list.innerHTML = `
+    <div class="skeleton-card">
+      <div class="skeleton skeleton-text short"></div>
+      <div class="skeleton skeleton-text"></div>
+      <div class="skeleton skeleton-text short"></div>
+    </div>
+    <div class="skeleton-card">
+      <div class="skeleton skeleton-text short"></div>
+      <div class="skeleton skeleton-text"></div>
+      <div class="skeleton skeleton-text short"></div>
+    </div>
+  `;
+
+  try {
+    const { data: interactions, error } = await supabase
+      .from('delegate_interactions')
+      .select('*, pharmacies(name)')
+      .eq('delegate_id', currentDelegate.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const list = $('interactions-list');
+    if (interactions.length === 0) {
+      list.innerHTML = '<p style="color: var(--dark-400); text-align: center; padding: 20px;">Aucune interaction.</p>';
+      return;
+    }
+
+    list.innerHTML = interactions.map(i => {
+      const date = new Date(i.created_at).toLocaleDateString('fr-FR');
+      const pharmName = i.pharmacies ? i.pharmacies.name : 'Pharmacie';
+      
+      let statusHtml = '';
+      if (i.status === 'pending') statusHtml = '<span style="color:var(--gold-400);">En attente</span>';
+      else if (i.status === 'read') statusHtml = '<span style="color:var(--blue-400);">Lue</span>';
+      else if (i.status === 'sample_requested') statusHtml = '<span style="color:var(--purple-400); background:rgba(168,85,247,0.1); padding:2px 6px; border-radius:4px;">Ã°Å¸Å½Â Ãƒâ€°chantillon demandÃƒÂ©</span>';
+      else if (i.status === 'visit_requested') statusHtml = '<span style="color:var(--blue-400); background:rgba(59,130,246,0.1); padding:2px 6px; border-radius:4px;">Ã°Å¸â€œâ€¦ RDV demandÃƒÂ©</span>';
+      else if (i.status === 'interested') statusHtml = '<span style="color:var(--orange-400); background:rgba(249,115,22,0.1); padding:2px 6px; border-radius:4px;">Ã°Å¸â€œÂ¦ IntÃƒÂ©ressÃƒÂ©</span>';
+      else if (i.status === 'already_stocked') statusHtml = '<span style="color:var(--green-400); background:rgba(16,185,129,0.1); padding:2px 6px; border-radius:4px;">Ã¢Å“â€¦ DÃƒÂ©jÃƒÂ  en stock</span>';
+      else if (i.status === 'rejected') statusHtml = '<span style="color:var(--red-400); background:rgba(239,68,68,0.1); padding:2px 6px; border-radius:4px;">Ã¢ÂÅ’ Pas intÃƒÂ©ressÃƒÂ©</span>';
+      else if (i.status === 'visit_confirmed') statusHtml = '<span style="color:var(--green-400); font-weight:bold;">Ã¢Å“â€¦ Visite confirmÃƒÂ©e</span>';
+      
+      let actionBtn = '';
+      if (i.status === 'visit_requested') {
+        actionBtn = `<button class="btn btn-outline btn-sm" style="color:var(--green-400); border-color:var(--green-400);" onclick="confirmVisit('${i.id}')">Confirmer le RDV</button>`;
+      }
+
+      return `
+        <div style="background:var(--dark-800); border:1px solid var(--glass-border); padding:12px; border-radius:8px; margin-bottom:12px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+            <strong style="color:var(--gold-400);">Ã°Å¸ÂÂ¥ ${pharmName}</strong>
+            <span style="font-size:12px; color:var(--dark-400);">${date}</span>
+          </div>
+          <div style="font-size:13px; margin-bottom:8px;"><strong>Produit:</strong> ${i.interaction_type}</div>
+          ${i.response_notes ? `<div style="font-size:12px; color:var(--dark-300); margin-bottom:8px; background:rgba(0,0,0,0.2); padding:6px; border-radius:4px;">Ã°Å¸â€™Â¬ ${i.response_notes}</div>` : ''}
+          <div style="font-size:12px; display:flex; justify-content:space-between; align-items:center;">
+            <span>${statusHtml}</span>
+            ${actionBtn}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    renderConversionChart(interactions);
+
+  } catch (err) {
+    console.error(err);
+    $('interactions-list').innerHTML = '<p style="color: var(--red-400); text-align: center;">Erreur lors du chargement.</p>';
+  }
+}
+
+let conversionChartInstance = null;
+function renderConversionChart(interactions) {
+  const canvas = document.getElementById('conversionChart');
+  if (!canvas || !window.Chart) return;
+
+  // Initialize stats
+  let stats = {
+    'attente': 0,
+    'interesse': 0,
+    'echantillon': 0,
+    'rdv': 0,
+    'refus': 0
+  };
+
+  interactions.forEach(i => {
+    if (['pending', 'read'].includes(i.status)) stats.attente++;
+    else if (i.status === 'interested') stats.interesse++;
+    else if (i.status === 'sample_requested') stats.echantillon++;
+    else if (['visit_requested', 'visit_confirmed'].includes(i.status)) stats.rdv++;
+    else if (i.status === 'rejected') stats.refus++;
+  });
+
+  if (conversionChartInstance) {
+    conversionChartInstance.destroy();
+  }
+
+  conversionChartInstance = new Chart(canvas, {
+    type: 'doughnut',
+    data: {
+      labels: ['En attente', 'IntÃƒÂ©ressÃƒÂ©', 'Ãƒâ€°chantillon', 'RDV', 'RefusÃƒÂ©'],
+      datasets: [{
+        data: [stats.attente, stats.interesse, stats.echantillon, stats.rdv, stats.refus],
+        backgroundColor: [
+          '#fbbf24', // attente
+          '#f97316', // intÃƒÂ©ressÃƒÂ©
+          '#a855f7', // ÃƒÂ©chantillon
+          '#3b82f6', // rdv
+          '#ef4444'  // refus
+        ],
+        borderWidth: 0,
+        hoverOffset: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false
+        }
+      }
+    }
+  });
+}
+
+window.proposePromotion = async function(pharmacyId, pharmName) {
+  try {
+    const { data: promos } = await supabase
+      .from('delegate_promotions')
+      .select('*')
+      .eq('delegate_id', currentDelegate.id)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (!promos || promos.length === 0) {
+      return showToast('CrÃƒÂ©ez d\'abord une promotion.', 'error');
+    }
+
+    const promo = promos[0];
+
+    if (confirm(`Proposer le produit "${promo.product_name}" ÃƒÂ  la pharmacie ${pharmName} ?`)) {
+      const { error } = await supabase.from('delegate_interactions').insert([{
+        delegate_id: currentDelegate.id,
+        pharmacy_id: pharmacyId,
+        interaction_type: promo.product_name,
+        notes: promo.description,
+        related_promotion_id: promo.id
+      }]);
+
+      if (error) throw error;
+      showToast('Offre envoyÃƒÂ©e avec succÃƒÂ¨s !', 'success');
+      loadInteractions();
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+};
+
+window.broadcastPromotion = async function() {
+  try {
+    const btn = $('btn-broadcast');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Diffusion en cours...';
+    }
+
+    // Get active promotion
+    const { data: promos } = await supabase
+      .from('delegate_promotions')
+      .select('*')
+      .eq('delegate_id', currentDelegate.id)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (!promos || promos.length === 0) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Diffuser ÃƒÂ  toutes les pharmacies'; }
+      return showToast('CrÃƒÂ©ez d\'abord une promotion.', 'error');
+    }
+    const promo = promos[0];
+
+    // Get all pharmacies in radius
+    const delegateLat = 4.0511; // Hardcoded default for Douala
+    const delegateLng = 9.7679;
+    const { data: pharmacies } = await supabase.from('pharmacies').select('*').eq('is_active', true);
+    
+    let targetPharmacies = [];
+    pharmacies.forEach(pharm => {
+      if (pharm.lat && pharm.lng) {
+        const dist = haversine(delegateLat, delegateLng, pharm.lat, pharm.lng);
+        if (dist <= currentDelegateRadius) {
+          targetPharmacies.push(pharm);
+        }
+      }
+    });
+
+    if (targetPharmacies.length === 0) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Diffuser ÃƒÂ  toutes les pharmacies'; }
+      return showToast('Aucune pharmacie dans ce rayon.', 'info');
+    }
+
+    if (!confirm(`Diffuser l'offre "${promo.product_name}" ÃƒÂ  ${targetPharmacies.length} pharmacies dans un rayon de ${currentDelegateRadius}km ?`)) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Diffuser ÃƒÂ  toutes les pharmacies'; }
+      return;
+    }
+
+    // Insert all interactions
+    const inserts = targetPharmacies.map(p => ({
+      delegate_id: currentDelegate.id,
+      pharmacy_id: p.id,
+      interaction_type: promo.product_name,
+      notes: promo.description,
+      related_promotion_id: promo.id
+    }));
+
+    const { error } = await supabase.from('delegate_interactions').insert(inserts);
+    if (error) throw error;
+
+    showToast(`DiffusÃƒÂ© avec succÃƒÂ¨s ÃƒÂ  ${targetPharmacies.length} pharmacies !`, 'success');
+    loadInteractions();
+    
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg> Diffuser ÃƒÂ  toutes les pharmacies`;
+    }
+
+  } catch (err) {
+    console.error(err);
+    showToast('Erreur lors de la diffusion.', 'error');
+    const btn = $('btn-broadcast');
+    if (btn) { btn.disabled = false; btn.textContent = 'Diffuser ÃƒÂ  toutes les pharmacies'; }
+  }
+};
+
+window.confirmVisit = async function(interactionId) {
+  try {
+    const { error } = await supabase
+      .from('delegate_interactions')
+      .update({ status: 'visit_confirmed' })
+      .eq('id', interactionId);
+
+    if (error) throw error;
+    showToast('Rendez-vous confirmÃƒÂ© !', 'success');
+    loadInteractions();
+  } catch (err) {
+    console.error(err);
+    showToast('Erreur lors de la confirmation.', 'error');
+  }
+};
+
+
+
+
+
