@@ -37,8 +37,9 @@ CREATE INDEX IF NOT EXISTS idx_responses_code ON responses(reservation_code);
 
 -- ═══════════════════════════════════════
 --  4. REALTIME
--- ═══════════════════════════════════════
-ALTER PUBLICATION supabase_realtime ADD TABLE stock_alerts;
+-- Note: Si la table est déjà dans la publication, cette ligne provoquera une erreur.
+-- Vous pouvez la commenter si c'est le cas.
+-- ALTER PUBLICATION supabase_realtime ADD TABLE stock_alerts;
 
 -- ═══════════════════════════════════════
 --  5. ROW LEVEL SECURITY
@@ -46,10 +47,15 @@ ALTER PUBLICATION supabase_realtime ADD TABLE stock_alerts;
 ALTER TABLE stock_alerts ENABLE ROW LEVEL SECURITY;
 
 -- Any authenticated user can read stock alerts (delegates need to see them)
+DROP POLICY IF EXISTS "Anyone can read stock alerts" ON stock_alerts;
 CREATE POLICY "Anyone can read stock alerts" ON stock_alerts FOR SELECT USING (true);
+
 -- Only the pharmacy owner can create alerts
+DROP POLICY IF EXISTS "Pharmacy can insert stock alerts" ON stock_alerts;
 CREATE POLICY "Pharmacy can insert stock alerts" ON stock_alerts FOR INSERT WITH CHECK (auth.uid() = pharmacy_id);
+
 -- Pharmacy owner can update their own alerts
+DROP POLICY IF EXISTS "Pharmacy can update own alerts" ON stock_alerts;
 CREATE POLICY "Pharmacy can update own alerts" ON stock_alerts FOR UPDATE USING (auth.uid() = pharmacy_id);
 
 -- Allow updating responses (for reservation codes)

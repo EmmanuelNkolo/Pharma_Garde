@@ -26,6 +26,10 @@ const I18n = (() => {
       success: 'Succès',
       required: 'Requis',
 
+      // Footer
+      footer_line1: 'Application de santé publique — Cameroun',
+      footer_line2: 'Recherche de médicaments · Pharmacies de garde · Délégués médicaux',
+
       // Welcome
       welcome_title: 'Bienvenue sur',
       welcome_subtitle: 'Trouvez vos médicaments dans les pharmacies proches de vous',
@@ -195,6 +199,9 @@ const I18n = (() => {
       error: 'Error',
       success: 'Success',
       required: 'Required',
+
+      footer_line1: 'Public Health Application — Cameroon',
+      footer_line2: 'Medicine search · On-duty pharmacies · Medical delegates',
 
       welcome_title: 'Welcome to',
       welcome_subtitle: 'Find your medicines at nearby pharmacies',
