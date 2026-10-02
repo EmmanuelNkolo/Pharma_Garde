@@ -287,6 +287,15 @@
             </button>
           </div>
 
+        <!-- Alerts Panel -->
+        <div id="panel-alerts" style="display: none;">
+          <h3 style="font-size: 16px; font-weight: 700; color: var(--dark-200); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 20px;">&#x1F514;</span> Alertes Rupture de Stock
+          </h3>
+          <p style="font-size: 13px; color: var(--dark-400); margin-bottom: 16px; line-height: 1.5;">Les pharmacies de votre zone signalent leurs ruptures de stock ici. Contactez-les pour les reapprovisionner.</p>
+          <div id="stock-alerts-list"></div>
+        </div>
+
           <!-- Situation des demandes du délégué medical -->
           <h4 style="font-size: 15px; font-weight: 600; color: var(--dark-200); margin-bottom: 12px; margin-top: 24px; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px;">Situation de vos demandes</h4>
           <div class="stats-grid-delegate">
@@ -353,6 +362,11 @@
               <input type="date" id="report-to" class="input-field" style="flex: 1; min-width: 150px;">
             </div>
             <button id="btn-generate-report" class="btn btn-primary" style="width: 100%; font-size: 15px; font-weight: 600; border-radius: 8px; padding: 12px;">📊 Générer le Rapport Complet</button>
+            <button class="action-btn" id="btn-alerts" style="position: relative;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              <span>Alertes</span>
+              <span id="alerts-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#ef4444;color:white;font-size:10px;font-weight:700;width:18px;height:18px;border-radius:50%;align-items:center;justify-content:center;">0</span>
+            </button>
           </div>
         </div>
 

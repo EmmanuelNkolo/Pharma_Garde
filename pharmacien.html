@@ -204,6 +204,16 @@
        ═══════════════════════════════════════════════════════ -->
   <div id="dashboard" class="hidden">
       <!-- Pharmacy Status Toggle -->
+      
+      <!-- Quick Action Buttons -->
+      <div style="display: flex; gap: 8px; padding: 8px 16px; flex-wrap: wrap;">
+        <button id="btn-open-stock-alert" class="btn btn-sm" style="flex: 1; min-width: 140px; background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); border-radius: 12px; font-size: 12px; padding: 10px 12px;" onclick="document.getElementById('stock-alert-modal').classList.add('active')">
+          &#x26A0;&#xFE0F; Alerte Rupture
+        </button>
+        <button id="btn-open-verify-code" class="btn btn-sm" style="flex: 1; min-width: 140px; background: rgba(5,150,105,0.15); color: #10b981; border: 1px solid rgba(5,150,105,0.3); border-radius: 12px; font-size: 12px; padding: 10px 12px;" onclick="document.getElementById('code-verify-modal').classList.add('active')">
+          &#x1F50D; Verifier Code
+        </button>
+      </div>
       <div id="pharmacy-status-toggle" style="display: flex; gap: 8px; align-items: center; padding: 8px 16px; background: var(--dark-800); border-radius: 14px; margin: 8px 16px;">
         <span style="font-size: 13px; color: var(--dark-300); margin-right: 4px;">Statut :</span>
         <span id="pharmacy-status-badge" style="padding: 6px 14px; border-radius: 20px; font-weight: 700; font-size: 13px;">—</span>
@@ -454,6 +464,65 @@
       <div style="display: flex; gap: 12px;">
         <button class="btn btn-outline" style="flex: 1;" onclick="document.getElementById('confirm-modal').style.display='none'">Annuler</button>
         <button id="btn-confirm-ok" class="btn btn-primary" style="flex: 1;">Confirmer</button>
+      </div>
+    </div>
+  </div>
+
+  
+  <!-- Stock Alert Modal -->
+  <div id="stock-alert-modal" class="modal-backdrop">
+    <div class="login-card" style="max-width: 480px; padding: 24px;">
+      <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 16px; color: #f59e0b; display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 24px;">&#x26A0;&#xFE0F;</span> Alerte Rupture de Stock
+      </h3>
+      <p style="font-size: 13px; color: var(--dark-400); margin-bottom: 16px; line-height: 1.6;">
+        Signalez une rupture de stock aux delegues medicaux de votre zone pour qu'ils puissent vous reapprovisionner rapidement.
+      </p>
+      <div class="form-group">
+        <label>Nom du produit en rupture *</label>
+        <input type="text" id="stock-alert-product" class="input-field" placeholder="Ex: Doliprane 1000mg, Amoxicilline...">
+      </div>
+      <div class="form-group">
+        <label>Urgence</label>
+        <select id="stock-alert-urgency" class="input-field">
+          <option value="normal">Normale</option>
+          <option value="urgent">Urgente</option>
+          <option value="critical">Critique</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Rayon de diffusion</label>
+        <select id="stock-alert-radius" class="input-field">
+          <option value="2">2 km</option>
+          <option value="5" selected>5 km</option>
+          <option value="10">10 km</option>
+          <option value="15">15 km</option>
+          <option value="20">20 km</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Message complementaire</label>
+        <textarea id="stock-alert-message" class="input-field" rows="2" placeholder="Quantite souhaitee, specifications..."></textarea>
+      </div>
+      <div style="display: flex; gap: 12px; margin-top: 20px;">
+        <button class="btn btn-outline" style="flex: 1;" onclick="document.getElementById('stock-alert-modal').classList.remove('active')">Annuler</button>
+        <button id="btn-send-stock-alert" class="btn btn-primary" style="flex: 1; background: linear-gradient(135deg, #f59e0b, #d97706);" onclick="PharmDash.sendStockAlert()">Envoyer l'alerte</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reservation Code Verification -->
+  <div id="code-verify-modal" class="modal-backdrop">
+    <div class="login-card" style="max-width: 400px; padding: 24px; text-align: center;">
+      <div style="font-size: 48px; margin-bottom: 12px;">&#x1F50D;</div>
+      <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 16px; color: var(--green-500);">Verifier un Code de Reservation</h3>
+      <p style="font-size: 13px; color: var(--dark-400); margin-bottom: 16px;">Entrez le code PG-XXXX presente par le patient.</p>
+      <div class="form-group">
+        <input type="text" id="verify-code-input" class="input-field" placeholder="PG-XXXX" style="text-align: center; font-size: 22px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase;" maxlength="7">
+      </div>
+      <div style="display: flex; gap: 12px; margin-top: 16px;">
+        <button class="btn btn-outline" style="flex: 1;" onclick="document.getElementById('code-verify-modal').classList.remove('active')">Fermer</button>
+        <button class="btn btn-primary" style="flex: 1;" onclick="PharmDash.verifyCode(document.getElementById('verify-code-input').value)">Verifier</button>
       </div>
     </div>
   </div>

@@ -143,6 +143,7 @@
     bindClick('btn-promotions', () => switchPanel('promotions'));
     bindClick('btn-pharmacies', () => switchPanel('pharmacies'));
     bindClick('btn-stats', () => switchPanel('stats'));
+    bindClick('btn-alerts', () => switchPanel('alerts'));
 
     // Recenter
     bindClick('btn-recenter', () => {
@@ -463,6 +464,7 @@
     loadPharmacies();
     loadPromotions();
     loadStats();
+    loadStockAlerts();
   }
 
   // ═══════════════════════════════════════════════════════
@@ -1083,12 +1085,86 @@
     if (section) section.scrollIntoView({ behavior: 'smooth' });
   }
 
+
+  // ═══════════════════════════════════════════════════════
+  //  STOCK ALERTS FROM PHARMACIES
+  // ═══════════════════════════════════════════════════════
+  async function loadStockAlerts() {
+    const container = $('stock-alerts-list');
+    if (!container || !userLat || !userLng) return;
+    
+    try {
+      const { data: alerts, error } = await supabase
+        .from('stock_alerts')
+        .select('*, pharmacy:pharmacy_id(name, phone, address)')
+        .eq('is_resolved', false)
+        .order('created_at', { ascending: false })
+        .limit(30);
+
+      if (error) throw error;
+
+      // Filter by distance
+      const nearbyAlerts = (alerts || []).filter(a => {
+        if (!a.pharmacy_lat || !a.pharmacy_lng) return true;
+        const dist = haversine(userLat, userLng, a.pharmacy_lat, a.pharmacy_lng);
+        return dist <= (a.radius || 5);
+      });
+
+      // Update badge
+      const badge = $('alerts-badge');
+      if (badge) {
+        badge.textContent = nearbyAlerts.length;
+        badge.style.display = nearbyAlerts.length > 0 ? 'flex' : 'none';
+      }
+
+      if (nearbyAlerts.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:24px;color:var(--dark-400);font-size:14px;">Aucune alerte de rupture dans votre zone.</div>';
+        return;
+      }
+
+      const urgencyColors = { normal: '#3b82f6', urgent: '#f59e0b', critical: '#ef4444' };
+      const urgencyLabels = { normal: 'Normale', urgent: 'Urgente', critical: 'Critique' };
+
+      container.innerHTML = nearbyAlerts.map(a => {
+        const pharma = a.pharmacy || {};
+        const color = urgencyColors[a.urgency] || '#888';
+        const label = urgencyLabels[a.urgency] || a.urgency;
+        const timeAgo = getTimeAgo(a.created_at);
+        const dist = a.pharmacy_lat ? haversine(userLat, userLng, a.pharmacy_lat, a.pharmacy_lng).toFixed(1) : '?';
+
+        return '<div style="background:var(--dark-800);border:1px solid ' + color + '33;border-radius:14px;padding:16px;margin-bottom:10px;border-left:4px solid ' + color + ';">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+            '<strong style="color:var(--dark-100);font-size:15px;">' + escapeHtml(a.product_name) + '</strong>' +
+            '<span style="background:' + color + '22;color:' + color + ';padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700;">' + label + '</span>' +
+          '</div>' +
+          '<div style="font-size:13px;color:var(--dark-300);margin-bottom:6px;">' + escapeHtml(pharma.name || 'Pharmacie') + ' — ' + dist + ' km</div>' +
+          (a.message ? '<div style="font-size:13px;color:var(--dark-400);margin-bottom:8px;font-style:italic;">' + escapeHtml(a.message) + '</div>' : '') +
+          '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+            '<span style="font-size:11px;color:var(--dark-500);">' + timeAgo + '</span>' +
+            (pharma.phone ? '<a href="tel:' + pharma.phone + '" class="btn btn-sm btn-outline" style="font-size:11px;padding:4px 12px;">Appeler</a>' : '') +
+          '</div>' +
+        '</div>';
+      }).join('');
+    } catch (err) {
+      console.error('Stock alerts error:', err);
+    }
+  }
+
+  function getTimeAgo(dateStr) {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return 'Il y a ' + mins + ' min';
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return 'Il y a ' + hrs + 'h';
+    return 'Il y a ' + Math.floor(hrs / 24) + ' jour(s)';
+  }
+
   // ═══════════════════════════════════════════════════════
   //  PANEL SWITCHING
   // ═══════════════════════════════════════════════════════
   function switchPanel(panel) {
     activePanel = panel;
-    ['pharmacies', 'promotions', 'stats'].forEach(p => {
+    ['pharmacies', 'promotions', 'stats', 'alerts'].forEach(p => {
       const el = $('panel-' + p);
       if (el) el.style.display = (p === panel) ? 'block' : 'none';
     });
@@ -1099,6 +1175,9 @@
       const el = $(id);
       if (el) el.classList.toggle('action-btn-active', key === panel);
     });
+
+    // Load alerts when switching
+    if (panel === 'alerts') loadStockAlerts();
 
     // Fullscreen for Stats
     const sheet = $('bottom-sheet');

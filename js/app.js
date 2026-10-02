@@ -1153,6 +1153,12 @@ const App = (() => {
     var phoneInput = $('#phone-input');
     var patientPhone = (phoneInput && phoneInput.value) ? phoneInput.value : null;
     var entries = Object.entries(reservedMedicines);
+
+    // Generate unique reservation code for each pharmacy
+    entries.forEach(function(entry) {
+      entry[1].code = generateReservationCode();
+    });
+
     var insertPromises = entries.map(function(entry) {
       return supabase.from('reservations').insert([{
         request_id: entry[1].request_id, pharmacy_id: entry[0], patient_phone: patientPhone,
@@ -1160,7 +1166,17 @@ const App = (() => {
         expires_at: new Date(Date.now() + 3600000).toISOString(),
       }]);
     });
-    try { await Promise.all(insertPromises); } catch(e) { console.error('Reservation error:', e); }
+
+    // Also update response with reservation code
+    var codePromises = entries.map(function(entry) {
+      return supabase.from('responses').update({
+        reservation_code: entry[1].code,
+        is_reserved: true,
+        reserved_at: new Date().toISOString()
+      }).eq('pharmacy_id', entry[0]).eq('request_id', entry[1].request_id);
+    });
+
+    try { await Promise.all([...insertPromises, ...codePromises]); } catch(e) { console.error('Reservation error:', e); }
     showReservationConfirmation();
   }
 
@@ -1169,12 +1185,18 @@ const App = (() => {
     var expiresIso = new Date(Date.now() + 3600000).toISOString();
     var confirmHtml = entries.map(function(entry) {
       var pid = entry[0]; var data = entry[1];
+      var code = data.code || 'PG-????';
       var medsHtml = data.meds.map(function(m) { return '<div style="padding:4px 0;font-size:13px;">💊 ' + m + '</div>'; }).join('');
       var phoneBtn = data.phone ? '<button class="btn btn-call" onclick="App.callPharmacy(\'' + escapeHtml(data.phone) + '\')">📞 Appeler</button>' : '';
       var waBtn = data.phone ? '<button class="btn btn-whatsapp" onclick="App.openWhatsApp(\'237' + escapeHtml(data.phone) + '\')">💬 WhatsApp</button>' : '';
       return '<div style="background:var(--dark-800);border:1px solid var(--color-border);border-radius:12px;padding:16px;margin-bottom:12px;">' +
         '<div style="font-weight:700;font-size:16px;margin-bottom:8px;">🏥 ' + escapeHtml(data.name || 'Pharmacie') + '</div>' +
-        '<div style="font-size:13px;color:var(--dark-300);margin-bottom:12px;">📍 ' + escapeHtml(data.address || '') + '</div>' +
+        '<div style="font-size:13px;color:var(--dark-300);margin-bottom:8px;">📍 ' + escapeHtml(data.address || '') + '</div>' +
+        '<div style="background:linear-gradient(135deg, rgba(5,150,105,0.15), rgba(16,185,129,0.1));border:2px dashed #10b981;border-radius:12px;padding:16px;margin-bottom:12px;text-align:center;">' +
+          '<div style="font-size:11px;color:var(--dark-400);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Code de retrait</div>' +
+          '<div style="font-size:28px;font-weight:800;color:#10b981;letter-spacing:4px;font-family:monospace;">' + code + '</div>' +
+          '<div style="font-size:12px;color:var(--dark-400);margin-top:6px;">Presentez ce code a la pharmacie</div>' +
+        '</div>' +
         '<div style="background:rgba(0,0,0,0.2);padding:10px;border-radius:8px;margin-bottom:12px;">' + medsHtml + '</div>' +
         '<div class="reservation-confirm-timer" data-expires="' + expiresIso + '" style="color:var(--gold-500);font-size:13px;margin-bottom:12px;">⏱️ Expire dans <strong>60 min</strong></div>' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap;">' + phoneBtn + waBtn + '<button class="btn btn-route" onclick="App.getRouteToPharmacy(\'' + escapeHtml(pid) + '\')">🗺️ Y aller</button></div></div>';

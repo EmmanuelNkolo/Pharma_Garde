@@ -1859,6 +1859,8 @@
   //  PUBLIC API & INIT
   // ═══════════════════════════════════════════════════════
   window.PharmDash = {
+    sendStockAlert: sendStockAlert,
+    verifyCode: verifyReservationCode,
     toggleStatus: togglePharmacyStatus,
     prepareResponse,
     confirmAction,
