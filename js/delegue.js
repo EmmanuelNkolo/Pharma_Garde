@@ -158,11 +158,41 @@
     // Promotions
     bindClick('btn-new-promo', () => {
       populateLabSelect('promo-lab');
+      const sc = $('promo-specific-container');
+      const bc = $('promo-buttons-container');
+      if (sc) sc.style.display = 'none';
+      if (bc) bc.style.display = 'flex';
       $('new-promo-modal').classList.add('active');
     });
-    bindClick('btn-cancel-promo', () => $('new-promo-modal').classList.remove('active'));
+    bindClick('btn-cancel-promo', () => {
+      $('new-promo-modal').classList.remove('active');
+      const sc = $('promo-specific-container');
+      const bc = $('promo-buttons-container');
+      if (sc) sc.style.display = 'none';
+      if (bc) bc.style.display = 'flex';
+    });
     bindClick('btn-save-promo-all', () => handleSavePromotion('all'));
-    bindClick('btn-save-promo-specific', () => handleSavePromotion('specific'));
+    bindClick('btn-save-promo-specific', () => {
+      if (!pharmaciesInRadius || pharmaciesInRadius.length === 0) {
+        return showToast('Aucune pharmacie dans le rayon. Detectez votre position d\'abord.', 'error');
+      }
+      const bc = $('promo-buttons-container');
+      const sc = $('promo-specific-container');
+      if (bc) bc.style.display = 'none';
+      if (sc) sc.style.display = 'flex';
+      const sel = $('promo-specific-pharmacy');
+      if (sel) {
+        sel.innerHTML = '<option value="">-- Choisir une pharmacie --</option>' +
+          pharmaciesInRadius.map(p => '<option value="' + p.id + '">' + escapeHtml(p.name) + ' (' + haversine(userLat, userLng, p.lat, p.lng).toFixed(1) + ' km)</option>').join('');
+      }
+    });
+    bindClick('btn-cancel-specific', () => {
+      const sc = $('promo-specific-container');
+      const bc = $('promo-buttons-container');
+      if (sc) sc.style.display = 'none';
+      if (bc) bc.style.display = 'flex';
+    });
+    bindClick('btn-save-promo-specific-confirm', () => handleSavePromotion('specific'));
 
     // Visit modal
     bindClick('btn-cancel-visit', () => $('visit-modal').classList.remove('active'));
@@ -353,6 +383,8 @@
       const labsDiv = $('settings-labs');
       if (labsDiv) labsDiv.textContent = sessionLabs.join(', ') || 'Aucun';
     }
+
+    subscribeToDelegateUpdates();
 
     // If map not initialized, show location modal
     if (!delegateMap) {
@@ -690,7 +722,7 @@
     // Populate promotion select
     const select = $('send-promo-select');
     select.innerHTML = '<option value="">— Choisir —</option>';
-    myPromotions.filter(p => p.is_active).forEach(p => {
+    myPromotions.forEach(p => {
       select.innerHTML += `<option value="${p.id}">${escapeHtml(p.product_name)} (${escapeHtml(p.lab_name)})</option>`;
     });
 
@@ -1076,8 +1108,9 @@
     const msg = $('toast-message');
     if (!toast || !msg) return;
     msg.textContent = message;
-    toast.className = `toast toast-${type} show`;
-    setTimeout(() => toast.classList.remove('show'), 4000);
+    toast.className = 'toast toast-' + type + ' show';
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => toast.classList.remove('show'), 5000);
   }
 
   function populateLabSelect(selectId) {
@@ -1099,6 +1132,31 @@
     openVisitRequest,
     getRoute,
   };
+
+  // ── Real-time subscription for delegate ─────────────
+  function subscribeToDelegateUpdates() {
+    if (!currentDelegate) return;
+    const channel = supabase
+      .channel('delegate_updates_' + currentDelegate.id)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'promotion_targets'
+      }, (payload) => {
+        loadPromotions();
+        loadStats();
+        const status = payload.new.status;
+        if (status === 'interested') showToast('Une pharmacie est interessee par votre promotion !', 'success');
+        else if (status === 'read') showToast('Une pharmacie a consulte votre promotion.', 'info');
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'visit_requests',
+        filter: 'delegate_id=eq.' + currentDelegate.id
+      }, (payload) => {
+        const status = payload.new.status;
+        if (status === 'confirmed') showToast('Votre demande de visite a ete confirmee !', 'success');
+        else if (status === 'cancelled') showToast('Votre demande de visite a ete refusee.', 'error');
+      })
+      .subscribe();
+  }
 
   // ── Boot ───────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', init);

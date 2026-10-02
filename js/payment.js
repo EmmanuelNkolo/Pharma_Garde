@@ -179,6 +179,12 @@ const Payment = (() => {
         return { success: false, error: data.error || 'Paiement refusé.' };
       }
     } catch (err) {
+      // Payment failure - stay in app, show clear message
+      if (err && (err.message || '').toLowerCase().includes('insufficient')) {
+        if (typeof showToast === 'function') showToast('Solde insuffisant. Veuillez recharger votre compte.', 'error');
+        else alert('Solde insuffisant. Veuillez recharger votre compte.');
+        return;
+      }
       console.error('Payment Edge Function error:', err);
       return { success: false, error: 'Erreur Notch Pay : ' + (err.message || 'Erreur inconnue') };
     }
