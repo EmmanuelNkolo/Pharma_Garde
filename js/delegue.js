@@ -1278,14 +1278,17 @@
     return str.toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
   }
 
-  function showToast(message, type = 'success') {
-    const toast = $('toast');
-    const msg = $('toast-message');
-    if (!toast || !msg) return;
-    msg.textContent = message;
-    toast.className = 'toast toast-' + type + ' show';
+  function showToast(message, type) {
+    type = type || 'success';
+    const toast = document.getElementById('toast');
+    const msgEl = document.getElementById('toast-message');
+    if (!toast || !msgEl) return;
+    toast.className = 'toast toast--' + type;
+    msgEl.textContent = message;
+    toast.classList.add('show');
     clearTimeout(toast._timer);
-    toast._timer = setTimeout(() => toast.classList.remove('show'), 5000);
+    toast._timer = setTimeout(() => toast.classList.remove('show'), 3500);
+  
   }
 
   function populateLabSelect(selectId) {
@@ -1334,6 +1337,7 @@
   }
 
   // ── Boot ───────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => { if (typeof I18n !== 'undefined') I18n.init(); });
   document.addEventListener('DOMContentLoaded', init);
 
 })();

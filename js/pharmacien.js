@@ -353,6 +353,7 @@
     startExpirationChecker();
     loadDelegateInteractions();
     initSettings();
+    setupTabs();
     if (typeof updateStatusDisplay === 'function') updateStatusDisplay();
   }
 
@@ -1510,13 +1511,16 @@
   }
 
   function showToast(message, type) {
-    const toast = $('#toast');
-    const toastMessage = $('#toast-message');
-    if (toast && toastMessage) {
-      toast.className = `toast toast-${type || 'success'} show`;
-      toastMessage.textContent = message;
-      setTimeout(() => toast.classList.remove('show'), 3500);
-    }
+    type = type || 'success';
+    const toast = document.getElementById('toast');
+    const msgEl = document.getElementById('toast-message');
+    if (!toast || !msgEl) return;
+    toast.className = 'toast toast--' + type;
+    msgEl.textContent = message;
+    toast.classList.add('show');
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => toast.classList.remove('show'), 3500);
+  
   }
 
   function playNotificationSound() {
@@ -1871,5 +1875,6 @@
     respondVisit: respondToVisit,
   };
 
+  document.addEventListener('DOMContentLoaded', () => { if (typeof I18n !== 'undefined') I18n.init(); });
   document.addEventListener('DOMContentLoaded', init);
 })();

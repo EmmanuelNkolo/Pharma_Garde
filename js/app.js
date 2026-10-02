@@ -40,6 +40,89 @@ const App = (() => {
          .replace(/'/g, "&#039;");
   }
 
+
+  // ── Leaflet Map Management ─────────────────────────────
+  let leafletMap = null;
+  let userMarker = null;
+  let radiusCircle = null;
+  let pharmacyMarkers = [];
+
+  function initLeafletMap(containerId, pos, zoom) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.style.display = 'block';
+    
+    // Show header + bottom sheet + map controls
+    const header = $('#app-header');
+    const sheet = $('#bottom-sheet');
+    const controls = $('#map-controls');
+    if (header) header.classList.remove('hidden');
+    if (sheet) sheet.classList.remove('hidden');
+    if (controls) controls.classList.remove('hidden');
+    
+    if (leafletMap) { leafletMap.remove(); leafletMap = null; }
+    leafletMap = L.map(containerId, {
+      center: [pos.lat, pos.lng],
+      zoom: zoom || 13,
+      zoomControl: false,
+      attributionControl: true
+    });
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '© CartoDB © OSM',
+      maxZoom: 19
+    }).addTo(leafletMap);
+
+    // Zoom controls
+    const zoomIn = $('#btn-zoom-in');
+    const zoomOut = $('#btn-zoom-out');
+    const recenter = $('#btn-recenter');
+    if (zoomIn) zoomIn.onclick = () => leafletMap.zoomIn();
+    if (zoomOut) zoomOut.onclick = () => leafletMap.zoomOut();
+    if (recenter) recenter.onclick = () => recenterOnUser();
+  }
+
+  function setUserMarker(lat, lng) {
+    if (!leafletMap) return;
+    if (userMarker) leafletMap.removeLayer(userMarker);
+    const icon = L.divIcon({
+      className: 'user-marker',
+      html: '<div style="width:16px;height:16px;background:#10b981;border:3px solid white;border-radius:50%;box-shadow:0 0 12px rgba(16,185,129,0.5);"></div>',
+      iconSize: [16, 16], iconAnchor: [8, 8]
+    });
+    userMarker = L.marker([lat, lng], { icon: icon, zIndexOffset: 1000 }).addTo(leafletMap);
+  }
+
+  function drawRadiusCircle(pos, radiusKm) {
+    if (!leafletMap) return;
+    if (radiusCircle) leafletMap.removeLayer(radiusCircle);
+    radiusCircle = L.circle([pos.lat, pos.lng], {
+      radius: radiusKm * 1000,
+      color: '#10b981', fillColor: '#10b981', fillOpacity: 0.06, weight: 1.5, dashArray: '5,5'
+    }).addTo(leafletMap);
+  }
+
+  function addPharmacyMarkers(pharmacies, onClick) {
+    pharmacyMarkers.forEach(m => leafletMap.removeLayer(m));
+    pharmacyMarkers = [];
+    pharmacies.forEach(p => {
+      const color = p.isOnDuty ? '#fbbf24' : p.isOpen ? '#10b981' : '#64748b';
+      const icon = L.divIcon({
+        className: 'pharm-marker',
+        html: '<div style="width:28px;height:28px;background:' + color + ';border:2px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,0.3);">🏥</div>',
+        iconSize: [28, 28], iconAnchor: [14, 14]
+      });
+      const marker = L.marker([p.lat, p.lng], { icon }).addTo(leafletMap);
+      marker.bindPopup('<b>' + (p.name || 'Pharmacie') + '</b><br>' + (p.address || '') + '<br><b>' + (p.distance || '?') + ' km</b>');
+      if (onClick) marker.on('click', () => onClick(p));
+      pharmacyMarkers.push(marker);
+    });
+  }
+
+  function recenterOnUser() {
+    const pos = Geolocation.getPosition();
+    if (pos && leafletMap) leafletMap.setView([pos.lat, pos.lng], 13);
+  }
+
   function getRouteToPharmacy(pharmacyId) {
     var p = findPharmacy(pharmacyId);
     if (p) getRoute(p.lat, p.lng);
@@ -120,8 +203,8 @@ const App = (() => {
     if (demoBtn) demoBtn.addEventListener('click', openDemoModal);
 
     // Search modal
-    const searchClose = $('#search-close');
-    const searchBackdrop = $('#search-backdrop');
+    const searchClose = document.getElementById('close-search-modal');
+    const searchBackdrop = $('#search-modal');
     if (searchClose) searchClose.addEventListener('click', closeSearchModal);
     if (searchBackdrop) searchBackdrop.addEventListener('click', closeSearchModal);
 
@@ -138,7 +221,7 @@ const App = (() => {
     }
 
     // Add medicine button
-    const btnAdd = $('#btn-add-medicine');
+    const btnAdd = document.getElementById('add-medicine-btn');
     if (btnAdd) {
       btnAdd.addEventListener('click', () => {
         addMedicine($('#medicine-input').value.trim());
@@ -146,7 +229,7 @@ const App = (() => {
     }
 
     // Proceed to payment
-    const btnProceed = $('#btn-proceed-payment');
+    const btnProceed = document.getElementById('proceed-search-btn');
     if (btnProceed) btnProceed.addEventListener('click', showConfirmStep);
 
     // Confirm request
@@ -156,11 +239,12 @@ const App = (() => {
     if (btnCancelReq) btnCancelReq.addEventListener('click', () => showSearchStep(1));
 
     // Payment methods
-    $$('.payment-method').forEach(method => {
-      method.addEventListener('click', () => {
-        $$('.payment-method').forEach(m => m.classList.remove('selected'));
-        method.classList.add('selected');
-        selectedPaymentMethod = method.dataset.method;
+    // Payment method tabs in search modal
+    document.querySelectorAll('#search-step-2 .tab-bar__item').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('#search-step-2 .tab-bar__item').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        selectedPaymentMethod = tab.dataset.method || 'momo';
       });
     });
 
@@ -221,7 +305,7 @@ const App = (() => {
         const city = e.target.value;
         if (CITIES_AND_QUARTERS[city]) {
           const center = CITIES_AND_QUARTERS[city].center;
-          Geolocation.setManualPosition(center.lat, center.lng);
+          Geolocation.setPosition(center.lat, center.lng);
           setupMapWithPosition(center);
           showToast(`📍 Position changée : ${city}`, 'success');
         }
@@ -235,7 +319,7 @@ const App = (() => {
     // Recenter button
     const btnRecenter = $('#btn-recenter');
     if (btnRecenter) btnRecenter.addEventListener('click', () => {
-      PharmMap.recenterOnUser();
+      recenterOnUser();
     });
 
     // Fullscreen button
@@ -260,6 +344,20 @@ const App = (() => {
           updatePharmacies();
         }
       });
+    });
+
+    // Garde button
+    const btnGarde = document.getElementById('btn-garde');
+    if (btnGarde) btnGarde.addEventListener('click', () => {
+      const pos = Geolocation.getPosition();
+      if (!pos) return;
+      const gardePharms = pharmaciesInRadius.filter(p => p.isOnDuty);
+      if (gardePharms.length === 0) {
+        showToast('Aucune pharmacie de garde dans ce rayon.', 'info');
+        return;
+      }
+      renderPharmacyList(gardePharms);
+      showToast('Pharmacies de garde: ' + gardePharms.length, 'info');
     });
 
     // Bottom sheet drag
@@ -307,7 +405,7 @@ const App = (() => {
     }
 
     try {
-      const pos = await Geolocation.requestPosition();
+      const pos = await Geolocation.getCurrentPosition();
       hideLocationModal();
       
       // Force Landscape & Desktop Layout
@@ -328,23 +426,23 @@ const App = (() => {
         viewport.setAttribute('content', 'width=1024, user-scalable=no, viewport-fit=cover');
       }
       setTimeout(() => {
-        if (PharmMap && PharmMap.map) PharmMap.map.invalidateSize();
+        if (leafletMap) leafletMap.invalidateSize();
       }, 500);
 
       setupMapWithPosition(pos);
-      showToast(`📍 Position détectée : ${Geolocation.getCity()}`, 'success');
+      showToast(`📍 Position détectée : ${'Position détectée'}`, 'success');
       
       // Start watching for position updates
-      Geolocation.startWatching((newPos) => {
-        PharmMap.setUserMarker(newPos.lat, newPos.lng);
+      Geolocation.watchPosition((newPos) => {
+        setUserMarker(newPos.lat, newPos.lng);
         updatePharmacies();
       });
     } catch (error) {
       console.error('GPS error:', error);
       // Fallback to last saved city or default
-      const savedCity = Geolocation.loadSavedCity();
+      const savedCity = 'Douala';
       const cityData = CITIES_AND_QUARTERS[savedCity] || CITIES_AND_QUARTERS['Douala'];
-      Geolocation.setManualPosition(cityData.center.lat, cityData.center.lng);
+      Geolocation.setPosition(cityData.center.lat, cityData.center.lng);
       hideLocationModal();
       setupMapWithPosition(cityData.center);
       showToast(`⚠️ GPS indisponible — Position par défaut : ${savedCity}`, 'info');
@@ -358,28 +456,13 @@ const App = (() => {
 
   // ── Map Setup ──────────────────────────────────────────
   function setupMapWithPosition(pos) {
-    const app = $('#app');
-    if (app) app.classList.add('active');
-
     // Initialize map
-    PharmMap.initMap('map', pos, 13);
-    PharmMap.setUserMarker(pos.lat, pos.lng);
-    PharmMap.drawRadiusCircle(pos, currentRadius);
-
-    // Update city badge
-    const city = Geolocation.getCity();
-    const cityDisplay = $('#city-name-display');
-    if (cityDisplay) cityDisplay.textContent = city;
-
-    // Update settings city dropdown
-    const settingsCity = $('#settings-city');
-    if (settingsCity) settingsCity.value = city;
+    initLeafletMap('client-map', pos, 13);
+    setUserMarker(pos.lat, pos.lng);
+    drawRadiusCircle(pos, currentRadius);
 
     // Update pharmacies
     updatePharmacies();
-
-    // Add to navigation
-    pushNavigation('map');
   }
 
   // ── Pharmacy Data ──────────────────────────────────────
@@ -423,7 +506,7 @@ const App = (() => {
     // Add distance to each
     allPharmacies = allPharmacies.map(p => {
       const pCopy = Object.assign({}, p);
-      pCopy.distance = parseFloat(Geolocation.distanceTo(p.lat, p.lng).toFixed(1));
+      pCopy.distance = parseFloat(Geolocation.haversine(pos.lat, pos.lng, p.lat, p.lng).toFixed(1));
       return pCopy;
     });
 
@@ -452,16 +535,16 @@ const App = (() => {
     });
 
     // Update map markers
-    PharmMap.addPharmacyMarkers(displayPharmacies, (p) => openDetail(p));
-    PharmMap.drawRadiusCircle(pos, currentRadius);
+    addPharmacyMarkers(displayPharmacies, (p) => openDetail(p));
+    drawRadiusCircle(pos, currentRadius);
 
     // Update stats
     const openCount = displayPharmacies.filter(p => p.isOpen).length;
     const guardCount = displayPharmacies.filter(p => p.isOnDuty).length;
     const openCountEl = $('#open-count');
     const guardCountEl = $('#guard-count');
-    if (openCountEl) openCountEl.textContent = window.I18N ? window.I18N.t('map.open_count', { n: openCount }) : `${openCount} pharmacie${openCount > 1 ? 's' : ''} ouverte${openCount > 1 ? 's' : ''}`;
-    if (guardCountEl) guardCountEl.textContent = window.I18N ? window.I18N.t('map.guard_count', { n: guardCount }) : `${guardCount} de garde`;
+    if (openCountEl) openCountEl.textContent = I18n ? I18n.t('map.open_count', { n: openCount }) : `${openCount} pharmacie${openCount > 1 ? 's' : ''} ouverte${openCount > 1 ? 's' : ''}`;
+    if (guardCountEl) guardCountEl.textContent = I18n ? I18n.t('map.guard_count', { n: guardCount }) : `${guardCount} de garde`;
 
     // Render pharmacy list
     if (activeRequestIds.length === 0) {
@@ -477,8 +560,8 @@ const App = (() => {
     if (pharmacies.length === 0) {
       list.innerHTML = `
         <div class="empty-state">
-          <div class="empty-state-icon">🔍</div>
-          <div class="empty-state-text">${window.I18N ? window.I18N.t('map.empty', { r: currentRadius }) : `Aucune pharmacie trouvée dans un rayon de ${currentRadius} km. Essayez d'élargir le rayon de recherche.`}</div>
+          <div class="empty-state__icon">🔍</div>
+          <div class="empty-state__desc">${I18n ? I18n.t('map.empty', { r: currentRadius }) : `Aucune pharmacie trouvée dans un rayon de ${currentRadius} km. Essayez d'élargir le rayon de recherche.`}</div>
         </div>
       `;
       return;
@@ -487,17 +570,17 @@ const App = (() => {
     list.innerHTML = pharmacies.map(p => {
       let statusBadge;
       if (p.isOnDuty) {
-        statusBadge = `<span class="badge badge-guard">🌙 ${window.I18N ? window.I18N.t('pharmacy.on_duty') : 'De garde'}</span>`;
+        statusBadge = `<span class="badge badge--amber">🌙 ${I18n ? I18n.t('pharmacy.on_duty') : 'De garde'}</span>`;
       } else if (p.isOpen) {
-        statusBadge = `<span class="badge badge-open">${window.I18N ? window.I18N.t('pharmacy.open') : 'Ouvert'}</span>`;
+        statusBadge = `<span class="badge badge--emerald">${I18n ? I18n.t('pharmacy.open') : 'Ouvert'}</span>`;
       } else {
-        statusBadge = `<span class="badge badge-closed">${window.I18N ? window.I18N.t('pharmacy.closed') : 'Fermé'}</span>`;
+        statusBadge = `<span class="badge badge--red">${I18n ? I18n.t('pharmacy.closed') : 'Fermé'}</span>`;
       }
 
       return `
         <div class="pharmacy-card ${p.isOnDuty ? 'on-duty' : ''}" onclick="App.openDetail(App.findPharmacy('${p.id}'))">
-          <div class="card-header">
-            <div class="card-info">
+          <div class="pharmacy-card" style="cursor:pointer">
+            <div >
               <div class="card-name">${p.name}</div>
               <div class="card-address">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
@@ -515,13 +598,13 @@ const App = (() => {
           </div>
           <div class="card-actions">
             <button class="btn btn-call" onclick="event.stopPropagation(); App.callPharmacy('${p.phone}')">
-              📞 ${window.I18N ? window.I18N.t('detail.call') : 'Appeler'}
+              📞 ${I18n ? I18n.t('detail.call') : 'Appeler'}
             </button>
             <button class="btn btn-whatsapp" onclick="event.stopPropagation(); App.openWhatsApp('${p.whatsapp}')">
               💬 WhatsApp
             </button>
             <button class="btn btn-route" onclick="event.stopPropagation(); App.getRoute(${p.lat}, ${p.lng})">
-              🗺️ ${window.I18N ? window.I18N.t('detail.route') : 'Y aller'}
+              🗺️ ${I18n ? I18n.t('detail.route') : 'Y aller'}
             </button>
           </div>
         </div>
@@ -531,36 +614,18 @@ const App = (() => {
 
   // ── Search Modal ───────────────────────────────────────
   function openSearchModal() {
-    const modal = $('#search-modal');
-    if (modal) {
-      modal.classList.add('active');
-      pushNavigation('search');
-      
-      // Update search info
-      const openPharmacies = pharmaciesInRadius.filter(p => p.isOpen || p.isOnDuty);
-      const countEl = $('#search-pharmacy-count');
-      const radiusEl = $('#search-radius-display');
-      if (countEl) countEl.textContent = openPharmacies.length;
-      if (radiusEl) radiusEl.textContent = `${currentRadius} km`;
-
-      // Update cost display
-      const cost = Payment.getSearchCost();
-      const costEl = $('.search-cost');
-      if (costEl) costEl.textContent = cost === 0 ? 'GRATUIT (session active)' : `${cost} FCFA`;
-
-      // Focus input
-      setTimeout(() => {
-        const input = $('#medicine-input');
-        if (input) input.focus();
-      }, 300);
-    }
+    const modal = document.getElementById('search-modal');
+    if (modal) modal.classList.add('active');
+    showSearchStep(1);
+    selectedMedicines = [];
+    renderMedicineTags();
+  
   }
 
   function closeSearchModal() {
-    const modal = $('#search-modal');
+    const modal = document.getElementById('search-modal');
     if (modal) modal.classList.remove('active');
-    // Reset to step 1
-    showSearchStep(1);
+  
   }
 
   function showSearchStep(step) {
@@ -689,11 +754,11 @@ const App = (() => {
     if (autocompleteList) autocompleteList.classList.remove('visible');
 
     // Enable proceed button
-    const btn = $('#btn-proceed-payment');
+    const btn = $('#proceed-search-btn');
     if (btn) btn.disabled = selectedMedicines.length === 0;
 
     // Show search info
-    const info = $('#search-info');
+    const info = $('#search-cost');
     if (info) info.classList.add('visible');
   }
 
@@ -701,17 +766,17 @@ const App = (() => {
     selectedMedicines.splice(index, 1);
     renderMedicineTags();
     
-    const btn = $('#btn-proceed-payment');
+    const btn = $('#proceed-search-btn');
     if (btn) btn.disabled = selectedMedicines.length === 0;
 
     if (selectedMedicines.length === 0) {
-      const info = $('#search-info');
+      const info = $('#search-cost');
       if (info) info.classList.remove('visible');
     }
   }
 
   function renderMedicineTags() {
-    const container = $('#medicines-tags-container');
+    const container = document.getElementById('medicine-tags');
     if (!container) return;
 
     container.innerHTML = selectedMedicines.map((med, i) => `
@@ -918,7 +983,7 @@ const App = (() => {
       activeRequestIds = storedIds;
 
       // Close modal, show waiting in bottom sheet
-      const modal = $('#search-modal');
+      const modal = document.getElementById('search-modal');
       if (modal) modal.classList.remove('active');
       
       const mainActions = $('#main-actions');
@@ -1095,8 +1160,8 @@ const App = (() => {
       
       return `
         <div class="pharmacy-card" data-pharmacy-id="${resp.pharmacy_id}">
-          <div class="card-header" style="margin-bottom: 12px;">
-            <div class="card-info">
+          <div class="pharmacy-card" style="cursor:pointer" style="margin-bottom: 12px;">
+            <div >
               <div class="card-name">${escapeHtml(resp.pharmacy_name || 'Pharmacie')}</div>
               <div style="font-size: 11px; color: var(--green-400); margin: 2px 0 4px; font-weight: 600;">ID Session : ${sessionId}</div>
               <div class="card-address" style="font-size: 13px; color: var(--dark-300);">
@@ -1237,10 +1302,10 @@ const App = (() => {
     renderMedicineTags();
     showSearchStep(1);
     
-    const btn = $('#btn-proceed-payment');
+    const btn = $('#proceed-search-btn');
     if (btn) btn.disabled = true;
     
-    const info = $('#search-info');
+    const info = $('#search-cost');
     if (info) info.classList.remove('visible');
     
     const input = $('#medicine-input');
@@ -1418,11 +1483,11 @@ const App = (() => {
 
     if (badgeEl) {
       if (pharmacy.isOnDuty) {
-        badgeEl.innerHTML = '<span class="badge badge-guard">🌙 De garde</span>';
+        badgeEl.innerHTML = '<span class="badge badge--amber">🌙 De garde</span>';
       } else if (pharmacy.isOpen) {
-        badgeEl.innerHTML = '<span class="badge badge-open">Ouvert</span>';
+        badgeEl.innerHTML = '<span class="badge badge--emerald">Ouvert</span>';
       } else {
-        badgeEl.innerHTML = '<span class="badge badge-closed">Fermé</span>';
+        badgeEl.innerHTML = '<span class="badge badge--red">Fermé</span>';
       }
     }
 
@@ -1516,7 +1581,7 @@ const App = (() => {
     closeInsuranceModal();
     
     // Recenter map
-    PharmMap.recenterOnUser();
+    recenterOnUser();
     PharmMap.clearRoute();
     
     // Expand bottom sheet
@@ -1542,14 +1607,14 @@ const App = (() => {
         break;
       case 'map':
       default:
-        PharmMap.recenterOnUser();
+        recenterOnUser();
         break;
     }
   }
 
   // ── Bottom Sheet ───────────────────────────────────────
   function setupBottomSheet() {
-    const sheet = $('#bottom-sheet');
+    const sheet = document.getElementById('bottom-sheet');
     const handle = $('#sheet-handle');
     if (!sheet || !handle) return;
 
@@ -1604,14 +1669,20 @@ const App = (() => {
   }
 
   // ── Toast ──────────────────────────────────────────────
-  function showToast(message, type = 'success') {
-    const toast = $('#toast');
-    const toastMessage = $('#toast-message');
-    if (toast && toastMessage) {
-      toast.className = `toast toast-${type} show`;
-      toastMessage.textContent = message;
-      setTimeout(() => toast.classList.remove('show'), 3500);
-    }
+  function showToast(message, type) {
+    type = type || 'success';
+    const toast = document.getElementById('toast');
+    const msgEl = document.getElementById('toast-message');
+    if (!toast || !msgEl) return;
+    
+    // Remove old classes
+    toast.className = 'toast toast--' + type;
+    msgEl.textContent = message;
+    toast.classList.add('show');
+    
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => toast.classList.remove('show'), 3500);
+  
   }
 
   // ── Utility ────────────────────────────────────────────
@@ -1671,7 +1742,7 @@ const App = (() => {
           }
         });
         renderMedicineTags();
-        const btn = $('#btn-proceed-payment');
+        const btn = $('#proceed-search-btn');
         if (btn) btn.disabled = selectedMedicines.length === 0;
         showToast(`✅ ${foundMeds.length} médicament(s) trouvé(s) !`, 'success');
       } else {
@@ -1704,7 +1775,7 @@ const App = (() => {
   };
 
   // ── Start ──────────────────────────────────────────────
-  document.addEventListener('DOMContentLoaded', init);
+  document.addEventListener('DOMContentLoaded', () => { I18n.init(); init(); });
 
   return publicApi;
 })();
