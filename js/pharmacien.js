@@ -353,6 +353,7 @@
     startExpirationChecker();
     loadDelegateInteractions();
     initSettings();
+    if (typeof updateStatusDisplay === 'function') updateStatusDisplay();
   }
 
   function handleLogout() {
