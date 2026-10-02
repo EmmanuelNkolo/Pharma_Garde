@@ -67,8 +67,8 @@ const App = (() => {
       zoomControl: false,
       attributionControl: true
     });
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      attribution: '© CartoDB © OSM',
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
       maxZoom: 19
     }).addTo(leafletMap);
 
@@ -408,23 +408,6 @@ const App = (() => {
       const pos = await Geolocation.getCurrentPosition();
       hideLocationModal();
       
-      // Force Landscape & Desktop Layout
-      try {
-        if (document.documentElement.requestFullscreen) {
-          await document.documentElement.requestFullscreen();
-        }
-        if (screen.orientation && screen.orientation.lock) {
-          await screen.orientation.lock('landscape');
-        }
-      } catch(e) { 
-        console.log('Fullscreen/Orientation lock failed', e); 
-      }
-      
-      // Force viewport to trigger tablet/desktop layout even in portrait
-      const viewport = document.querySelector('meta[name="viewport"]');
-      if (viewport) {
-        viewport.setAttribute('content', 'width=1024, user-scalable=no, viewport-fit=cover');
-      }
       setTimeout(() => {
         if (leafletMap) leafletMap.invalidateSize();
       }, 500);

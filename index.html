@@ -116,9 +116,20 @@
     <header id="app-header" class="app-header hidden">
       <div class="app-header__logo">
         <div class="cross"></div>
-        <span>Pharma-Garde</span>
+        <div style="display:flex; flex-direction:column; line-height:1.2;">
+          <span>Pharma-Garde</span>
+          <span style="color:var(--amber-400); font-size:10px; text-transform:uppercase; letter-spacing:0.5px;" data-i18n="btn_client">Espace Client</span>
+        </div>
       </div>
       <div class="app-header__actions">
+        <!-- Radius Selector (moved here) -->
+        <div class="radius-pills" style="margin-right: 8px; transform: scale(0.9); transform-origin: right center; overflow-x: auto; max-width: 200px;">
+          <button class="radius-pill" data-radius="2">2 km</button>
+          <button class="radius-pill active" data-radius="5">5 km</button>
+          <button class="radius-pill" data-radius="10">10 km</button>
+          <button class="radius-pill" data-radius="15">15 km</button>
+          <button class="radius-pill" data-radius="20">20 km</button>
+        </div>
         <div class="lang-switch">
           <button class="lang-switch__btn active" data-lang="fr">FR</button>
           <button class="lang-switch__btn" data-lang="en">EN</button>
@@ -134,6 +145,9 @@
          MAP CONTROLS
          ════════════════════════════════════════════════════════ -->
     <div id="map-controls" class="map-controls hidden">
+      <button class="map-control-btn" id="btn-fullscreen" title="Plein Écran">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+      </button>
       <button class="map-control-btn" id="btn-zoom-in" title="Zoom +">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       </button>
@@ -157,24 +171,19 @@
       <div class="bottom-sheet__handle"></div>
       <div class="bottom-sheet__content">
 
-        <!-- Radius Selector -->
-        <div style="margin-bottom: 16px;">
-          <div class="radius-pills">
-            <button class="radius-pill" data-radius="2">2 km</button>
-            <button class="radius-pill active" data-radius="5">5 km</button>
-            <button class="radius-pill" data-radius="10">10 km</button>
-            <button class="radius-pill" data-radius="15">15 km</button>
-            <button class="radius-pill" data-radius="20">20 km</button>
-          </div>
-        </div>
-
         <!-- Action Buttons -->
         <div id="main-actions" style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;">
-          <button id="search-btn" class="btn btn--primary btn--sm" style="flex: 1; min-width: 130px;">
+          <button id="search-btn" class="btn btn--primary btn--sm" style="flex: 1; min-width: 120px; padding: 12px 8px;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-            <span data-i18n="search_medicine">Rechercher</span>
+            <span data-i18n="btn_medicines">Médicaments</span>
           </button>
-          <button id="btn-garde" class="btn btn--sm" style="flex: 1; min-width: 100px; background: rgba(245,158,11,0.12); color: var(--amber-400); border: 1px solid rgba(245,158,11,0.25);">
+          
+          <button id="btn-ordonnance" class="btn btn--secondary btn--sm" style="flex: 1; min-width: 120px; padding: 12px 8px; border-color: var(--emerald-500); color: var(--emerald-400);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            <span data-i18n="btn_ordonnance">Ordonnance</span>
+          </button>
+
+          <button id="btn-garde" class="btn btn--sm" style="flex: 1; min-width: 100px; padding: 12px 8px; background: rgba(245,158,11,0.12); color: var(--amber-400); border: 1px solid rgba(245,158,11,0.25);">
             <span>🌙</span>
             <span data-i18n="guard_pharmacies">Garde</span>
           </button>

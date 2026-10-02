@@ -49,6 +49,9 @@ const I18n = (() => {
       radius_label: 'Rayon',
 
       // Client Space
+      btn_medicines: 'Médicaments',
+      btn_ordonnance: 'Ordonnance',
+      btn_guard_short: 'Garde',
       search_medicine: 'Rechercher un médicament',
       search_placeholder: 'Nom du médicament...',
       guard_pharmacies: 'Pharmacies de garde',
@@ -219,6 +222,9 @@ const I18n = (() => {
       city_label: 'City',
       radius_label: 'Radius',
 
+      btn_medicines: 'Medicines',
+      btn_ordonnance: 'Prescription',
+      btn_guard_short: 'On duty',
       search_medicine: 'Search for a medicine',
       search_placeholder: 'Medicine name...',
       guard_pharmacies: 'On-duty pharmacies',
