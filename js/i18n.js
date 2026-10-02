@@ -1,450 +1,393 @@
 /**
- * Pharma-Garde — Internationalization Module (i18n)
- * Supports French (default) and English
+ * Pharma-Garde — Internationalization (i18n) v2.0
+ * Complete bilingual support: Français / English
  */
-
-const I18N = (() => {
-  const STORAGE_KEY = 'pharmagarde_lang';
-  let currentLang = 'fr';
+const I18n = (() => {
+  let currentLang = localStorage.getItem('pharmagarde_lang') || 'fr';
 
   const translations = {
     fr: {
-      // Navigation
-      'nav.home': 'Accueil',
-      'nav.back': 'Retour',
-      'nav.settings': 'Paramètres',
-      
-      // Splash
-      'splash.title': 'Pharma-Garde',
-      'splash.subtitle': 'Trouvez vos médicaments en un clic',
-      
-      // Location
-      'location.title': 'Bienvenue sur Pharma-Garde',
-      'location.subtitle': 'Pour trouver les pharmacies près de vous, nous avons besoin de votre position.',
-      'location.btn': 'Détecter ma position',
-      'location.manual': 'Ou choisissez votre ville :',
-      
-      // Map
-      'map.open_count': '{n} pharmacie(s) ouverte(s)',
-      'map.guard_count': '{n} de garde',
-      'map.search': 'Rechercher',
-      'map.meds': 'MÉDICAMENTS',
-      'map.demo': 'DÉMO',
-      'map.camera': 'ORDONNANCE',
-      'map.empty': 'Aucune pharmacie trouvée dans un rayon de {r} km. Essayez d\'élargir le rayon de recherche.',
-      
-      // Search
-      'search.express': 'Recherche Express',
-      'search.express_subtitle': 'Entrez le nom du médicament recherché. Nous contacterons les pharmacies ouvertes autour de vous.',
-      'search.add_placeholder': 'Ajouter un médicament...',
-      'search.open_pharmacies': 'Pharmacies ouvertes dans votre zone',
-      'search.radius': 'Rayon de recherche',
-      'search.cost_label': 'Coût de la recherche',
-      'search.send_request': 'Envoyer la demande',
-      'search.title': 'Rechercher un médicament',
-      'search.placeholder': 'Nom du médicament...',
-      'search.add': 'Ajouter',
-      'search.proceed': 'Continuer',
-      'search.cost': 'Coût : {cost} FCFA',
-      'search.cost_free': 'GRATUIT (session active)',
-      'search.info': '{n} pharmacie(s) dans un rayon de {r} km',
-      'search.sending': 'Envoi aux pharmacies...',
-      'search.searching': 'Recherche de « {med} » dans {n} pharmacies',
-      'search.results': 'Résultats',
-      'search.results_subtitle': 'pharmacie(s) ont répondu',
-      'search.new': 'Nouvelle recherche',
-      'search.reserve': 'Réserver',
-      'search.reserved': 'Réservé',
-      'search.confirm_title': 'Confirmation de réservation',
-      'search.confirm_send': 'Confirmer les réservations',
-      
-      // Insurance
-      'insurance.title': 'Avez-vous une assurance santé ?',
-      'insurance.yes': 'Oui',
-      'insurance.no': 'Non',
-      'insurance.name': 'Nom de votre assurance',
-      'insurance.confirm': 'Confirmer',
-      
-      // Medicine status
-      'status.in_stock': 'En stock',
-      'status.in_stock_insured': 'En stock assuré',
-      'status.in_stock_not_insured': 'En stock non assuré',
-      'status.out_of_stock': 'Rupture',
-      'status.ignored': 'Ignorée',
-      
-      // Payment
-      'payment.title': 'Paiement Mobile Money',
-      'payment.amount': 'Montant : {amount} FCFA',
-      'payment.phone': 'Numéro de téléphone',
-      'payment.confirm': 'Confirmer le paiement',
-      'payment.processing': 'Traitement en cours...',
-      
-      // Detail
-      'detail.call': 'Appeler',
-      'detail.whatsapp': 'WhatsApp',
-      'detail.route': 'Y aller',
-      'detail.hours': 'Horaires',
-      'detail.rating': 'Note',
-      'detail.distance': 'Distance',
-      
-      // Pharmacy status
-      'pharmacy.open': 'Ouvert',
-      'pharmacy.closed': 'Fermé',
-      'pharmacy.on_duty': 'De garde',
-      
-      // Settings
-      'settings.title': 'Paramètres',
-      'settings.location': 'Localisation',
-      'settings.radius': 'Rayon par défaut',
-      
-      // History
-      'history.req_meds': 'Médicaments demandés',
-      'history.req_date': 'Date demande',
-      'history.resp_date': 'Date réponse',
-      'history.status': 'Statut',
-      'history.reservation': 'Réservation',
-      'settings.radius_desc': 'Distance maximale de recherche',
-      'settings.city': 'Ville',
-      'settings.city_desc': 'Changer de ville',
-      'settings.display': 'Affichage',
-      'settings.show_closed': 'Pharmacies fermées',
-      'settings.show_closed_desc': 'Afficher les pharmacies fermées',
-      'settings.notifications': 'Notifications',
-      'settings.notifications_desc': 'Alertes pharmacies de garde',
-      'settings.language': 'Langue / Language',
-      'settings.about': 'À propos',
-      'settings.about_desc': 'Trouvez une pharmacie de garde et vos médicaments en un clic, partout au Cameroun.',
-      'settings.pharmacist': 'Espace Pharmacien →',
-      
-      // Pharmacist
-      'pharm.title': 'Espace Pharmacie',
-      'pharm.subtitle': 'Gérez vos demandes patients en temps réel',
-      'pharm.login': 'Connexion',
-      'pharm.register': 'Inscription',
-      'pharm.reset': 'Mot de passe oublié',
-      'pharm.login_btn': 'Se connecter',
-      'pharm.register_btn': 'Inscrire ma pharmacie',
-      'pharm.reset_btn': 'Réinitialiser le mot de passe',
-      'pharm.email': 'Email',
-      'pharm.password': 'Mot de passe',
-      'pharm.name': 'Nom de la pharmacie',
-      'pharm.city': 'Ville',
-      'pharm.quarter': 'Quartier',
-      'pharm.phone': 'Numéro de téléphone',
-      'pharm.whatsapp': 'WhatsApp (optionnel)',
-      'pharm.hours': "Horaires d'ouverture",
-      'pharm.services': 'Services spéciaux',
-      'pharm.service_guard': 'Garde de nuit (24h)',
-      'pharm.service_delivery': 'Livraison à domicile',
-      'pharm.service_insurance': 'Accepte les assurances',
-      'pharm.service_advice': 'Conseil pharmaceutique',
-      'pharm.forgot': 'Mot de passe oublié ?',
-      'pharm.logout': 'Déconnexion',
-      'pharm.delete_account': 'Supprimer mon compte',
-      'pharm.delete_confirm': 'Cette action est irréversible. Toutes vos données seront définitivement supprimées.',
-      'pharm.gps_title': 'Position GPS de votre pharmacie',
-      'pharm.gps_desc': 'Activez le GPS pour fixer la position exacte de votre pharmacie sur la carte.',
-      'pharm.gps_btn': 'Détecter la position',
-      
-      // Dashboard
-      'dash.realtime': 'Tableau de bord en temps réel',
-      'dash.status_open': 'Statut : Ouvert',
-      'dash.status_guard': 'Statut : De garde 🌙',
-      'dash.status_closed': 'Statut : Fermé',
-      'dash.requests': 'Demandes',
-      'dash.responded': 'Répondues',
-      'dash.pending': 'En attente',
-      'dash.reservations': 'Réservations',
-      'dash.tab_requests': 'Demandes',
-      'dash.tab_history': 'Historique',
-      'dash.tab_stats': 'Statistiques',
-      'dash.empty_requests': 'Aucune demande en cours. Les demandes de patients apparaîtront ici en temps réel.',
-      'dash.empty_history': 'Aucun historique. Vos réponses aux demandes s\'afficheront ici.',
-      'dash.empty_reservations': 'Aucune réservation active.',
-      'dash.filter_today': "Aujourd'hui",
-      'dash.filter_week': 'Semaine',
-      'dash.filter_month': 'Mois',
-      'dash.filter_year': 'Année',
-      'dash.download_pdf': 'Télécharger PDF',
-      'dash.send_response': 'Envoyer la réponse',
-      'dash.confirm_response': 'Confirmer et envoyer',
-      'dash.confirm_title': 'Récapitulatif de votre réponse',
-      'dash.time_remaining': 'Temps restant',
-      'dash.expired': 'Expiré',
-      'dash.top_meds': 'Top Médicaments demandés',
-      'dash.response_rate': 'Taux de réponse',
-      'dash.avg_time': 'Temps de réponse moyen',
-      'dash.total_requests': 'Total demandes',
-      'dash.total_responses': 'Total réponses',
-      'dash.ignored_count': 'Ignorées',
-      
-      // Reservation confirmation (patient side)
-      'reserve.title': 'Vos réservations',
-      'reserve.pharmacy': 'Pharmacie',
-      'reserve.medicines': 'Médicaments réservés',
-      'reserve.distance': 'Distance',
-      'reserve.call': 'Appeler',
-      'reserve.whatsapp': 'WhatsApp',
-      'reserve.go': 'Y aller',
-      'reserve.expires': 'Expire dans',
-      'reserve.close': 'Fermer',
+      // General
+      app_name: 'Pharma-Garde',
+      app_tagline: 'Votre santé, notre priorité',
+      loading: 'Chargement...',
+      close: 'Fermer',
+      cancel: 'Annuler',
+      confirm: 'Confirmer',
+      save: 'Enregistrer',
+      delete_btn: 'Supprimer',
+      send: 'Envoyer',
+      search: 'Rechercher',
+      back: 'Retour',
+      next: 'Suivant',
+      yes: 'Oui',
+      no: 'Non',
+      error: 'Erreur',
+      success: 'Succès',
+      required: 'Requis',
 
-      // Toast messages
-      'toast.gps_detected': '📍 Position détectée : {city}',
-      'toast.gps_fallback': '⚠️ GPS indisponible — Position par défaut : {city}',
-      'toast.login_success': '✅ Bienvenue, {name} !',
-      'toast.register_success': '✅ Pharmacie inscrite avec succès !',
-      'toast.response_sent': '✅ Réponse envoyée au patient',
-      'toast.reservation_received': '🔔 Nouvelle réservation !',
-      'toast.new_request': '🔔 Nouvelle demande de patient !',
-      'toast.logout': 'Déconnexion réussie',
-      'toast.account_deleted': '✅ Compte supprimé définitivement',
+      // Welcome
+      welcome_title: 'Bienvenue sur',
+      welcome_subtitle: 'Trouvez vos médicaments dans les pharmacies proches de vous',
+      btn_client: 'Espace Client',
+      btn_client_desc: 'Rechercher des médicaments',
+      btn_pharmacy: 'Espace Pharmacie',
+      btn_pharmacy_desc: 'Gérer votre officine',
+      btn_delegate: 'Espace Délégué Médical',
+      btn_delegate_desc: 'Promouvoir vos produits',
+
+      // Location
+      location_title: 'Votre Position',
+      location_desc: 'Pour trouver les pharmacies proches, nous avons besoin de votre position. Vos données restent privées.',
+      btn_detect: 'Détecter ma position',
+      detecting: 'Détection en cours...',
+      city_label: 'Ville',
+      radius_label: 'Rayon',
+
+      // Client Space
+      search_medicine: 'Rechercher un médicament',
+      search_placeholder: 'Nom du médicament...',
+      guard_pharmacies: 'Pharmacies de garde',
+      nearby_pharmacies: 'Pharmacies proches',
+      no_pharmacies: 'Aucune pharmacie trouvée dans ce rayon',
+      pharmacy_open: 'Ouverte',
+      pharmacy_guard: 'De garde',
+      pharmacy_closed: 'Fermée',
+      call: 'Appeler',
+      whatsapp: 'WhatsApp',
+      directions: 'Y aller',
+      reserve: 'Réserver',
+      reserved: 'Réservé',
+      reservation_code_label: 'Code de retrait',
+      reservation_code_hint: 'Présentez ce code à la pharmacie',
+      session_active: 'Session active',
+      session_remaining: 'restantes',
+      payment_title: 'Paiement',
+      payment_amount: 'Montant',
+      payment_phone: 'Numéro de téléphone',
+      payment_confirm: 'Confirmer le paiement',
+      payment_free: 'GRATUIT (session active)',
+      payment_insufficient: 'Solde insuffisant. Veuillez recharger votre compte.',
+      payment_processing: 'Traitement en cours...',
+      payment_success: 'Paiement confirmé !',
+      payment_failed: 'Le paiement a échoué.',
+      responses_waiting: 'En attente des réponses...',
+      pharmacies_notified: 'pharmacie(s) notifiée(s)',
+
+      // Pharmacy Space
+      pharm_login_title: 'Connexion Pharmacie',
+      pharm_register_title: 'Inscription Pharmacie',
+      pharm_name: 'Nom de la pharmacie',
+      pharm_address: 'Adresse',
+      pharm_city: 'Ville',
+      pharm_quarter: 'Quartier',
+      pharm_phone: 'Téléphone',
+      pharm_email: 'Email',
+      pharm_password: 'Mot de passe',
+      pharm_status_open: 'Ouverte',
+      pharm_status_guard: 'Garde',
+      pharm_status_closed: 'Fermée',
+      pharm_requests: 'Demandes',
+      pharm_requests_active: 'Demandes actives',
+      pharm_no_requests: 'Aucune demande en cours',
+      pharm_respond: 'Répondre',
+      pharm_history: 'Historique',
+      pharm_stats: 'Statistiques',
+      pharm_delegates: 'Délégués',
+      pharm_promos: 'Promotions',
+      pharm_settings: 'Paramètres',
+      pharm_logout: 'Déconnexion',
+      pharm_verify_code: 'Vérifier un code',
+      pharm_verify_code_desc: 'Entrez le code PG-XXXX du patient',
+      pharm_code_valid: 'Code vérifié ! Produit remis au patient.',
+      pharm_code_invalid: 'Code invalide ou déjà utilisé.',
+      pharm_stock_alert: 'Alerte rupture',
+      pharm_stock_alert_title: 'Alerte Rupture de Stock',
+      pharm_stock_alert_desc: 'Signalez une rupture aux délégués médicaux de votre zone.',
+      pharm_stock_product: 'Nom du produit en rupture',
+      pharm_stock_urgency: 'Urgence',
+      pharm_stock_urgency_normal: 'Normale',
+      pharm_stock_urgency_urgent: 'Urgente',
+      pharm_stock_urgency_critical: 'Critique',
+      pharm_stock_radius: 'Rayon de diffusion',
+      pharm_stock_message: 'Message complémentaire',
+      pharm_stock_send: "Envoyer l'alerte",
+      pharm_stock_sent: 'Alerte envoyée aux délégués !',
+
+      // Delegate Space
+      del_login_title: 'Connexion Délégué',
+      del_register_title: 'Inscription Délégué Médical',
+      del_lastname: 'Nom',
+      del_firstname: 'Prénom',
+      del_pro_card: 'N° Carte professionnelle',
+      del_cni: 'N° CNI',
+      del_labs: 'Laboratoires',
+      del_add_lab: 'Ajouter un laboratoire',
+      del_pharmacies: 'Pharmacies',
+      del_promotions: 'Promotions',
+      del_stats: 'Statistiques',
+      del_alerts: 'Alertes',
+      del_visits: 'Visites',
+      del_new_promo: 'Nouvelle Promotion',
+      del_promo_lab: 'Laboratoire',
+      del_promo_product: 'Nom du produit',
+      del_promo_type: 'Type de produit',
+      del_promo_desc: 'Description de la campagne',
+      del_promo_doc: 'Lien document',
+      del_broadcast_all: 'Diffuser à toutes les pharmacies',
+      del_choose_pharmacy: 'Choisir une pharmacie',
+      del_visit_request: 'Demander une visite',
+      del_visit_date: 'Date et heure proposées',
+      del_visit_purpose: 'Objet de la visite',
+      del_visit_history: 'Historique des visites',
+      del_promo_tracking: 'Suivi des promotions',
+      del_stock_alerts: 'Alertes Rupture de Stock',
+      del_stock_alerts_desc: 'Les pharmacies de votre zone signalent leurs ruptures ici.',
+      del_no_alerts: 'Aucune alerte dans votre zone.',
+      del_report: 'Rapport',
+      del_settings: 'Paramètres',
+      del_logout: 'Déconnexion',
+
+      // Stats
+      stat_sent: 'Envoyées',
+      stat_read: 'Lues',
+      stat_interested: 'Intéressées',
+      stat_stocked: 'En stock',
+      stat_rate: 'Taux',
+      stat_total_promos: 'Total promotions',
+      stat_total_visits: 'Total visites',
+      stat_pharmacies_reached: 'Pharmacies atteintes',
+      stat_response_rate: 'Taux de réponse',
+
+      // Visit Status
+      visit_pending: 'En attente',
+      visit_confirmed: 'Confirmée',
+      visit_rescheduled: 'Reportée',
+      visit_cancelled: 'Refusée',
+      visit_completed: 'Réalisée',
+
+      // Time
+      time_ago_min: 'Il y a {n} min',
+      time_ago_hour: 'Il y a {n}h',
+      time_ago_day: 'Il y a {n} jour(s)',
+      time_now: "À l'instant",
+
+      // Delete Account
+      delete_title: 'Supprimer mon compte',
+      delete_warning: 'Cette action est irréversible. Toutes vos données seront supprimées.',
     },
-    en: {
-      // Navigation
-      'nav.home': 'Home',
-      'nav.back': 'Back',
-      'nav.settings': 'Settings',
-      
-      // Splash
-      'splash.title': 'Pharma-Garde',
-      'splash.subtitle': 'Find your medicines in one click',
-      
-      // Location
-      'location.title': 'Welcome to Pharma-Garde',
-      'location.subtitle': 'To find pharmacies near you, we need your location.',
-      'location.btn': 'Detect my position',
-      'location.manual': 'Or choose your city:',
-      
-      // Map
-      'map.open_count': '{n} open pharmacy(ies)',
-      'map.guard_count': '{n} on duty',
-      'map.search': 'Search',
-      'map.meds': 'MEDICINES',
-      'map.demo': 'DEMO',
-      'map.camera': 'PRESCRIPTION',
-      'map.empty': 'No pharmacy found within a {r} km radius. Try to expand the search radius.',
-      
-      // Search
-      'search.express': 'Express Search',
-      'search.express_subtitle': 'Enter the medicine name. We will contact open pharmacies around you.',
-      'search.add_placeholder': 'Add a medicine...',
-      'search.open_pharmacies': 'Open pharmacies in your area',
-      'search.radius': 'Search radius',
-      'search.cost_label': 'Search cost',
-      'search.send_request': 'Send request',
-      'search.title': 'Search for a medicine',
-      'search.placeholder': 'Medicine name...',
-      'search.add': 'Add',
-      'search.proceed': 'Continue',
-      'search.cost': 'Cost: {cost} FCFA',
-      'search.cost_free': 'FREE (active session)',
-      'search.info': '{n} pharmacy(ies) within {r} km',
-      'search.sending': 'Sending to pharmacies...',
-      'search.searching': 'Searching "{med}" in {n} pharmacies',
-      'search.results': 'Results',
-      'search.results_subtitle': 'pharmacy(ies) responded',
-      'search.new': 'New search',
-      'search.reserve': 'Reserve',
-      'search.reserved': 'Reserved',
-      'search.confirm_title': 'Reservation Confirmation',
-      'search.confirm_send': 'Confirm reservations',
-      
-      // Insurance
-      'insurance.title': 'Do you have health insurance?',
-      'insurance.yes': 'Yes',
-      'insurance.no': 'No',
-      'insurance.name': 'Insurance name',
-      'insurance.confirm': 'Confirm',
-      
-      // Medicine status
-      'status.in_stock': 'In stock',
-      'status.in_stock_insured': 'In stock (insured)',
-      'status.in_stock_not_insured': 'In stock (not insured)',
-      'status.out_of_stock': 'Out of stock',
-      'status.ignored': 'Ignored',
-      
-      // Payment
-      'payment.title': 'Mobile Money Payment',
-      'payment.amount': 'Amount: {amount} FCFA',
-      'payment.phone': 'Phone number',
-      'payment.confirm': 'Confirm payment',
-      'payment.processing': 'Processing...',
-      
-      // Detail
-      'detail.call': 'Call',
-      'detail.whatsapp': 'WhatsApp',
-      'detail.route': 'Go there',
-      'detail.hours': 'Hours',
-      'detail.rating': 'Rating',
-      'detail.distance': 'Distance',
-      
-      // Pharmacy status
-      'pharmacy.open': 'Open',
-      'pharmacy.closed': 'Closed',
-      'pharmacy.on_duty': 'On duty',
-      
-      // Settings
-      'settings.title': 'Settings',
-      'settings.location': 'Location',
-      'settings.radius': 'Default radius',
-      
-      // History
-      'history.req_meds': 'Requested Medicines',
-      'history.req_date': 'Request Date',
-      'history.resp_date': 'Response Date',
-      'history.status': 'Status',
-      'history.reservation': 'Reservation',
-      'settings.radius_desc': 'Maximum search distance',
-      'settings.city': 'City',
-      'settings.city_desc': 'Change city',
-      'settings.display': 'Display',
-      'settings.show_closed': 'Closed pharmacies',
-      'settings.show_closed_desc': 'Show closed pharmacies',
-      'settings.notifications': 'Notifications',
-      'settings.notifications_desc': 'On-duty pharmacy alerts',
-      'settings.language': 'Language / Langue',
-      'settings.about': 'About',
-      'settings.about_desc': 'Find an on-duty pharmacy and your medicines in one click, anywhere in Cameroon.',
-      'settings.pharmacist': 'Pharmacist Space →',
-      
-      // Pharmacist
-      'pharm.title': 'Pharmacy Space',
-      'pharm.subtitle': 'Manage patient requests in real-time',
-      'pharm.login': 'Login',
-      'pharm.register': 'Register',
-      'pharm.reset': 'Forgot password',
-      'pharm.login_btn': 'Log in',
-      'pharm.register_btn': 'Register my pharmacy',
-      'pharm.reset_btn': 'Reset password',
-      'pharm.email': 'Email',
-      'pharm.password': 'Password',
-      'pharm.name': 'Pharmacy name',
-      'pharm.city': 'City',
-      'pharm.quarter': 'Area/Quarter',
-      'pharm.phone': 'Phone number',
-      'pharm.whatsapp': 'WhatsApp (optional)',
-      'pharm.hours': 'Opening hours',
-      'pharm.services': 'Special services',
-      'pharm.service_guard': 'Night duty (24h)',
-      'pharm.service_delivery': 'Home delivery',
-      'pharm.service_insurance': 'Accepts insurance',
-      'pharm.service_advice': 'Pharmaceutical advice',
-      'pharm.forgot': 'Forgot password?',
-      'pharm.logout': 'Log out',
-      'pharm.delete_account': 'Delete my account',
-      'pharm.delete_confirm': 'This action is irreversible. All your data will be permanently deleted.',
-      'pharm.gps_title': 'GPS Location of your pharmacy',
-      'pharm.gps_desc': 'Enable GPS to fix the exact position of your pharmacy on the map.',
-      'pharm.gps_btn': 'Detect position',
-      
-      // Dashboard
-      'dash.realtime': 'Real-time dashboard',
-      'dash.status_open': 'Status: Open',
-      'dash.status_guard': 'Status: On duty 🌙',
-      'dash.status_closed': 'Status: Closed',
-      'dash.requests': 'Requests',
-      'dash.responded': 'Responded',
-      'dash.pending': 'Pending',
-      'dash.reservations': 'Reservations',
-      'dash.tab_requests': 'Requests',
-      'dash.tab_history': 'History',
-      'dash.tab_stats': 'Statistics',
-      'dash.empty_requests': 'No current requests. Patient requests will appear here in real-time.',
-      'dash.empty_history': 'No history. Your responses will appear here.',
-      'dash.empty_reservations': 'No active reservations.',
-      'dash.filter_today': 'Today',
-      'dash.filter_week': 'Week',
-      'dash.filter_month': 'Month',
-      'dash.filter_year': 'Year',
-      'dash.download_pdf': 'Download PDF',
-      'dash.send_response': 'Send response',
-      'dash.confirm_response': 'Confirm and send',
-      'dash.confirm_title': 'Response summary',
-      'dash.time_remaining': 'Time remaining',
-      'dash.expired': 'Expired',
-      'dash.top_meds': 'Top Requested Medicines',
-      'dash.response_rate': 'Response rate',
-      'dash.avg_time': 'Average response time',
-      'dash.total_requests': 'Total requests',
-      'dash.total_responses': 'Total responses',
-      'dash.ignored_count': 'Ignored',
-      
-      // Reservation confirmation (patient side)
-      'reserve.title': 'Your reservations',
-      'reserve.pharmacy': 'Pharmacy',
-      'reserve.medicines': 'Reserved medicines',
-      'reserve.distance': 'Distance',
-      'reserve.call': 'Call',
-      'reserve.whatsapp': 'WhatsApp',
-      'reserve.go': 'Go there',
-      'reserve.expires': 'Expires in',
-      'reserve.close': 'Close',
 
-      // Toast messages
-      'toast.gps_detected': '📍 Position detected: {city}',
-      'toast.gps_fallback': '⚠️ GPS unavailable — Default position: {city}',
-      'toast.login_success': '✅ Welcome, {name}!',
-      'toast.register_success': '✅ Pharmacy registered successfully!',
-      'toast.response_sent': '✅ Response sent to patient',
-      'toast.reservation_received': '🔔 New reservation!',
-      'toast.new_request': '🔔 New patient request!',
-      'toast.logout': 'Logged out successfully',
-      'toast.account_deleted': '✅ Account permanently deleted',
+    en: {
+      app_name: 'Pharma-Garde',
+      app_tagline: 'Your health, our priority',
+      loading: 'Loading...',
+      close: 'Close',
+      cancel: 'Cancel',
+      confirm: 'Confirm',
+      save: 'Save',
+      delete_btn: 'Delete',
+      send: 'Send',
+      search: 'Search',
+      back: 'Back',
+      next: 'Next',
+      yes: 'Yes',
+      no: 'No',
+      error: 'Error',
+      success: 'Success',
+      required: 'Required',
+
+      welcome_title: 'Welcome to',
+      welcome_subtitle: 'Find your medicines at nearby pharmacies',
+      btn_client: 'Client Area',
+      btn_client_desc: 'Search for medicines',
+      btn_pharmacy: 'Pharmacy Area',
+      btn_pharmacy_desc: 'Manage your pharmacy',
+      btn_delegate: 'Medical Delegate Area',
+      btn_delegate_desc: 'Promote your products',
+
+      location_title: 'Your Location',
+      location_desc: 'To find nearby pharmacies, we need your location. Your data stays private.',
+      btn_detect: 'Detect my location',
+      detecting: 'Detecting...',
+      city_label: 'City',
+      radius_label: 'Radius',
+
+      search_medicine: 'Search for a medicine',
+      search_placeholder: 'Medicine name...',
+      guard_pharmacies: 'On-duty pharmacies',
+      nearby_pharmacies: 'Nearby pharmacies',
+      no_pharmacies: 'No pharmacy found in this radius',
+      pharmacy_open: 'Open',
+      pharmacy_guard: 'On duty',
+      pharmacy_closed: 'Closed',
+      call: 'Call',
+      whatsapp: 'WhatsApp',
+      directions: 'Go there',
+      reserve: 'Reserve',
+      reserved: 'Reserved',
+      reservation_code_label: 'Pickup code',
+      reservation_code_hint: 'Show this code at the pharmacy',
+      session_active: 'Active session',
+      session_remaining: 'remaining',
+      payment_title: 'Payment',
+      payment_amount: 'Amount',
+      payment_phone: 'Phone number',
+      payment_confirm: 'Confirm payment',
+      payment_free: 'FREE (active session)',
+      payment_insufficient: 'Insufficient balance. Please top up your account.',
+      payment_processing: 'Processing...',
+      payment_success: 'Payment confirmed!',
+      payment_failed: 'Payment failed.',
+      responses_waiting: 'Waiting for responses...',
+      pharmacies_notified: 'pharmacy(ies) notified',
+
+      pharm_login_title: 'Pharmacy Login',
+      pharm_register_title: 'Register Pharmacy',
+      pharm_name: 'Pharmacy name',
+      pharm_address: 'Address',
+      pharm_city: 'City',
+      pharm_quarter: 'District',
+      pharm_phone: 'Phone',
+      pharm_email: 'Email',
+      pharm_password: 'Password',
+      pharm_status_open: 'Open',
+      pharm_status_guard: 'On Duty',
+      pharm_status_closed: 'Closed',
+      pharm_requests: 'Requests',
+      pharm_requests_active: 'Active requests',
+      pharm_no_requests: 'No active requests',
+      pharm_respond: 'Respond',
+      pharm_history: 'History',
+      pharm_stats: 'Statistics',
+      pharm_delegates: 'Delegates',
+      pharm_promos: 'Promotions',
+      pharm_settings: 'Settings',
+      pharm_logout: 'Logout',
+      pharm_verify_code: 'Verify a code',
+      pharm_verify_code_desc: 'Enter the PG-XXXX code from the patient',
+      pharm_code_valid: 'Code verified! Product delivered to patient.',
+      pharm_code_invalid: 'Invalid or already used code.',
+      pharm_stock_alert: 'Stock alert',
+      pharm_stock_alert_title: 'Out of Stock Alert',
+      pharm_stock_alert_desc: 'Notify medical delegates in your area about stock shortages.',
+      pharm_stock_product: 'Out of stock product name',
+      pharm_stock_urgency: 'Urgency',
+      pharm_stock_urgency_normal: 'Normal',
+      pharm_stock_urgency_urgent: 'Urgent',
+      pharm_stock_urgency_critical: 'Critical',
+      pharm_stock_radius: 'Broadcast radius',
+      pharm_stock_message: 'Additional message',
+      pharm_stock_send: 'Send alert',
+      pharm_stock_sent: 'Alert sent to delegates!',
+
+      del_login_title: 'Delegate Login',
+      del_register_title: 'Medical Delegate Registration',
+      del_lastname: 'Last name',
+      del_firstname: 'First name',
+      del_pro_card: 'Professional card no.',
+      del_cni: 'ID card no.',
+      del_labs: 'Laboratories',
+      del_add_lab: 'Add laboratory',
+      del_pharmacies: 'Pharmacies',
+      del_promotions: 'Promotions',
+      del_stats: 'Statistics',
+      del_alerts: 'Alerts',
+      del_visits: 'Visits',
+      del_new_promo: 'New Promotion',
+      del_promo_lab: 'Laboratory',
+      del_promo_product: 'Product name',
+      del_promo_type: 'Product type',
+      del_promo_desc: 'Campaign description',
+      del_promo_doc: 'Document link',
+      del_broadcast_all: 'Broadcast to all pharmacies',
+      del_choose_pharmacy: 'Choose a pharmacy',
+      del_visit_request: 'Request a visit',
+      del_visit_date: 'Proposed date and time',
+      del_visit_purpose: 'Purpose of visit',
+      del_visit_history: 'Visit history',
+      del_promo_tracking: 'Promotion tracking',
+      del_stock_alerts: 'Out of Stock Alerts',
+      del_stock_alerts_desc: 'Pharmacies in your area report stock shortages here.',
+      del_no_alerts: 'No alerts in your area.',
+      del_report: 'Report',
+      del_settings: 'Settings',
+      del_logout: 'Logout',
+
+      stat_sent: 'Sent',
+      stat_read: 'Read',
+      stat_interested: 'Interested',
+      stat_stocked: 'In stock',
+      stat_rate: 'Rate',
+      stat_total_promos: 'Total promotions',
+      stat_total_visits: 'Total visits',
+      stat_pharmacies_reached: 'Pharmacies reached',
+      stat_response_rate: 'Response rate',
+
+      visit_pending: 'Pending',
+      visit_confirmed: 'Confirmed',
+      visit_rescheduled: 'Rescheduled',
+      visit_cancelled: 'Cancelled',
+      visit_completed: 'Completed',
+
+      time_ago_min: '{n} min ago',
+      time_ago_hour: '{n}h ago',
+      time_ago_day: '{n} day(s) ago',
+      time_now: 'Just now',
+
+      delete_title: 'Delete my account',
+      delete_warning: 'This action is irreversible. All your data will be deleted.',
     }
   };
-
-  function init() {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved && translations[saved]) {
-      currentLang = saved;
-    } else {
-      // Auto-detect from browser
-      const browserLang = (navigator.language || 'fr').slice(0, 2);
-      currentLang = translations[browserLang] ? browserLang : 'fr';
-    }
-    applyTranslations();
-  }
-
-  function setLanguage(lang) {
-    if (!translations[lang]) return;
-    currentLang = lang;
-    localStorage.setItem(STORAGE_KEY, lang);
-    applyTranslations();
-    document.dispatchEvent(new CustomEvent('languageChanged', { detail: { lang } }));
-  }
 
   function t(key, params) {
     let text = (translations[currentLang] && translations[currentLang][key]) || 
                (translations['fr'] && translations['fr'][key]) || key;
     if (params) {
       Object.keys(params).forEach(k => {
-        text = text.replace(new RegExp('\\{' + k + '\\}', 'g'), params[k]);
+        text = text.replace('{' + k + '}', params[k]);
       });
     }
     return text;
   }
 
-  function applyTranslations() {
+  function setLang(lang) {
+    currentLang = lang;
+    localStorage.setItem('pharmagarde_lang', lang);
+    document.documentElement.lang = lang;
+    // Update all data-i18n elements
     document.querySelectorAll('[data-i18n]').forEach(el => {
       const key = el.getAttribute('data-i18n');
-      const translated = t(key);
       if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
-        el.placeholder = translated;
+        if (el.placeholder) el.placeholder = t(key);
       } else {
-        el.textContent = translated;
+        el.textContent = t(key);
       }
     });
     document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
       el.placeholder = t(el.getAttribute('data-i18n-placeholder'));
     });
+    // Update lang switch buttons
+    document.querySelectorAll('.lang-switch__btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.lang === currentLang);
+    });
+    // Dispatch event for custom updates
+    document.dispatchEvent(new CustomEvent('languageChanged', { detail: { lang: currentLang } }));
   }
 
-  function getLang() {
-    return currentLang;
+  function getLang() { return currentLang; }
+
+  function init() {
+    document.documentElement.lang = currentLang;
+    // Bind lang switch buttons
+    document.querySelectorAll('.lang-switch__btn').forEach(btn => {
+      btn.addEventListener('click', () => setLang(btn.dataset.lang));
+    });
+    // Apply initial translations
+    setLang(currentLang);
   }
 
-  return { init, setLanguage, t, getLang, applyTranslations };
+  return { t, setLang, getLang, init };
 })();
 
-window.I18N = I18N;
+window.I18n = I18n;
+window.t = I18n.t;

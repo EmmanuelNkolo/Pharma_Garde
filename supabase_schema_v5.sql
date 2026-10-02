@@ -53,4 +53,5 @@ CREATE POLICY "Pharmacy can insert stock alerts" ON stock_alerts FOR INSERT WITH
 CREATE POLICY "Pharmacy can update own alerts" ON stock_alerts FOR UPDATE USING (auth.uid() = pharmacy_id);
 
 -- Allow updating responses (for reservation codes)
+DROP POLICY IF EXISTS "Public can update responses" ON responses;
 CREATE POLICY "Public can update responses" ON responses FOR UPDATE USING (true);
