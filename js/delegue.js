@@ -1083,7 +1083,9 @@
     if (!userLat || !userLng) {
       return showToast('Veuillez d\'abord détecter votre position.', 'error');
     }
-    window.open(`https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${lat},${lng}&travelmode=driving`, '_blank');
+    // Use native navigation intent on mobile
+    const url = 'https://www.google.com/maps/dir/?api=1&origin=' + userLat + ',' + userLng + '&destination=' + lat + ',' + lng + '&travelmode=driving';
+    try { window.location.href = 'geo:' + lat + ',' + lng + '?q=' + lat + ',' + lng; } catch(e) { window.open(url, '_blank'); }
   }
 
 

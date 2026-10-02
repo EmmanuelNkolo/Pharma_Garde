@@ -136,9 +136,11 @@ const Payment = (() => {
         // Si le push USSD direct a fonctionné, on attend la validation
         // Si pas de push direct, on redirige dans la page actuelle (pas de popup)
         if (!data.direct_charge && data.authorization_url) {
-          // Fallback: rediriger dans la même fenêtre vers le checkout Notch Pay
-          window.location.href = data.authorization_url;
-          return { success: false, error: 'Redirection vers la page de paiement...' };
+          // Fallback: show in-app payment instructions instead of redirecting
+          return {
+            success: false,
+            error: 'Veuillez composer *126# (Orange Money) ou *126*1# (MTN MoMo) pour valider le paiement de 100 FCFA, puis relancez la recherche.'
+          };
         }
 
         // Push USSD envoyé — le client tape son code PIN sur son téléphone
@@ -181,9 +183,7 @@ const Payment = (() => {
     } catch (err) {
       // Payment failure - stay in app, show clear message
       if (err && (err.message || '').toLowerCase().includes('insufficient')) {
-        if (typeof showToast === 'function') showToast('Solde insuffisant. Veuillez recharger votre compte.', 'error');
-        else alert('Solde insuffisant. Veuillez recharger votre compte.');
-        return;
+        return { success: false, error: 'Solde insuffisant. Veuillez recharger votre compte avant de relancer la recherche.' };
       }
       console.error('Payment Edge Function error:', err);
       return { success: false, error: 'Erreur Notch Pay : ' + (err.message || 'Erreur inconnue') };
