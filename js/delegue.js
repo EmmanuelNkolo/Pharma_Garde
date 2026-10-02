@@ -881,9 +881,103 @@
 
       // Populate lab report dropdown
       populateLabSelect('report-lab');
+
+      // --- VISIT HISTORY TABLE ---
+      renderVisitHistory();
+
+      // --- PROMO RESPONSE TRACKING ---
+      renderPromoTracking(promos, targets);
+
     } catch (err) {
       console.error('Load stats error:', err);
     }
+  }
+
+  async function renderVisitHistory() {
+    const container = $('visit-history-list');
+    if (!container) return;
+    try {
+      const { data: visits } = await supabase
+        .from('visit_requests')
+        .select('*, pharmacy:pharmacy_id(name)')
+        .eq('delegate_id', currentDelegate.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (!visits || visits.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:24px;color:var(--dark-400);font-size:14px;">Aucune visite planifiee.</div>';
+        return;
+      }
+
+      const statusLabels = { pending: 'En attente', confirmed: 'Confirmee', rescheduled: 'Reportee', cancelled: 'Refusee', completed: 'Realisee' };
+      const statusColors = { pending: '#f59e0b', confirmed: '#10b981', rescheduled: '#3b82f6', cancelled: '#ef4444', completed: '#6b7280' };
+
+      let html = '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;text-align:left;font-size:13px;">';
+      html += '<thead><tr style="background:var(--dark-800);border-bottom:2px solid var(--glass-border);">';
+      html += '<th style="padding:12px;color:var(--dark-200);">Pharmacie</th>';
+      html += '<th style="padding:12px;color:var(--dark-200);">Date prevue</th>';
+      html += '<th style="padding:12px;color:var(--dark-200);">Objet</th>';
+      html += '<th style="padding:12px;color:var(--dark-200);">Statut</th>';
+      html += '</tr></thead><tbody>';
+
+      visits.forEach(v => {
+        const name = v.pharmacy?.name || 'Pharmacie';
+        const date = new Date(v.proposed_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const status = statusLabels[v.status] || v.status;
+        const color = statusColors[v.status] || '#888';
+        html += '<tr style="border-bottom:1px solid var(--glass-border);">';
+        html += '<td style="padding:12px;font-weight:600;">' + escapeHtml(name) + '</td>';
+        html += '<td style="padding:12px;">' + date + '</td>';
+        html += '<td style="padding:12px;color:var(--dark-300);">' + escapeHtml(v.purpose || '-') + '</td>';
+        html += '<td style="padding:12px;"><span style="background:' + color + '22;color:' + color + ';padding:4px 10px;border-radius:12px;font-size:12px;font-weight:600;">' + status + '</span></td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table></div>';
+      container.innerHTML = html;
+    } catch (e) { console.error('Visit history error:', e); }
+  }
+
+  function renderPromoTracking(promos, targets) {
+    const container = $('promo-tracking-list');
+    if (!container || !promos) return;
+
+    if (promos.length === 0) {
+      container.innerHTML = '<div style="text-align:center;padding:24px;color:var(--dark-400);font-size:14px;">Aucune promotion envoyee.</div>';
+      return;
+    }
+
+    let html = '';
+    promos.forEach(p => {
+      const myTargets = targets.filter(t => t.promotion_id === p.id);
+      const sent = myTargets.length;
+      const read = myTargets.filter(t => t.status !== 'sent').length;
+      const interested = myTargets.filter(t => t.status === 'interested').length;
+      const ignored = myTargets.filter(t => t.status === 'ignored').length;
+      const stocked = myTargets.filter(t => t.status === 'already_stocked').length;
+      const pct = sent > 0 ? Math.round(interested / sent * 100) : 0;
+      const barWidth = sent > 0 ? Math.round(read / sent * 100) : 0;
+
+      html += '<div style="background:var(--dark-800);border:1px solid var(--glass-border);border-radius:14px;padding:16px;margin-bottom:12px;">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+      html += '<strong style="color:var(--green-400);font-size:15px;">' + escapeHtml(p.product_name) + '</strong>';
+      html += '<span style="color:var(--dark-400);font-size:12px;">' + escapeHtml(p.lab_name) + '</span>';
+      html += '</div>';
+      
+      // Progress bar
+      html += '<div style="background:var(--dark-700);border-radius:8px;height:8px;margin-bottom:10px;overflow:hidden;">';
+      html += '<div style="background:linear-gradient(90deg,#059669,#10b981);height:100%;width:' + barWidth + '%;border-radius:8px;transition:width 0.5s ease;"></div>';
+      html += '</div>';
+
+      // KPIs
+      html += '<div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;">';
+      html += '<span style="color:var(--dark-300);">Envoyees: <strong style="color:var(--blue-400);">' + sent + '</strong></span>';
+      html += '<span style="color:var(--dark-300);">Lues: <strong style="color:#8b5cf6;">' + read + '</strong></span>';
+      html += '<span style="color:var(--dark-300);">Interessees: <strong style="color:#10b981;">' + interested + '</strong></span>';
+      html += '<span style="color:var(--dark-300);">En stock: <strong style="color:#f59e0b;">' + stocked + '</strong></span>';
+      html += '<span style="color:var(--dark-300);">Taux: <strong style="color:var(--green-400);">' + pct + '%</strong></span>';
+      html += '</div></div>';
+    });
+    container.innerHTML = html;
   }
 
   function renderStatsChart(targets) {

@@ -1858,6 +1858,7 @@
   //  PUBLIC API & INIT
   // ═══════════════════════════════════════════════════════
   window.PharmDash = {
+    toggleStatus: togglePharmacyStatus,
     prepareResponse,
     confirmAction,
     cancelReservation,
