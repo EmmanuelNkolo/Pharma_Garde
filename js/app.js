@@ -1734,74 +1734,7 @@ const App = (() => {
   function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
-  // ── OCR Ordonnance ─────────────────────────────────────
-  function openOCRModal() {
-    const input = $('#ocr-camera-input');
-    if (input) {
-      input.onchange = handleOCRImage;
-      input.click();
-    }
-  }
 
-  async function handleOCRImage(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    showToast("Analysant l'ordonnance... Veuillez patienter.", 'info');
-    
-    try {
-      if (!window.Tesseract) {
-        showToast('Erreur: Tesseract non chargé.', 'error');
-        return;
-      }
-      const worker = await Tesseract.createWorker('fra');
-      const { data: { text } } = await worker.recognize(file);
-      await worker.terminate();
-      
-      console.log('Texte extrait:', text);
-      
-      const knownMeds = (window.LOCAL_MEDICINES || []).map(m => m.toLowerCase());
-      const words = text.split(/[\s,;-]+/);
-      let foundMeds = [];
-      
-      for (const word of words) {
-        const w = word.toLowerCase().trim();
-        if (w.length < 3) continue;
-        if (knownMeds.includes(w) && !foundMeds.includes(w)) {
-          foundMeds.push(w);
-        } else {
-          // Fuzzy match
-          const match = knownMeds.find(m => m.includes(w) || w.includes(m));
-          if (match && !foundMeds.includes(match)) {
-            foundMeds.push(match);
-          }
-        }
-      }
-      
-      if (foundMeds.length > 0) {
-        openSearchModal();
-        foundMeds.forEach(med => {
-          const m = med.charAt(0).toUpperCase() + med.slice(1);
-          if (!selectedMedicines.includes(m)) {
-            selectedMedicines.push(m);
-          }
-        });
-        renderMedicineTags();
-        const btn = $('#proceed-search-btn');
-        if (btn) btn.disabled = selectedMedicines.length === 0;
-        showToast(`✅ ${foundMeds.length} médicament(s) trouvé(s) !`, 'success');
-      } else {
-        showToast('Aucun médicament reconnu. Veuillez taper manuellement.', 'error');
-        openSearchModal();
-      }
-      
-    } catch(err) {
-      console.error(err);
-      showToast("Erreur lors de l'analyse de l'image.", 'error');
-    }
-    
-    e.target.value = '';
-  }
 
   // ── Public API ─────────────────────────────────────────
   const publicApi = {
