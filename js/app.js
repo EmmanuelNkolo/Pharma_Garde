@@ -97,7 +97,7 @@ const App = (() => {
     if (radiusCircle) leafletMap.removeLayer(radiusCircle);
     radiusCircle = L.circle([pos.lat, pos.lng], {
       radius: radiusKm * 1000,
-      color: '#10b981', fillColor: '#10b981', fillOpacity: 0.06, weight: 1.5, dashArray: '5,5'
+      color: '#059669', fillColor: '#10b981', fillOpacity: 0.15, weight: 2.5, dashArray: '5,5'
     }).addTo(leafletMap);
   }
 
@@ -497,7 +497,7 @@ const App = (() => {
     pharmaciesInRadius = allPharmacies.filter(p => p.distance <= currentRadius);
 
     // Show/hide closed pharmacies based on setting
-    const toggleEl = $('#toggle-closed'); const showClosed = toggleEl ? toggleEl.classList.contains('active') : false;
+    const toggleEl = $('#toggle-closed'); const showClosed = toggleEl ? toggleEl.classList.contains('active') : true;
     let displayPharmacies = showClosed 
       ? pharmaciesInRadius 
       : pharmaciesInRadius.filter(p => p.isOpen || p.isOnDuty);
@@ -1647,7 +1647,15 @@ const App = (() => {
 
     // Click to toggle
     handle.addEventListener('click', () => {
-      sheet.classList.toggle('collapsed');
+      sheet.classList.toggle('expanded');
+      const arrow = document.getElementById('sheet-arrow-icon');
+      if (arrow) {
+        if (sheet.classList.contains('expanded')) {
+          arrow.innerHTML = '<polyline points="6 9 12 15 18 9"/>'; // Down
+        } else {
+          arrow.innerHTML = '<polyline points="18 15 12 9 6 15"/>'; // Up
+        }
+      }
     });
   }
 
