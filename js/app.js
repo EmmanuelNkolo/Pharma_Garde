@@ -502,7 +502,11 @@ const App = (() => {
         // Large search radius for cache (e.g., 20km) to cover max radius
         const query = `[out:json];node["amenity"="pharmacy"](around:20000,${pos.lat},${pos.lng});out;`;
         
-        const response = await fetch(overpassUrl, { method: 'POST', body: query });
+        const response = await fetch(overpassUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'data=' + encodeURIComponent(query)
+        });
         const osmData = await response.json();
         
         cachedOSMPharmacies = [];
