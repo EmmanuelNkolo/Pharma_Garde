@@ -195,7 +195,7 @@ const App = (() => {
     if (searchBtn) searchBtn.addEventListener('click', openSearchModal);
 
     // Camera/Ordonnance button
-    const cameraBtn = $('#camera-btn');
+    const cameraBtn = document.getElementById('btn-ordonnance');
     if (cameraBtn) cameraBtn.addEventListener('click', openOCRModal);
 
     // Demo button
@@ -449,6 +449,9 @@ const App = (() => {
   }
 
   // ── Pharmacy Data ──────────────────────────────────────
+  let cachedOSMPharmacies = [];
+  let lastOSMLocation = null;
+
   async function updatePharmacies() {
     const pos = Geolocation.getPosition();
     if (!pos) return;
@@ -484,6 +487,57 @@ const App = (() => {
       }
     } catch (err) {
       console.error('Error fetching registered pharmacies:', err);
+    }
+
+    // Fetch real pharmacies from OpenStreetMap (Overpass API)
+    try {
+      let fetchNew = true;
+      if (lastOSMLocation) {
+        const distToLast = Geolocation.haversine(pos.lat, pos.lng, lastOSMLocation.lat, lastOSMLocation.lng);
+        if (distToLast < 5) fetchNew = false; // Reuse cache if within 5km of last fetch
+      }
+
+      if (fetchNew) {
+        const overpassUrl = 'https://overpass-api.de/api/interpreter';
+        // Large search radius for cache (e.g., 20km) to cover max radius
+        const query = `[out:json];node["amenity"="pharmacy"](around:20000,${pos.lat},${pos.lng});out;`;
+        
+        const response = await fetch(overpassUrl, { method: 'POST', body: query });
+        const osmData = await response.json();
+        
+        cachedOSMPharmacies = [];
+        if (osmData && osmData.elements) {
+          osmData.elements.forEach(el => {
+            if (!el.tags) return;
+            const name = el.tags.name || 'Pharmacie sans nom';
+            cachedOSMPharmacies.push({
+              id: 'osm_' + el.id,
+              name: name,
+              address: el.tags['addr:street'] || el.tags.address || 'Adresse inconnue',
+              phone: el.tags.phone || el.tags['contact:phone'] || '',
+              whatsapp: el.tags.whatsapp || el.tags['contact:whatsapp'] || '',
+              lat: el.lat,
+              lng: el.lon,
+              isOpen: true,
+              isOnDuty: false,
+              hours: el.tags.opening_hours || '08h00 - 20h00',
+              isRegistered: false,
+              source: 'osm'
+            });
+          });
+        }
+        lastOSMLocation = { lat: pos.lat, lng: pos.lng };
+      }
+
+      // Merge OSM cache into allPharmacies
+      cachedOSMPharmacies.forEach(osmPharm => {
+        const exists = allPharmacies.find(p => p.name.toLowerCase().trim() === osmPharm.name.toLowerCase().trim() && Math.abs(p.lat - osmPharm.lat) < 0.05);
+        if (!exists) {
+          allPharmacies.push(osmPharm);
+        }
+      });
+    } catch (err) {
+      console.error('Error fetching from Overpass:', err);
     }
 
     // Add distance to each
