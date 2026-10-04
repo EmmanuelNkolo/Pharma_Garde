@@ -240,7 +240,11 @@ const App = (() => {
     const searchClose = document.getElementById('close-search-modal');
     const searchBackdrop = $('#search-modal');
     if (searchClose) searchClose.addEventListener('click', closeSearchModal);
-    if (searchBackdrop) searchBackdrop.addEventListener('click', closeSearchModal);
+    if (searchBackdrop) {
+      searchBackdrop.addEventListener('click', (e) => {
+        if (e.target === searchBackdrop) closeSearchModal();
+      });
+    }
 
     // Medicine input
     const medicineInput = $('#medicine-input');
@@ -407,7 +411,11 @@ const App = (() => {
     const demoClose = $('#demo-close');
     const demoBackdrop = $('#demo-backdrop');
     if (demoClose) demoClose.addEventListener('click', closeDemoModal);
-    if (demoBackdrop) demoBackdrop.addEventListener('click', closeDemoModal);
+    if (demoBackdrop) {
+      demoBackdrop.addEventListener('click', (e) => {
+        if (e.target === demoBackdrop) closeDemoModal();
+      });
+    }
 
     const demoPrev = $('#demo-prev');
     const demoNext = $('#demo-next');
@@ -868,7 +876,9 @@ const App = (() => {
     }
 
     if (backdrop) {
-      backdrop.addEventListener('click', closeInsuranceModal);
+      backdrop.addEventListener('click', (e) => {
+        if (e.target === backdrop) closeInsuranceModal();
+      });
     }
   }
 
@@ -1377,7 +1387,11 @@ const App = (() => {
     const inputCamera = $('#ocr-input-camera');
     const inputGallery = $('#ocr-input-gallery');
 
-    if (backdrop) backdrop.addEventListener('click', closeOCRModal);
+    if (backdrop) {
+      backdrop.addEventListener('click', (e) => {
+        if (e.target === backdrop) closeOCRModal();
+      });
+    }
     
     if (btnCamera && inputCamera) {
       btnCamera.addEventListener('click', () => inputCamera.click());
