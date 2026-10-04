@@ -46,6 +46,7 @@ const App = (() => {
   let userMarker = null;
   let radiusCircle = null;
   let pharmacyMarkers = [];
+  let filterGardeOnly = false;
 
   function initLeafletMap(containerId, pos, zoom) {
     const container = document.getElementById(containerId);
@@ -86,8 +87,8 @@ const App = (() => {
     if (userMarker) leafletMap.removeLayer(userMarker);
     const icon = L.divIcon({
       className: 'user-marker',
-      html: '<div style="width:16px;height:16px;background:#10b981;border:3px solid white;border-radius:50%;box-shadow:0 0 12px rgba(16,185,129,0.5);"></div>',
-      iconSize: [16, 16], iconAnchor: [8, 8]
+      html: '<div style="width:18px;height:18px;background:#3b82f6;border:3px solid white;border-radius:50%;box-shadow:0 0 15px rgba(59,130,246,0.8);position:relative;"><div style="position:absolute;top:-10px;left:-10px;width:32px;height:32px;border-radius:50%;background:rgba(59,130,246,0.3);animation:pulse 2s infinite;"></div></div>',
+      iconSize: [18, 18], iconAnchor: [9, 9]
     });
     userMarker = L.marker([lat, lng], { icon: icon, zIndexOffset: 1000 }).addTo(leafletMap);
   }
@@ -97,7 +98,7 @@ const App = (() => {
     if (radiusCircle) leafletMap.removeLayer(radiusCircle);
     radiusCircle = L.circle([pos.lat, pos.lng], {
       radius: radiusKm * 1000,
-      color: '#059669', fillColor: '#10b981', fillOpacity: 0.15, weight: 2.5, dashArray: '5,5'
+      color: '#3b82f6', fillColor: '#bfdbfe', fillOpacity: 0.3, weight: 2, dashArray: ''
     }).addTo(leafletMap);
   }
 
@@ -105,11 +106,15 @@ const App = (() => {
     pharmacyMarkers.forEach(m => leafletMap.removeLayer(m));
     pharmacyMarkers = [];
     pharmacies.forEach(p => {
-      const color = p.isOnDuty ? '#fbbf24' : p.isOpen ? '#10b981' : '#64748b';
+      let bgColor = '#64748b';
+      let emoji = '🛒';
+      if (p.isOnDuty) { bgColor = '#f59e0b'; emoji = '🏥'; }
+      else if (p.isOpen) { bgColor = '#10b981'; emoji = '💊'; }
+      
       const icon = L.divIcon({
         className: 'pharm-marker',
-        html: '<div style="width:28px;height:28px;background:' + color + ';border:2px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,0.3);">🏥</div>',
-        iconSize: [28, 28], iconAnchor: [14, 14]
+        html: `<div style="width:24px;height:24px;background:${bgColor};border:2px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,0.3);">${emoji}</div>`,
+        iconSize: [24, 24], iconAnchor: [12, 12]
       });
       const marker = L.marker([p.lat, p.lng], { icon }).addTo(leafletMap);
       marker.bindPopup('<b>' + (p.name || 'Pharmacie') + '</b><br>' + (p.address || '') + '<br><b>' + (p.distance || '?') + ' km</b>');
@@ -349,15 +354,15 @@ const App = (() => {
     // Garde button
     const btnGarde = document.getElementById('btn-garde');
     if (btnGarde) btnGarde.addEventListener('click', () => {
-      const pos = Geolocation.getPosition();
-      if (!pos) return;
-      const gardePharms = pharmaciesInRadius.filter(p => p.isOnDuty);
-      if (gardePharms.length === 0) {
-        showToast('Aucune pharmacie de garde dans ce rayon.', 'info');
-        return;
+      filterGardeOnly = !filterGardeOnly;
+      if (filterGardeOnly) {
+        btnGarde.style.background = 'rgba(245,158,11,0.25)';
+        btnGarde.style.borderColor = 'rgba(245,158,11,0.5)';
+      } else {
+        btnGarde.style.background = 'rgba(245,158,11,0.12)';
+        btnGarde.style.borderColor = 'rgba(245,158,11,0.25)';
       }
-      renderPharmacyList(gardePharms);
-      showToast('Pharmacies de garde: ' + gardePharms.length, 'info');
+      updatePharmacies();
     });
 
     // Bottom sheet drag
@@ -438,11 +443,21 @@ const App = (() => {
   }
 
   // ── Map Setup ──────────────────────────────────────────
-  function setupMapWithPosition(pos) {
+  async function setupMapWithPosition(pos) {
     // Initialize map
     initLeafletMap('client-map', pos, 13);
     setUserMarker(pos.lat, pos.lng);
     drawRadiusCircle(pos, currentRadius);
+
+    // Fetch city name and update UI
+    if (PG && typeof PG.reverse === 'function') {
+      const addressData = await PG.reverse(pos.lat, pos.lng);
+      if (addressData) {
+        const cityName = addressData.city || addressData.town || addressData.village || addressData.state || 'Douala';
+        const cityEl = $('#city-name');
+        if (cityEl) cityEl.textContent = cityName;
+      }
+    }
 
     // Update pharmacies
     updatePharmacies();
@@ -556,6 +571,10 @@ const App = (() => {
       ? pharmaciesInRadius 
       : pharmaciesInRadius.filter(p => p.isOpen || p.isOnDuty);
 
+    if (filterGardeOnly) {
+      displayPharmacies = displayPharmacies.filter(p => p.isOnDuty);
+    }
+
     // If an active search is ongoing, only show pharmacies that have responded
     if (activeRequestIds.length > 0) {
       const respondedPharmacyIds = new Set(realResponses.map(r => r.pharmacy_id));
@@ -605,46 +624,45 @@ const App = (() => {
     }
 
     list.innerHTML = pharmacies.map(p => {
-      let statusBadge;
-      if (p.isOnDuty) {
-        statusBadge = `<span class="badge badge--amber">🌙 ${I18n ? I18n.t('pharmacy.on_duty') : 'De garde'}</span>`;
-      } else if (p.isOpen) {
-        statusBadge = `<span class="badge badge--emerald">${I18n ? I18n.t('pharmacy.open') : 'Ouvert'}</span>`;
-      } else {
-        statusBadge = `<span class="badge badge--red">${I18n ? I18n.t('pharmacy.closed') : 'Fermé'}</span>`;
-      }
-
       return `
-        <div class="pharmacy-card ${p.isOnDuty ? 'on-duty' : ''}" onclick="App.openDetail(App.findPharmacy('${p.id}'))">
-          <div class="pharmacy-card" style="cursor:pointer">
-            <div >
-              <div class="card-name">${p.name}</div>
-              <div class="card-address">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                ${p.address}
-              </div>
-            </div>
-            <div class="card-distance">
-              <span class="distance-value">${p.distance}</span>
-              <span class="distance-unit">km</span>
-            </div>
-          </div>
-          <div class="card-meta">
-            ${statusBadge}
-            <span class="card-hours">🕐 ${p.hours || '—'}</span>
-          </div>
-          <div class="card-actions">
-            <button class="btn btn-call" onclick="event.stopPropagation(); App.callPharmacy('${p.phone}')">
-              📞 ${I18n ? I18n.t('detail.call') : 'Appeler'}
-            </button>
-            <button class="btn btn-whatsapp" onclick="event.stopPropagation(); App.openWhatsApp('${p.whatsapp}')">
-              💬 WhatsApp
-            </button>
-            <button class="btn btn-route" onclick="event.stopPropagation(); App.getRoute(${p.lat}, ${p.lng})">
-              🗺️ ${I18n ? I18n.t('detail.route') : 'Y aller'}
-            </button>
-          </div>
-        </div>
+<div class="pharma-card ${p.isOnDuty ? 'pharma-card--guard' : ''}" onclick="App.openDetail(App.findPharmacy('${p.id}'))">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+    <div>
+      <div style="font-weight:700; font-size:16px; color:#fff; margin-bottom:4px;">${escapeHtml(p.name)}</div>
+      <div style="font-size:13px; color:#94a3b8; display:flex; align-items:center; gap:4px;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        ${escapeHtml(p.address || 'Adresse inconnue')}
+      </div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-weight:700; font-size:16px; color:#10b981;">${p.distance}</div>
+      <div style="font-size:12px; color:#64748b;">km</div>
+    </div>
+  </div>
+  
+  <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+    ${p.isOnDuty ? 
+      '<div style="background:rgba(217,119,6,0.15); border:1px solid #d97706; border-radius:12px; padding:4px 10px; font-size:11px; font-weight:700; color:#fbbf24; display:flex; align-items:center; gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> DE GARDE</div>' : 
+      '<div style="background:rgba(16,185,129,0.15); border:1px solid #10b981; border-radius:12px; padding:4px 10px; font-size:11px; font-weight:700; color:#10b981; display:flex; align-items:center; gap:4px;">OUVERT</div>'
+    }
+    <div style="font-size:12px; color:#94a3b8; display:flex; align-items:center; gap:4px;">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      ${escapeHtml(p.hours || '08h00 - 20h00')}
+    </div>
+  </div>
+
+  <div style="display:flex; gap:8px;">
+    <button class="pharma-btn btn-call" onclick="event.stopPropagation(); App.callPharmacy('${p.phone || ''}')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg> Appeler
+    </button>
+    <button class="pharma-btn btn-whatsapp" onclick="event.stopPropagation(); App.openWhatsApp('${p.whatsapp || p.phone || ''}')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d8b4e2" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg> WhatsApp
+    </button>
+    <button class="pharma-btn btn-route" onclick="event.stopPropagation(); App.getRoute(${p.lat}, ${p.lng})">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg> Y aller
+    </button>
+  </div>
+</div>
       `;
     }).join('');
   }
@@ -1147,25 +1165,38 @@ const App = (() => {
       const sessionId = sessionStorage.getItem('pharma_session_id') || 'INCONNU';
       
       return `
-        <div class="pharmacy-card" data-pharmacy-id="${resp.pharmacy_id}">
-          <div class="pharmacy-card" style="cursor:pointer" style="margin-bottom: 12px;">
-            <div >
-              <div class="card-name">${escapeHtml(resp.pharmacy_name || 'Pharmacie')}</div>
-              <div style="font-size: 11px; color: var(--green-400); margin: 2px 0 4px; font-weight: 600;">ID Session : ${sessionId}</div>
-              <div class="card-address" style="font-size: 13px; color: var(--dark-300);">
-                📍 ${escapeHtml(resp.pharmacy_address || 'Adresse inconnue')} • Distance : ${distance}
+        <div class="pharma-card" data-pharmacy-id="${resp.pharmacy_id}">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; cursor:pointer;" onclick="App.openDetail(App.findPharmacy('${resp.pharmacy_id}'))">
+            <div>
+              <div style="font-weight:700; font-size:16px; color:#fff; margin-bottom:4px;">${escapeHtml(resp.pharmacy_name || 'Pharmacie')}</div>
+              <div style="font-size: 11px; color: #10b981; margin: 2px 0 4px; font-weight: 600;">ID Session : ${sessionId}</div>
+              <div style="font-size:13px; color:#94a3b8; display:flex; align-items:center; gap:4px;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                ${escapeHtml(resp.pharmacy_address || 'Adresse inconnue')}
               </div>
             </div>
+            <div style="text-align:right;">
+              <div style="font-weight:700; font-size:16px; color:#10b981;">${distance.replace(' km', '')}</div>
+              <div style="font-size:12px; color:#64748b;">km</div>
+            </div>
           </div>
-          <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+          
+          <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
             ${medsHtml}
           </div>
-          <div class="card-actions">
+
+          <div style="display:flex; gap:8px;">
             ${resp.pharmacy_phone ? `
-              <button class="btn btn-call" onclick="App.callPharmacy('${escapeHtml(resp.pharmacy_phone)}')">📞 Appeler</button>
-              <button class="btn btn-whatsapp" onclick="App.openWhatsApp('237${escapeHtml(resp.pharmacy_phone)}')">💬 WhatsApp</button>
+              <button class="pharma-btn btn-call" onclick="App.callPharmacy('${escapeHtml(resp.pharmacy_phone)}')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg> Appeler
+              </button>
+              <button class="pharma-btn btn-whatsapp" onclick="App.openWhatsApp('237${escapeHtml(resp.pharmacy_phone)}')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="#10b981"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.888-.788-1.489-1.761-1.663-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.5.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.885-9.885 9.885m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg> WhatsApp
+              </button>
             ` : ''}
-            <button class="btn btn-route" onclick="App.getRouteToPharmacy('${resp.pharmacy_id}')">🗺️ Y aller</button>
+            <button class="pharma-btn btn-route" onclick="App.getRouteToPharmacy('${resp.pharmacy_id}')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg> Y aller
+            </button>
           </div>
         </div>
       `;

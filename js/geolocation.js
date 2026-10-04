@@ -25,7 +25,7 @@ const Geolocation = (() => {
   async function getCurrentPosition() {
     if (window.PG && typeof PG.locate === 'function') {
       try {
-        const pos = await PG.locate({ desired: 30, maxWait: 15000 });
+        const pos = await PG.locate({ desired: 30, maxWait: 25000 });
         position = { lat: pos.lat, lng: pos.lng };
         return position;
       } catch (err) {
@@ -50,7 +50,7 @@ const Geolocation = (() => {
           };
           reject(new Error(messages[err.code] || 'Erreur GPS inconnue'));
         },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+        { enableHighAccuracy: true, timeout: 25000, maximumAge: 30000 }
       );
     });
   }
