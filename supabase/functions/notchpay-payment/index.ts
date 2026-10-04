@@ -73,7 +73,7 @@ serve(async (req) => {
       const completePayload = {
         channel: channel,
         data: {
-          phone: "+237" + phone,
+          phone: phone, // Local 9-digit number as expected by some operators
         }
       };
 
