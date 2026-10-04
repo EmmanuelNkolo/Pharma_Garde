@@ -273,7 +273,32 @@ const App = (() => {
     // Confirm request
     const btnValidate = $('#btn-validate-request');
     const btnCancelReq = $('#btn-cancel-request');
-    if (btnValidate) btnValidate.addEventListener('click', showInsuranceModal);
+    const insuranceSelect = $('#insurance-select');
+    const customInsuranceInput = $('#custom-insurance-input');
+
+    if (insuranceSelect && customInsuranceInput) {
+      insuranceSelect.addEventListener('change', (e) => {
+        if (e.target.value === 'Autres') {
+          customInsuranceInput.classList.remove('hidden');
+        } else {
+          customInsuranceInput.classList.add('hidden');
+          customInsuranceInput.value = '';
+        }
+      });
+    }
+
+    if (btnValidate) {
+      btnValidate.addEventListener('click', () => {
+        if (insuranceSelect) {
+          if (insuranceSelect.value === 'Autres') {
+            insuranceName = customInsuranceInput.value.trim() || 'Autres';
+          } else {
+            insuranceName = insuranceSelect.value || null;
+          }
+        }
+        proceedToPayment();
+      });
+    }
     if (btnCancelReq) btnCancelReq.addEventListener('click', () => showSearchStep(1));
 
     // Payment methods
