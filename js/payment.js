@@ -112,82 +112,108 @@ const Payment = (() => {
       };
     }
 
-    try {
-      if (!window.supabase) {
-        return { success: false, error: "Erreur de configuration serveur (Supabase manquant)" };
-      }
-
-      // Appeler l'Edge Function pour initier + compléter le paiement (push USSD direct)
-      const { data, error } = await supabase.functions.invoke('notchpay-payment', {
-        body: {
-          action: 'collect',
-          phone: validation.cleaned,
-          method: method, // 'om' ou 'momo' — détermine le canal (cm.orange ou cm.mtn)
-          amount: amount,
-          description: 'Pharma-Garde - Recherche Express'
+      try {
+        if (!window.supabase) {
+          return { success: false, error: "Erreur de configuration serveur (Supabase manquant)" };
         }
-      });
 
-      if (error || !data) {
-        throw new Error(error?.message || "Erreur de connexion au serveur");
-      }
+        // Pre-open popup to avoid browser blockers since the API call is async
+        let popup = null;
+        try {
+          popup = window.open('about:blank', 'NotchPayCheckout', 'width=500,height=700');
+          if (popup) popup.document.write('<div style="font-family:sans-serif;padding:20px;text-align:center;"><h3>Initialisation du paiement en cours...</h3><p>Veuillez patienter.</p></div>');
+        } catch(e) {}
 
-      if (data.success && data.reference) {
-        // Push USSD envoyé — le client tape son code PIN sur son téléphone
-        // On fait du polling pour attendre la confirmation
-        let isPaid = false;
-        let attempts = 0;
-        let finalMessage = data.message || 'Veuillez entrer votre code PIN sur votre téléphone pour confirmer.';
-        
-        if (!data.direct_charge) {
-          const code = method === 'om' ? '*150*50#' : '*126#';
-          const btn = document.getElementById('btn-confirm-payment');
-          if (btn) {
-            btn.textContent = `Composez le ${code} pour valider...`;
-            btn.style.fontSize = '13px'; // A little smaller to fit the text
+        // Appeler l'Edge Function pour initier + compléter le paiement (push USSD direct)
+        const { data, error } = await supabase.functions.invoke('notchpay-payment', {
+          body: {
+            action: 'collect',
+            phone: validation.cleaned,
+            method: method, // 'om' ou 'momo' — détermine le canal (cm.orange ou cm.mtn)
+            amount: amount,
+            description: 'Pharma-Garde - Recherche Express'
           }
+        });
+
+        if (error || !data) {
+          if (popup) popup.close();
+          throw new Error(error?.message || "Erreur de connexion au serveur");
         }
-        
-        let delayMs = 3000;
-        let totalElapsed = 0;
-        const MAX_TIMEOUT = 120000; // 2 minutes
-        
-        while (totalElapsed < MAX_TIMEOUT) {
-          await new Promise(r => setTimeout(r, delayMs));
-          totalElapsed += delayMs;
-          attempts++;
+
+        if (data.success && data.reference) {
+          if (data.direct_charge) {
+            if (popup) popup.close(); // Fermer la popup, le push USSD arrive directement
+          } else if (data.authorization_url) {
+            // Si le direct charge échoue (ou n'est pas dispo), rediriger la popup vers Notch Pay
+            if (popup) {
+              popup.location.href = data.authorization_url;
+            } else {
+              // Si la popup a été bloquée, on redirige la page entière
+              window.location.href = data.authorization_url;
+              return new Promise(() => {}); // Stop execution until unload
+            }
+          }
+
+          let isPaid = false;
+          let attempts = 0;
+          let finalMessage = data.message || 'Veuillez confirmer le paiement.';
           
-          const statusCheck = await checkPaymentStatus(data.reference);
+          if (!data.direct_charge && popup) {
+            const btn = document.getElementById('btn-confirm-payment');
+            if (btn) btn.textContent = 'Veuillez finaliser dans la fenêtre ouverte...';
+          } else if (!data.direct_charge) {
+            const btn = document.getElementById('btn-confirm-payment');
+            if (btn) btn.textContent = 'Redirection en cours...';
+          }
+          
+          let delayMs = 3000;
+          let totalElapsed = 0;
+          const MAX_TIMEOUT = 120000; // 2 minutes
+          
+          while (totalElapsed < MAX_TIMEOUT) {
+            await new Promise(r => setTimeout(r, delayMs));
+            totalElapsed += delayMs;
+            attempts++;
+            
+            const statusCheck = await checkPaymentStatus(data.reference);
 
-          if (statusCheck.status === 'SUCCESSFUL') {
-            isPaid = true;
-            finalMessage = 'Paiement confirmé avec succès ! 🎉';
-            break;
-          } else if (statusCheck.status === 'FAILED') {
-            return { success: false, error: 'Désolé, votre solde est insuffisant ou le paiement a été annulé.' };
+            if (popup && popup.closed && statusCheck.status !== 'SUCCESSFUL' && !data.direct_charge) {
+              return { success: false, error: 'La fenêtre de paiement a été fermée.' };
+            }
+
+            if (statusCheck.status === 'SUCCESSFUL') {
+              isPaid = true;
+              finalMessage = 'Paiement confirmé avec succès ! 🎉';
+              if (popup) popup.close();
+              break;
+            } else if (statusCheck.status === 'FAILED') {
+              if (popup) popup.close();
+              return { success: false, error: 'Désolé, votre solde est insuffisant ou le paiement a été annulé.' };
+            }
+
+            // Backoff exponentiel (max 8s)
+            delayMs = Math.min(8000, delayMs * 1.5);
           }
 
-          // Backoff exponentiel (max 8s)
-          delayMs = Math.min(8000, delayMs * 1.5);
-        }
-
-        if (isPaid) {
-          createSession(data.reference);
-          return { success: true, transactionId: data.reference, message: finalMessage, amount: amount };
+          if (isPaid) {
+            createSession(data.reference);
+            return { success: true, transactionId: data.reference, message: finalMessage, amount: amount };
+          } else {
+            if (popup) popup.close();
+            return { success: false, error: 'Temps d\'attente dépassé. Si vous avez payé, l\'application l\'enregistrera en arrière-plan. Veuillez réessayer la recherche.' };
+          }
         } else {
-          return { success: false, error: 'Temps d\'attente dépassé. Si vous avez payé, l\'application l\'enregistrera en arrière-plan. Veuillez réessayer la recherche.' };
+          if (popup) popup.close();
+          return { success: false, error: data.error || 'Paiement refusé.' };
         }
-      } else {
-        return { success: false, error: data.error || 'Paiement refusé.' };
+      } catch (err) {
+        // Payment failure - stay in app, show clear message
+        if (err && (err.message || '').toLowerCase().includes('insufficient')) {
+          return { success: false, error: 'Désolé, votre solde est insuffisant. Veuillez recharger votre compte avant de relancer la recherche.' };
+        }
+        console.error('Payment Edge Function error:', err);
+        return { success: false, error: 'Erreur Notch Pay : ' + (err.message || 'Erreur inconnue') };
       }
-    } catch (err) {
-      // Payment failure - stay in app, show clear message
-      if (err && (err.message || '').toLowerCase().includes('insufficient')) {
-        return { success: false, error: 'Désolé, votre solde est insuffisant. Veuillez recharger votre compte avant de relancer la recherche.' };
-      }
-      console.error('Payment Edge Function error:', err);
-      return { success: false, error: 'Erreur Notch Pay : ' + (err.message || 'Erreur inconnue') };
-    }
   }
 
   /**
