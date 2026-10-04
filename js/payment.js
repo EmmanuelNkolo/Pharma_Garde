@@ -137,9 +137,12 @@ const Payment = (() => {
         // Si pas de push direct, on redirige dans la page actuelle (pas de popup)
         if (!data.direct_charge && data.authorization_url) {
           // Fallback: show in-app payment instructions instead of redirecting
+          const ussdMsg = method === 'om' 
+            ? 'Veuillez composer le *150*50# (Orange Money) pour valider le paiement de 100 FCFA, puis relancez la recherche.' 
+            : 'Veuillez composer le *126# (MTN MoMo) pour valider le paiement de 100 FCFA, puis relancez la recherche.';
           return {
             success: false,
-            error: 'Veuillez composer *126# (Orange Money) ou *126*1# (MTN MoMo) pour valider le paiement de 100 FCFA, puis relancez la recherche.'
+            error: ussdMsg
           };
         }
 
@@ -164,7 +167,7 @@ const Payment = (() => {
             finalMessage = 'Paiement confirmé avec succès ! 🎉';
             break;
           } else if (statusCheck.status === 'FAILED') {
-            return { success: false, error: 'Le paiement a échoué ou a été annulé.' };
+            return { success: false, error: 'Désolé, votre solde est insuffisant ou le paiement a été annulé.' };
           }
 
           // Backoff exponentiel (max 8s)
@@ -183,7 +186,7 @@ const Payment = (() => {
     } catch (err) {
       // Payment failure - stay in app, show clear message
       if (err && (err.message || '').toLowerCase().includes('insufficient')) {
-        return { success: false, error: 'Solde insuffisant. Veuillez recharger votre compte avant de relancer la recherche.' };
+        return { success: false, error: 'Désolé, votre solde est insuffisant. Veuillez recharger votre compte avant de relancer la recherche.' };
       }
       console.error('Payment Edge Function error:', err);
       return { success: false, error: 'Erreur Notch Pay : ' + (err.message || 'Erreur inconnue') };
