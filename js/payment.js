@@ -133,19 +133,6 @@ const Payment = (() => {
       }
 
       if (data.success && data.reference) {
-        // Si le push USSD direct a fonctionné, on attend la validation
-        // Si pas de push direct, on redirige dans la page actuelle (pas de popup)
-        if (!data.direct_charge && data.authorization_url) {
-          // Fallback: show in-app payment instructions instead of redirecting
-          const ussdMsg = method === 'om' 
-            ? 'Veuillez composer le *150*50# (Orange Money) pour valider le paiement de 100 FCFA, puis relancez la recherche.' 
-            : 'Veuillez composer le *126# (MTN MoMo) pour valider le paiement de 100 FCFA, puis relancez la recherche.';
-          return {
-            success: false,
-            error: ussdMsg
-          };
-        }
-
         // Push USSD envoyé — le client tape son code PIN sur son téléphone
         // On fait du polling pour attendre la confirmation
         let isPaid = false;
