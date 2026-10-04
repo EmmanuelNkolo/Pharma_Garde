@@ -268,11 +268,6 @@ const App = (() => {
 
     // Proceed to payment
     const btnProceed = document.getElementById('proceed-search-btn');
-    if (btnProceed) btnProceed.addEventListener('click', showConfirmStep);
-
-    // Confirm request
-    const btnValidate = $('#btn-validate-request');
-    const btnCancelReq = $('#btn-cancel-request');
     const insuranceSelect = $('#insurance-select');
     const customInsuranceInput = $('#custom-insurance-input');
 
@@ -287,8 +282,12 @@ const App = (() => {
       });
     }
 
-    if (btnValidate) {
-      btnValidate.addEventListener('click', () => {
+    if (btnProceed) {
+      btnProceed.addEventListener('click', () => {
+        if (selectedMedicines.length === 0) {
+          showToast('⚠️ Ajoutez au moins un médicament', 'error');
+          return;
+        }
         if (insuranceSelect) {
           if (insuranceSelect.value === 'Autres') {
             insuranceName = customInsuranceInput.value.trim() || 'Autres';
@@ -299,7 +298,7 @@ const App = (() => {
         proceedToPayment();
       });
     }
-    if (btnCancelReq) btnCancelReq.addEventListener('click', () => showSearchStep(1));
+
 
     // Payment methods
     // Payment method tabs in search modal
@@ -752,9 +751,12 @@ const App = (() => {
   }
 
   function showSearchStep(step) {
-    $$('.search-step').forEach(s => s.classList.remove('active'));
+    ['1', '2', '3', '4'].forEach(s => {
+      const el = $(`#search-step-${s}`);
+      if (el) el.classList.add('hidden');
+    });
     const stepEl = $(`#search-step-${step}`);
-    if (stepEl) stepEl.classList.add('active');
+    if (stepEl) stepEl.classList.remove('hidden');
   }
 
   function showConfirmStep() {
