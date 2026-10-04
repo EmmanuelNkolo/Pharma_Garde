@@ -138,6 +138,16 @@ const Payment = (() => {
         let isPaid = false;
         let attempts = 0;
         let finalMessage = data.message || 'Veuillez entrer votre code PIN sur votre téléphone pour confirmer.';
+        
+        if (!data.direct_charge) {
+          const code = method === 'om' ? '*150*50#' : '*126#';
+          const btn = document.getElementById('btn-confirm-payment');
+          if (btn) {
+            btn.textContent = `Composez le ${code} pour valider...`;
+            btn.style.fontSize = '13px'; // A little smaller to fit the text
+          }
+        }
+        
         let delayMs = 3000;
         let totalElapsed = 0;
         const MAX_TIMEOUT = 120000; // 2 minutes

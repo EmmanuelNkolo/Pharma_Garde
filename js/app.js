@@ -968,6 +968,7 @@ const App = (() => {
     } finally {
       if (btn) {
         btn.textContent = '✅ Confirmer le paiement';
+        btn.style.fontSize = '';
         btn.disabled = false;
       }
     }
