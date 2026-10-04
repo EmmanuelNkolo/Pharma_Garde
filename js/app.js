@@ -45,6 +45,8 @@ const App = (() => {
   let leafletMap = null;
   let userMarker = null;
   let radiusCircle = null;
+  let mapMask = null;
+  let routeLayer = null;
   let pharmacyMarkers = [];
   let filterGardeOnly = false;
 
@@ -96,9 +98,36 @@ const App = (() => {
   function drawRadiusCircle(pos, radiusKm) {
     if (!leafletMap) return;
     if (radiusCircle) leafletMap.removeLayer(radiusCircle);
+    if (mapMask) leafletMap.removeLayer(mapMask);
+
     radiusCircle = L.circle([pos.lat, pos.lng], {
       radius: radiusKm * 1000,
-      color: '#3b82f6', fillColor: '#bfdbfe', fillOpacity: 0.3, weight: 2, dashArray: ''
+      color: '#3b82f6', fillColor: '#bfdbfe', fillOpacity: 0.1, weight: 2, dashArray: ''
+    }).addTo(leafletMap);
+
+    const hole = [];
+    const R = 6371;
+    const lat1 = pos.lat * Math.PI / 180;
+    const lon1 = pos.lng * Math.PI / 180;
+    const d = radiusKm / R;
+    for (let i = 0; i < 64; i++) {
+      const brng = (i * 360 / 64) * Math.PI / 180;
+      const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(brng));
+      const lon2 = lon1 + Math.atan2(Math.sin(brng) * Math.sin(d) * Math.cos(lat1), Math.cos(d) - Math.sin(lat1) * Math.sin(lat2));
+      hole.push([lat2 * 180 / Math.PI, lon2 * 180 / Math.PI]);
+    }
+
+    const outerBounds = [
+      [90, -360],
+      [90, 360],
+      [-90, 360],
+      [-90, -360]
+    ];
+
+    mapMask = L.polygon([outerBounds, hole], {
+      stroke: false,
+      fillColor: '#0f172a',
+      fillOpacity: 0.5
     }).addTo(leafletMap);
   }
 
@@ -599,8 +628,14 @@ const App = (() => {
     const guardCount = displayPharmacies.filter(p => p.isOnDuty).length;
     const openCountEl = $('#open-count');
     const guardCountEl = $('#guard-count');
-    if (openCountEl) openCountEl.textContent = I18n ? I18n.t('map.open_count', { n: openCount }) : `${openCount} pharmacie${openCount > 1 ? 's' : ''} ouverte${openCount > 1 ? 's' : ''}`;
-    if (guardCountEl) guardCountEl.textContent = I18n ? I18n.t('map.guard_count', { n: guardCount }) : `${guardCount} de garde`;
+    if (openCountEl) {
+      let txt = I18n ? I18n.t('map.open_count', { n: openCount }) : '';
+      openCountEl.textContent = (!txt || txt === 'map.open_count') ? `${openCount} pharmacie(s) ouverte(s)` : txt;
+    }
+    if (guardCountEl) {
+      let txt = I18n ? I18n.t('map.guard_count', { n: guardCount }) : '';
+      guardCountEl.textContent = (!txt || txt === 'map.guard_count') ? `${guardCount} de garde` : txt;
+    }
 
     // Render pharmacy list
     if (activeRequestIds.length === 0) {
@@ -1535,7 +1570,9 @@ const App = (() => {
     }
 
     modal.classList.add('active');
-    PharmMap.highlightPharmacy(pharmacy);
+    if (leafletMap && pharmacy.lat) {
+      leafletMap.setView([pharmacy.lat, pharmacy.lng], 15);
+    }
     pushNavigation('detail');
   }
 
@@ -1557,11 +1594,32 @@ const App = (() => {
     }
   }
 
-  function getRoute(lat, lng) {
+  async function getRoute(lat, lng) {
     const pos = Geolocation.getPosition();
-    if (pos) {
-      PharmMap.drawRoute(pos.lat, pos.lng, lat, lng);
-    } else {
+    if (!pos || !leafletMap) {
+      window.open(`https://www.google.com/maps/dir//${lat},${lng}`, '_blank');
+      return;
+    }
+
+    if (routeLayer) {
+      leafletMap.removeLayer(routeLayer);
+      routeLayer = null;
+    }
+
+    try {
+      const url = `https://router.project-osrm.org/route/v1/driving/${pos.lng},${pos.lat};${lng},${lat}?overview=full&geometries=geojson`;
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (data.routes && data.routes.length > 0) {
+        const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+        routeLayer = L.polyline(coords, { color: '#3b82f6', weight: 5, opacity: 0.8 }).addTo(leafletMap);
+        leafletMap.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
+      } else {
+        window.open(`https://www.google.com/maps/dir//${lat},${lng}`, '_blank');
+      }
+    } catch (e) {
+      console.error('Routing error:', e);
       window.open(`https://www.google.com/maps/dir//${lat},${lng}`, '_blank');
     }
   }
@@ -1607,7 +1665,10 @@ const App = (() => {
     
     // Recenter map
     recenterOnUser();
-    PharmMap.clearRoute();
+    if (routeLayer && leafletMap) {
+      leafletMap.removeLayer(routeLayer);
+      routeLayer = null;
+    }
     
     // Expand bottom sheet
     const sheet = $('#bottom-sheet');
