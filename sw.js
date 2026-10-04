@@ -1,70 +1,37 @@
-const CACHE_NAME = 'pharma-garde-v1';
-const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/pharmacien.html',
-  '/delegue.html',
-  '/css/style.css',
-  '/css/pharmacien.css',
-  '/css/delegue.css',
-  '/js/app.js',
-  '/js/pharmacien.js',
-  '/js/delegue.js',
-  '/icon.svg',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
-];
+/* Pharma-Garde — Service Worker v6 (réseau d'abord)
+ * Les fichiers de l'application sont toujours récupérés en ligne en priorité
+ * afin que chaque mise à jour soit visible immédiatement. Le cache ne sert
+ * qu'en mode hors-ligne. Les anciennes versions de cache sont supprimées.
+ */
+const CACHE_NAME = 'pharma-garde-v6-2026-10-04';
+const CORE = ['/', '/index.html', '/pharmacien.html', '/delegue.html', '/css/design-system.css', '/css/pro.css', '/js/core.js', '/icon.svg'];
 
-// Install Event
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        return cache.addAll(ASSETS_TO_CACHE);
-      })
-      .then(() => self.skipWaiting())
-  );
+  event.waitUntil(caches.open(CACHE_NAME).then((c) => c.addAll(CORE).catch(() => {})).then(() => self.skipWaiting()));
 });
 
-// Activate Event
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            return caches.delete(cache);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
+    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
 
-// Fetch Event - Stale-while-revalidate for assets, Network-first for API (Supabase is handled by client JS)
 self.addEventListener('fetch', (event) => {
-  // We only cache GET requests
-  if (event.request.method !== 'GET') return;
-
-  // Supabase requests should go to network directly, or handled by client
-  if (event.request.url.includes('supabase.co')) return;
+  const req = event.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  // API & services externes temps réel : jamais de cache
+  if (url.hostname.includes('supabase.co') || url.hostname.includes('overpass') || url.hostname.includes('nominatim')) return;
+  if (url.origin !== self.location.origin) return;
 
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      const fetchPromise = fetch(event.request).then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
-        }
-        return networkResponse;
-      }).catch(() => {
-        // Return offline fallback if needed
-      });
-
-      return cachedResponse || fetchPromise;
-    })
+    fetch(req).then((res) => {
+      if (res && res.status === 200) {
+        const copy = res.clone();
+        caches.open(CACHE_NAME).then((c) => c.put(req, copy));
+      }
+      return res;
+    }).catch(() => caches.match(req).then((r) => r || caches.match('/index.html')))
   );
 });

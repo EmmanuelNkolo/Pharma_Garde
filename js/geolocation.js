@@ -20,9 +20,18 @@ const Geolocation = (() => {
   }
 
   /**
-   * Get current GPS position
+   * Get current GPS position using high-precision PG core if available
    */
-  function getCurrentPosition() {
+  async function getCurrentPosition() {
+    if (window.PG && typeof PG.locate === 'function') {
+      try {
+        const pos = await PG.locate({ desired: 30, maxWait: 15000 });
+        position = { lat: pos.lat, lng: pos.lng };
+        return position;
+      } catch (err) {
+        throw err;
+      }
+    }
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
         reject(new Error('Géolocalisation non supportée'));
