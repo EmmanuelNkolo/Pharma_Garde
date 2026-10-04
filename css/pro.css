@@ -12,7 +12,7 @@
   --gold-500: #d4a72c;
   --gold-grad: linear-gradient(135deg, #fde68a 0%, #f5c84c 45%, #c9971c 100%);
   --pg-header-h: 64px;
-  --pg-panel-w: 400px;
+  --pg-panel-w: 430px;
   --green-fill: linear-gradient(135deg, var(--emerald-600), var(--emerald-500));
 }
 
@@ -470,12 +470,13 @@
 .pharma-btn {
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px;
+  padding: 10px 4px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   background: rgba(255, 255, 255, 0.05);

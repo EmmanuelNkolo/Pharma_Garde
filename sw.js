@@ -3,7 +3,7 @@
  * afin que chaque mise à jour soit visible immédiatement. Le cache ne sert
  * qu'en mode hors-ligne. Les anciennes versions de cache sont supprimées.
  */
-const CACHE_NAME = 'pharma-garde-v11-2026-10-04';
+const CACHE_NAME = 'pharma-garde-v12-2026-10-04';
 const CORE = ['/', '/index.html', '/pharmacien.html', '/delegue.html', '/css/design-system.css', '/css/pro.css', '/js/core.js', '/icon.svg'];
 
 self.addEventListener('install', (event) => {
