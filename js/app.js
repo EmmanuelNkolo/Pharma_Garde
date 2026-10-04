@@ -502,11 +502,7 @@ const App = (() => {
         // Large search radius for cache (e.g., 20km) to cover max radius
         const query = `[out:json];node["amenity"="pharmacy"](around:20000,${pos.lat},${pos.lng});out;`;
         
-        const response = await fetch(overpassUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: 'data=' + encodeURIComponent(query)
-        });
+        const response = await fetch(overpassUrl + '?data=' + encodeURIComponent(query));
         const osmData = await response.json();
         
         cachedOSMPharmacies = [];
@@ -695,56 +691,7 @@ const App = (() => {
     showSearchStep('confirm');
   }
 
-  // ── OCR Camera Integration ─────────────────────────────
-  const cameraBtn = $('#camera-btn');
-  const ocrInput = $('#ocr-camera-input');
-
-  if (cameraBtn && ocrInput) {
-    cameraBtn.addEventListener('click', () => {
-      ocrInput.click();
-    });
-
-    ocrInput.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      showToast('📸 Scan de l\'ordonnance en cours...', 'info');
-
-      try {
-        const result = await Tesseract.recognize(file, 'fra', {
-          logger: m => {
-            if (m.status === 'recognizing text') {
-              console.log(`OCR Progress: ${Math.round(m.progress * 100)}%`);
-            }
-          }
-        });
-
-        const text = result.data.text;
-        if (!text || text.trim() === '') {
-          showToast('❌ Aucun texte lisible trouvé.', 'error');
-          return;
-        }
-
-        // Basic heuristic: split by newlines, keep lines with more than 3 chars
-        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 3);
-        
-        if (lines.length > 0) {
-          selectedMedicines = [...new Set([...selectedMedicines, ...lines])];
-          showToast('✅ Ordonnance scannée avec succès !', 'success');
-          updateSelectedList();
-          openSearchModal();
-        } else {
-          showToast('❌ Aucun médicament identifié.', 'error');
-        }
-
-      } catch (err) {
-        console.error('OCR Error:', err);
-        showToast('❌ Erreur lors de l\'analyse de l\'image.', 'error');
-      } finally {
-        ocrInput.value = ''; // Reset
-      }
-    });
-  }
+  // (Duplicate OCR code removed for clarity)
 
   // ── Medicine Input ─────────────────────────────────────
   function handleMedicineInput(e) {
@@ -1379,12 +1326,18 @@ const App = (() => {
 
   function openOCRModal() {
     const modal = $('#ocr-modal');
-    if (modal) modal.style.display = 'flex';
+    if (modal) {
+      modal.classList.add('active');
+      modal.style.display = 'flex';
+    }
   }
 
   function closeOCRModal() {
     const modal = $('#ocr-modal');
-    if (modal) modal.style.display = 'none';
+    if (modal) {
+      modal.classList.remove('active');
+      modal.style.display = 'none';
+    }
   }
 
   async function handleOCRFile(e) {

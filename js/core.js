@@ -113,11 +113,11 @@
    * souhaitée (mètres) ou expiration ; retourne la meilleure mesure.
    */
   function locate(opts) {
-    const o = Object.assign({ desired: 25, maxWait: 14000, onProgress: null }, opts || {});
+    const o = Object.assign({ desired: 25, maxWait: 25000, onProgress: null }, opts || {});
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) return reject(new Error('Géolocalisation non supportée par cet appareil.'));
       if (!window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-        return reject(new Error('La géolocalisation exige une connexion sécurisée (https).'));
+        console.warn('Géolocalisation demandée sur contexte non sécurisé (https recommandé).');
       }
       let best = null, done = false, wid = null;
       const finish = (err) => {

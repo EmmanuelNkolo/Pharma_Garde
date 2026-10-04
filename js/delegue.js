@@ -407,14 +407,7 @@
     btn.disabled = true;
 
     try {
-      const pos = await new Promise((resolve, reject) => {
-        if (!navigator.geolocation) return reject(new Error('GPS non supporté'));
-        navigator.geolocation.getCurrentPosition(
-          p => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
-          e => reject(e),
-          { enableHighAccuracy: true, timeout: 15000 }
-        );
-      });
+      const pos = await PG.locate({ desired: 30, maxWait: 25000 });
 
       userLat = pos.lat;
       userLng = pos.lng;
@@ -474,7 +467,15 @@
     try {
       const { data, error } = await supabase.from('pharmacies').select('id, name, address, city, quarter, phone, whatsapp, lat, lng, status, hours, services, is_open, is_on_duty');
       if (error) throw error;
-      allPharmacies = data || [];
+      let fetched = data || [];
+      const local = typeof LOCAL_PHARMACIES !== 'undefined' ? LOCAL_PHARMACIES : [];
+      
+      local.forEach(lp => {
+        if (!fetched.find(fp => fp.name.toLowerCase() === lp.name.toLowerCase())) {
+          fetched.push(lp);
+        }
+      });
+      allPharmacies = fetched;
       filterPharmaciesByRadius();
     } catch (err) {
       console.error('Load pharmacies error:', err);
