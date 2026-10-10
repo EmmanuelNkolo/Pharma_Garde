@@ -264,19 +264,23 @@
   }
 
   async function handleRegister() {
-    const nom = ($('reg-nom') || {}).value?.trim();
-    const prenom = ($('reg-prenom') || {}).value?.trim();
-    const proCard = ($('reg-pro-card') || {}).value?.trim();
+    const nom = ($('reg-lastname') || {}).value?.trim();
+    const prenom = ($('reg-firstname') || {}).value?.trim();
+    const proCard = ($('reg-procard') || {}).value?.trim();
     const cni = ($('reg-cni') || {}).value?.trim();
     const phone = ($('reg-phone') || {}).value?.trim();
     const email = ($('reg-email') || {}).value?.trim();
     const password = ($('reg-password') || {}).value;
-    const confirmPassword = ($('reg-confirm-password') || {}).value;
+    const confirmPassword = ($('reg-password-confirm') || {}).value;
 
     if (!nom || !prenom || !proCard || !cni || !phone || !email || !password || !confirmPassword) {
       return showToast('Veuillez remplir tous les champs obligatoires.', 'error');
     }
-    if (password.length < 6) return showToast('Le mot de passe doit contenir au moins 6 caractères.', 'error');
+    // Validation mot de passe: 8 char min, 1 majuscule, 1 chiffre
+    const pwdRegex = /^(?=.*[A-Z])(?=.*\d)[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!pwdRegex.test(password)) {
+      return showToast('Le mot de passe doit contenir au moins 8 caractères, dont 1 majuscule et 1 chiffre.', 'error');
+    }
     if (password !== confirmPassword) return showToast('Les mots de passe ne correspondent pas.', 'error');
 
     const btn = $('btn-register');
@@ -301,11 +305,12 @@
       showToast('✅ Inscription réussie ! Connectez-vous maintenant.', 'success');
 
       // Clear form
-      ['reg-nom', 'reg-prenom', 'reg-pro-card', 'reg-cni', 'reg-phone', 'reg-email', 'reg-password', 'reg-confirm-password']
+      ['reg-lastname', 'reg-firstname', 'reg-procard', 'reg-cni', 'reg-phone', 'reg-email', 'reg-password', 'reg-password-confirm']
         .forEach(id => { const el = $(id); if (el) el.value = ''; });
 
       // Switch to login tab
-      $('tab-login').click();
+      const btnShowLogin = $('btn-show-login');
+      if (btnShowLogin) btnShowLogin.click();
     } catch (err) {
       console.error('Registration error:', err);
       showToast('❌ ' + (err.message || 'Erreur lors de l\'inscription'), 'error');
