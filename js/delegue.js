@@ -29,7 +29,7 @@
   //  INITIALIZATION
   // ═══════════════════════════════════════════════════════
   function init() {
-    if (typeof I18N !== 'undefined') I18N.init();
+    if (typeof I18n !== 'undefined') I18n.init();
     bindLoginTabs();
     bindEvents();
 
