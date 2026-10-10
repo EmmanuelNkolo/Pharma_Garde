@@ -69,30 +69,22 @@
   //  LOGIN TABS
   // ═══════════════════════════════════════════════════════
   function bindLoginTabs() {
-    const tabs = { login: 'form-login', register: 'form-register', reset: 'form-reset' };
-    $qa('.login-tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        $qa('.login-tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        Object.values(tabs).forEach(fid => {
-          const el = $(fid);
-          if (el) el.style.display = 'none';
-        });
-        const formId = tabs[tab.dataset.form];
-        const el = $(formId);
-        if (el) el.style.display = 'block';
-      });
-    });
+    const btnShowRegister = document.getElementById('btn-show-register');
+    const btnShowLogin = document.getElementById('btn-show-login');
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
 
-    const linkForgot = $('link-forgot');
-    if (linkForgot) {
-      linkForgot.addEventListener('click', (e) => {
-        e.preventDefault();
-        $qa('.login-tab').forEach(t => t.classList.remove('active'));
-        $('tab-reset').classList.add('active');
-        $('form-login').style.display = 'none';
-        $('form-register').style.display = 'none';
-        $('form-reset').style.display = 'block';
+    if (btnShowRegister && loginForm && registerForm) {
+      btnShowRegister.addEventListener('click', () => {
+        loginForm.classList.add('hidden');
+        registerForm.classList.remove('hidden');
+      });
+    }
+
+    if (btnShowLogin && loginForm && registerForm) {
+      btnShowLogin.addEventListener('click', () => {
+        registerForm.classList.add('hidden');
+        loginForm.classList.remove('hidden');
       });
     }
   }
