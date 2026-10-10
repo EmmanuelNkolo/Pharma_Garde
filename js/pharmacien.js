@@ -55,10 +55,10 @@
 
   // ── Login Tabs ─────────────────────────────────────────
   function bindLoginTabs() {
-    const btnShowRegister = $('#btn-show-register');
-    const btnShowLogin = $('#btn-show-login');
-    const loginForm = $('#login-form');
-    const registerForm = $('#register-form');
+    const btnShowRegister = document.getElementById('btn-show-register');
+    const btnShowLogin = document.getElementById('btn-show-login');
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
 
     if (btnShowRegister && loginForm && registerForm) {
       btnShowRegister.addEventListener('click', () => {
@@ -72,7 +72,7 @@
         registerForm.classList.add('hidden');
         loginForm.classList.remove('hidden');
       });
-  }
+    }
 
     // City "Autre" toggle
     const regCity = $('#reg-city');
@@ -86,15 +86,15 @@
 
   // ── Events ─────────────────────────────────────────────
   function bindEvents() {
-    const btnLogin = $('#btn-login');
-    const btnRegister = $('#btn-register');
-    const btnResetPw = $('#btn-reset-password');
-    const btnLogout = $('#btn-logout');
-    const btnConfirmOk = $('#btn-confirm-ok');
-    const btnDetectGps = $('#btn-detect-gps');
-    const btnDeleteAccount = $('#btn-delete-account');
-    const btnDeleteCancel = $('#delete-cancel');
-    const btnDeleteConfirm = $('#delete-confirm');
+    const btnLogin = document.getElementById('btn-login');
+    const btnRegister = document.getElementById('btn-register');
+    const btnResetPw = document.getElementById('btn-reset-password');
+    const btnLogout = document.getElementById('btn-logout');
+    const btnConfirmOk = document.getElementById('btn-confirm-ok');
+    const btnDetectGps = document.getElementById('btn-detect-gps');
+    const btnDeleteAccount = document.getElementById('btn-delete-account');
+    const btnDeleteCancel = document.getElementById('delete-cancel');
+    const btnDeleteConfirm = document.getElementById('delete-confirm');
 
     if (btnLogin) btnLogin.addEventListener('click', handleLogin);
     if (btnRegister) btnRegister.addEventListener('click', handleRegister);
@@ -103,10 +103,10 @@
     if (btnConfirmOk) btnConfirmOk.addEventListener('click', executeConfirm);
     if (btnDetectGps) btnDetectGps.addEventListener('click', handleDetectGPS);
     if (btnDeleteAccount) btnDeleteAccount.addEventListener('click', () => {
-      $('#delete-modal').style.display = 'flex';
+      document.getElementById('delete-modal').style.display = 'flex';
     });
     if (btnDeleteCancel) btnDeleteCancel.addEventListener('click', () => {
-      $('#delete-modal').style.display = 'none';
+      document.getElementById('delete-modal').style.display = 'none';
     });
     if (btnDeleteConfirm) btnDeleteConfirm.addEventListener('click', handleDeleteAccount);
 
