@@ -112,8 +112,15 @@ const Payment = (() => {
       };
     }
 
+      let popup = null;
+      try {
+        // Pre-open popup to avoid browser blockers
+        popup = window.open('about:blank', 'NotchPayCheckout', 'width=500,height=700');
+      } catch (e) {}
+
       try {
         if (!window.supabase) {
+          if (popup) popup.close();
           return { success: false, error: "Erreur de configuration serveur (Supabase manquant)" };
         }
 
@@ -129,27 +136,36 @@ const Payment = (() => {
         });
 
         if (error || !data) {
+          if (popup) popup.close();
           throw new Error(error?.message || "Erreur de connexion au serveur");
         }
 
         if (data.success && data.reference) {
           if (!data.direct_charge) {
-            // Le push USSD direct n'a pas pu être envoyé par Notch Pay
-            return { 
-              success: true, 
-              redirect: true, 
-              authorization_url: data.authorization_url, 
-              reference: data.reference 
-            };
+            // Le push USSD direct n'a pas pu être envoyé, on redirige la popup
+            if (popup) {
+              popup.location.href = data.authorization_url;
+            } else {
+              return { 
+                success: true, 
+                redirect: true, 
+                authorization_url: data.authorization_url, 
+                reference: data.reference 
+              };
+            }
+          } else {
+            // Push direct fonctionnel, pas besoin de popup
+            if (popup) popup.close();
           }
 
-          // Push USSD envoyé en arrière-plan — le client tape son code PIN sur son téléphone
-          return await pollPaymentStatus(data.reference, amount, data.message || 'Veuillez entrer votre code PIN sur votre téléphone pour confirmer.');
+          // Polling
+          return await pollPaymentStatus(data.reference, amount, data.message || 'Veuillez entrer votre code PIN sur votre téléphone pour confirmer.', popup);
         } else {
+          if (popup) popup.close();
           return { success: false, error: data.error || 'Paiement refusé par l\'opérateur.' };
         }
       } catch (err) {
-        // Payment failure - stay in app, show clear message
+        if (popup) popup.close();
         if (err && (err.message || '').toLowerCase().includes('insufficient')) {
           return { success: false, error: 'Désolé, votre solde est insuffisant. Veuillez recharger votre compte avant de relancer la recherche.' };
         }
@@ -158,7 +174,7 @@ const Payment = (() => {
       }
   }
 
-  async function pollPaymentStatus(reference, amount, defaultMessage = 'Veuillez patienter...') {
+  async function pollPaymentStatus(reference, amount, defaultMessage = 'Veuillez patienter...', popup = null) {
     let isPaid = false;
     let attempts = 0;
     let finalMessage = defaultMessage;
@@ -174,11 +190,17 @@ const Payment = (() => {
       
       const statusCheck = await checkPaymentStatus(reference);
 
+      if (popup && popup.closed && statusCheck.status !== 'SUCCESSFUL') {
+        return { success: false, error: 'La fenêtre de paiement a été fermée.' };
+      }
+
       if (statusCheck.status === 'SUCCESSFUL') {
         isPaid = true;
         finalMessage = 'Paiement confirmé avec succès ! 🎉';
+        if (popup) popup.close();
         break;
       } else if (statusCheck.status === 'FAILED') {
+        if (popup) popup.close();
         return { success: false, error: 'Désolé, le paiement a échoué ou a été annulé.' };
       }
 
@@ -190,6 +212,7 @@ const Payment = (() => {
       createSession(reference);
       return { success: true, transactionId: reference, message: finalMessage, amount: amount };
     } else {
+      if (popup) popup.close();
       return { success: false, error: 'Temps d\'attente dépassé. Si vous avez validé, le système se mettra à jour. Sinon, veuillez réessayer.' };
     }
   }
