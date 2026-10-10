@@ -82,7 +82,7 @@ serve(async (req) => {
       const completeResponse = await fetch(`https://api.notchpay.co/payments/${txReference}`, {
         method: 'PUT',
         headers: {
-          'Authorization': NOTCHPAY_SECRET_KEY || API_KEY,
+          'Authorization': API_KEY,
           'Accept': 'application/json',
           'Content-Type': 'application/json'
         },
@@ -124,7 +124,7 @@ serve(async (req) => {
       const response = await fetch(`https://api.notchpay.co/payments/${reference}`, {
         method: 'GET',
         headers: {
-          'Authorization': NOTCHPAY_SECRET_KEY || API_KEY,
+          'Authorization': API_KEY,
           'Accept': 'application/json'
         }
       });
