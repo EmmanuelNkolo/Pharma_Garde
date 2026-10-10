@@ -25,6 +25,9 @@ const I18n = (() => {
       error: 'Erreur',
       success: 'Succès',
       required: 'Requis',
+      login_btn: 'Connexion',
+      email_placeholder: 'pharmacie@email.com',
+      password_placeholder: '••••••••',
 
       // Footer
       footer_line1: 'Application de santé publique — Cameroun',
@@ -202,6 +205,9 @@ const I18n = (() => {
       error: 'Error',
       success: 'Success',
       required: 'Required',
+      login_btn: 'Login',
+      email_placeholder: 'pharmacy@email.com',
+      password_placeholder: '••••••••',
 
       footer_line1: 'Public Health Application — Cameroon',
       footer_line2: 'Medicine search · On-duty pharmacies · Medical delegates',
@@ -404,3 +410,10 @@ const I18n = (() => {
 
 window.I18n = I18n;
 window.t = I18n.t;
+
+// Auto-initialize securely
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', I18n.init);
+} else {
+  I18n.init();
+}
