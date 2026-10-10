@@ -1370,7 +1370,12 @@
   }
 
   // ── Boot ───────────────────────────────────────────────
-  document.addEventListener('DOMContentLoaded', () => { if (typeof I18n !== 'undefined') I18n.init(); });
-  document.addEventListener('DOMContentLoaded', init);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => { if (typeof I18n !== 'undefined') I18n.init(); });
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    if (typeof I18n !== 'undefined') I18n.init();
+    init();
+  }
 
 })();
