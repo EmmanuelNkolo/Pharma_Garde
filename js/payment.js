@@ -135,43 +135,16 @@ const Payment = (() => {
         if (data.success && data.reference) {
           if (!data.direct_charge) {
             // Le push USSD direct n'a pas pu être envoyé par Notch Pay
-            return { success: false, error: 'Impossible de contacter votre opérateur mobile. Veuillez vérifier que votre numéro est actif et réessayer.' };
+            return { 
+              success: true, 
+              redirect: true, 
+              authorization_url: data.authorization_url, 
+              reference: data.reference 
+            };
           }
 
           // Push USSD envoyé en arrière-plan — le client tape son code PIN sur son téléphone
-          let isPaid = false;
-          let attempts = 0;
-          let finalMessage = data.message || 'Veuillez entrer votre code PIN sur votre téléphone pour confirmer.';
-          
-          let delayMs = 3000;
-          let totalElapsed = 0;
-          const MAX_TIMEOUT = 120000; // 2 minutes
-          
-          while (totalElapsed < MAX_TIMEOUT) {
-            await new Promise(r => setTimeout(r, delayMs));
-            totalElapsed += delayMs;
-            attempts++;
-            
-            const statusCheck = await checkPaymentStatus(data.reference);
-
-            if (statusCheck.status === 'SUCCESSFUL') {
-              isPaid = true;
-              finalMessage = 'Paiement confirmé avec succès ! 🎉';
-              break;
-            } else if (statusCheck.status === 'FAILED') {
-              return { success: false, error: 'Désolé, votre solde est insuffisant ou le paiement a été annulé.' };
-            }
-
-            // Backoff exponentiel (max 8s)
-            delayMs = Math.min(8000, delayMs * 1.5);
-          }
-
-          if (isPaid) {
-            createSession(data.reference);
-            return { success: true, transactionId: data.reference, message: finalMessage, amount: amount };
-          } else {
-            return { success: false, error: 'Temps d\'attente dépassé. Si vous avez validé, le système se mettra à jour. Sinon, veuillez réessayer.' };
-          }
+          return await pollPaymentStatus(data.reference, amount, data.message || 'Veuillez entrer votre code PIN sur votre téléphone pour confirmer.');
         } else {
           return { success: false, error: data.error || 'Paiement refusé par l\'opérateur.' };
         }
@@ -183,6 +156,42 @@ const Payment = (() => {
         console.error('Payment Edge Function error:', err);
         return { success: false, error: 'Erreur réseau : ' + (err.message || 'Erreur inconnue') };
       }
+  }
+
+  async function pollPaymentStatus(reference, amount, defaultMessage = 'Veuillez patienter...') {
+    let isPaid = false;
+    let attempts = 0;
+    let finalMessage = defaultMessage;
+    
+    let delayMs = 3000;
+    let totalElapsed = 0;
+    const MAX_TIMEOUT = 120000; // 2 minutes
+    
+    while (totalElapsed < MAX_TIMEOUT) {
+      await new Promise(r => setTimeout(r, delayMs));
+      totalElapsed += delayMs;
+      attempts++;
+      
+      const statusCheck = await checkPaymentStatus(reference);
+
+      if (statusCheck.status === 'SUCCESSFUL') {
+        isPaid = true;
+        finalMessage = 'Paiement confirmé avec succès ! 🎉';
+        break;
+      } else if (statusCheck.status === 'FAILED') {
+        return { success: false, error: 'Désolé, le paiement a échoué ou a été annulé.' };
+      }
+
+      // Backoff exponentiel (max 8s)
+      delayMs = Math.min(8000, delayMs * 1.5);
+    }
+
+    if (isPaid) {
+      createSession(reference);
+      return { success: true, transactionId: reference, message: finalMessage, amount: amount };
+    } else {
+      return { success: false, error: 'Temps d\'attente dépassé. Si vous avez validé, le système se mettra à jour. Sinon, veuillez réessayer.' };
+    }
   }
 
   /**
@@ -215,6 +224,7 @@ const Payment = (() => {
     getSessionTimeRemaining,
     processPayment,
     checkPaymentStatus,
+    pollPaymentStatus,
   };
 })();
 

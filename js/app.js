@@ -958,8 +958,37 @@ const App = (() => {
       const result = await Payment.processPayment(phone, selectedPaymentMethod, Payment.SEARCH_COST);
       
       if (result.success) {
-        showToast(`✅ ${result.message}`, 'success');
-        handleSearchRequest();
+        if (result.redirect) {
+          showToast('Veuillez finaliser votre paiement ci-dessous.', 'info');
+          const btn = $('#btn-confirm-payment');
+          if (btn) {
+            btn.outerHTML = `
+              <div style="width: 100%; height: 450px; border-radius: 12px; overflow: hidden; margin-top: 15px; border: 1px solid var(--glass-border); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                <iframe src="${result.authorization_url}" width="100%" height="100%" frameborder="0" allow="payment"></iframe>
+              </div>
+              <div id="payment-polling-status" style="text-align:center; margin-top: 15px; font-size: 14px; color: var(--green-400); font-weight: 500;">
+                 <span class="spinner" style="width:14px;height:14px;display:inline-block;margin-right:6px;border-width:2px;"></span> En attente de la confirmation...
+              </div>`;
+          }
+          
+          // Start polling in background
+          Payment.pollPaymentStatus(result.reference, Payment.SEARCH_COST)
+            .then(pollResult => {
+              if (pollResult.success) {
+                showToast(`✅ ${pollResult.message}`, 'success');
+                handleSearchRequest();
+              } else {
+                showToast(`❌ ${pollResult.error}`, 'error');
+                const pStatus = $('#payment-polling-status');
+                if (pStatus) pStatus.innerHTML = "<span style='color:var(--red-400)'>Le paiement a échoué. Veuillez réessayer.</span>";
+              }
+            });
+          
+          return;
+        } else {
+          showToast(`✅ ${result.message}`, 'success');
+          handleSearchRequest();
+        }
       } else {
         showToast(`❌ ${result.error}`, 'error');
       }

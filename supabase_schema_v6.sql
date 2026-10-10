@@ -222,3 +222,8 @@ CREATE INDEX IF NOT EXISTS idx_visit_created ON visit_requests(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_targets_status ON promotion_targets(status);
 CREATE INDEX IF NOT EXISTS idx_promos_created ON delegate_promotions(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_pharmacies_latlng ON pharmacies(lat, lng);
+D R O P   P O L I C Y   I F   E X I S T S   " p r o m o _ r e a d "   O N   d e l e g a t e _ p r o m o t i o n s ;  
+ C R E A T E   P O L I C Y   " p r o m o _ r e a d "   O N   d e l e g a t e _ p r o m o t i o n s   F O R   S E L E C T   U S I N G   ( a u t h . u i d ( )   =   d e l e g a t e _ i d   O R   a u t h . r o l e ( )   =   ' a u t h e n t i c a t e d ' ) ;  
+ D R O P   P O L I C Y   I F   E X I S T S   " t a r g e t _ r e a d "   O N   p r o m o t i o n _ t a r g e t s ;  
+ C R E A T E   P O L I C Y   " t a r g e t _ r e a d "   O N   p r o m o t i o n _ t a r g e t s   F O R   S E L E C T   U S I N G   ( p h a r m a c y _ i d   =   a u t h . u i d ( )   O R   E X I S T S   ( S E L E C T   1   F R O M   d e l e g a t e _ p r o m o t i o n s   W H E R E   d e l e g a t e _ p r o m o t i o n s . i d   =   p r o m o t i o n _ t a r g e t s . p r o m o t i o n _ i d   A N D   d e l e g a t e _ p r o m o t i o n s . d e l e g a t e _ i d   =   a u t h . u i d ( ) ) ) ;  
+ 
