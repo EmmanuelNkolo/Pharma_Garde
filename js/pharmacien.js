@@ -204,7 +204,10 @@
     const lngVal = ($('#reg-lng') || {}).value;
 
     if (!name.trim() || !city || !quarter.trim() || !phone || !email) { showToast('Veuillez remplir tous les champs obligatoires (*)', 'error'); return; }
-    if (!password || password.length < 6) { showToast('Le mot de passe doit contenir au moins 6 caractères', 'error'); return; }
+    if (!password || password.length < 8 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+      showToast('Le mot de passe doit contenir au moins 8 caractères, dont 1 majuscule et 1 chiffre', 'error');
+      return;
+    }
     if (password !== passwordConfirm) { showToast('Les mots de passe ne correspondent pas', 'error'); return; }
 
     const btn = $('#btn-register');

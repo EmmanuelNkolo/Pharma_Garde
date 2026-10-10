@@ -44,7 +44,7 @@
           </div>
           <button id="btn-login" class="btn btn--primary btn--block" style="margin-top: 20px;" data-i18n="login_btn">Connexion</button>
           <div style="text-align: center; margin-top: 16px;">
-            <button type="button" id="btn-show-register" class="btn btn--ghost" style="font-size: 13px; color: var(--emerald-400);" data-i18n="pharm_register_title">Inscrire ma pharmacie</button>
+            <button type="button" id="btn-show-register" class="btn btn--ghost" style="font-size: 13px; color: var(--emerald-400);" data-i18n="pharm_register_title" onclick="document.getElementById('login-form').classList.add('hidden'); document.getElementById('register-form').classList.remove('hidden');">Inscrire ma pharmacie</button>
           </div>
         </div>
 
@@ -85,12 +85,17 @@
           </div>
           <div class="form-group">
             <label class="form-label" style="color: var(--emerald-400);" data-i18n="pharm_password">Mot de passe *</label>
-            <input type="password" id="reg-password" class="form-input">
+            <input type="password" id="reg-password" class="form-input" placeholder="Créez un mot de passe sécurisé" data-i18n-placeholder="ph_pwd_create">
+            <div style="font-size: 11px; color: var(--slate-400); margin-top: 6px;">8 caractères min. (1 majuscule, 1 chiffre)</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="color: var(--emerald-400);">Confirmer le mot de passe *</label>
+            <input type="password" id="reg-password-confirm" class="form-input" placeholder="Retapez le mot de passe" data-i18n-placeholder="ph_pwd_confirm">
           </div>
           <p style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">📍 La position GPS sera détectée automatiquement.</p>
-          <button id="btn-register" class="btn btn--primary btn--block" style="margin-top: 20px;">S'inscrire</button>
+          <button type="button" id="btn-register" class="btn btn--primary btn--block" style="margin-top: 20px;">S'inscrire</button>
           <div style="text-align: center; margin-top: 12px;">
-            <button type="button" id="btn-show-login" class="btn btn--ghost" style="font-size: 13px;">
+            <button type="button" id="btn-show-login" class="btn btn--ghost" style="font-size: 13px;" onclick="document.getElementById('register-form').classList.add('hidden'); document.getElementById('login-form').classList.remove('hidden');">
               Déjà inscrit ? <span style="color: var(--emerald-400);">Se connecter</span>
             </button>
           </div>
