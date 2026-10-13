@@ -564,29 +564,47 @@
 .welcome-screen__btn {
   padding: 16px 20px;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
   border-radius: var(--radius-lg);
-  border: 1px solid var(--border-default);
-  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.05);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   transition: all 0.2s ease;
   width: 100%;
-  color: var(--text-primary);
+  color: var(--emerald-400, #34d399) !important;
   text-decoration: none;
+}
+
+.welcome-screen__btn svg {
+  color: var(--emerald-400, #34d399) !important;
+  stroke: var(--emerald-400, #34d399) !important;
+}
+
+.welcome-screen__btn span {
+  color: var(--emerald-400, #34d399) !important;
+  font-weight: 700;
 }
 
 .welcome-screen__btn:hover,
 .welcome-screen__btn:active {
-  background: rgba(16, 185, 129, 0.16);
-  border-color: rgba(52, 211, 153, 0.5);
-  color: var(--emerald-300);
+  background: rgba(16, 185, 129, 0.18);
+  border-color: rgba(52, 211, 153, 0.7);
+  color: #ffffff !important;
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.25);
+}
+
+.welcome-screen__btn:hover svg,
+.welcome-screen__btn:active svg,
+.welcome-screen__btn:hover span,
+.welcome-screen__btn:active span {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
 }
 
 .welcome-screen__footer {
@@ -644,14 +662,22 @@
   .welcome-screen__btn {
     padding: 12px 8px !important;
     font-size: 13px !important;
+    font-weight: 700 !important;
     flex-direction: column !important;
     gap: 6px !important;
     text-align: center !important;
+    color: var(--emerald-400, #34d399) !important;
   }
 
   .welcome-screen__btn svg {
     width: 22px !important;
     height: 22px !important;
+    color: var(--emerald-400, #34d399) !important;
+    stroke: var(--emerald-400, #34d399) !important;
+  }
+
+  .welcome-screen__btn span {
+    color: var(--emerald-400, #34d399) !important;
   }
 
   .welcome-screen__footer {
