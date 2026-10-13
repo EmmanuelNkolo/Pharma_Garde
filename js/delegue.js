@@ -1041,20 +1041,82 @@
   // ═══════════════════════════════════════════════════════
   //  VISIT REQUESTS
   // ═══════════════════════════════════════════════════════
+  function populateVisitTimePickers() {
+    const hourSel = $('visit-hour');
+    const minSel = $('visit-minute');
+    if (!hourSel || !minSel) return;
+
+    if (hourSel.options.length === 0) {
+      hourSel.innerHTML = '';
+      for (let h = 7; h <= 21; h++) {
+        const val = h.toString().padStart(2, '0');
+        hourSel.innerHTML += `<option value="${val}">${val}h</option>`;
+      }
+    }
+
+    if (minSel.options.length === 0) {
+      minSel.innerHTML = '';
+      for (let m = 0; m < 60; m += 5) {
+        const val = m.toString().padStart(2, '0');
+        minSel.innerHTML += `<option value="${val}">${val} min</option>`;
+      }
+    }
+  }
+
   function openVisitRequest(pharmacyId, pharmacyName) {
     $('visit-pharmacy-id').value = pharmacyId;
     $('visit-pharmacy-name').value = pharmacyName;
-    $('visit-date').value = '';
-    $('visit-purpose').value = '';
+    
+    populateVisitTimePickers();
+
+    // Default to tomorrow or today
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const yyyyMmDd = tomorrow.toISOString().split('T')[0];
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    const dateInput = $('visit-date-only');
+    if (dateInput) {
+      dateInput.min = todayStr;
+      dateInput.value = yyyyMmDd;
+    }
+
+    const hourSel = $('visit-hour');
+    if (hourSel) hourSel.value = '10';
+
+    const minSel = $('visit-minute');
+    if (minSel) minSel.value = '00';
+
+    const purposeInput = $('visit-purpose');
+    if (purposeInput) purposeInput.value = '';
+
+    const btnCal = $('btn-open-calendar');
+    if (btnCal && dateInput) {
+      btnCal.onclick = () => {
+        if (dateInput.showPicker) {
+          try { dateInput.showPicker(); } catch (e) { dateInput.focus(); }
+        } else {
+          dateInput.focus();
+        }
+      };
+    }
+
     $('visit-modal').classList.add('active');
   }
 
   async function handleSendVisit() {
     const pharmacyId = $('visit-pharmacy-id').value;
-    const date = $('visit-date').value;
+    const dateOnly = ($('visit-date-only') || {}).value;
+    const hour = ($('visit-hour') || {}).value || '10';
+    const minute = ($('visit-minute') || {}).value || '00';
     const purpose = ($('visit-purpose') || {}).value?.trim();
 
-    if (!date) return showToast('Veuillez choisir une date et heure.', 'error');
+    if (!dateOnly) return showToast('Veuillez choisir une date dans le calendrier.', 'error');
+
+    const proposedDate = new Date(`${dateOnly}T${hour}:${minute}:00`);
+    if (isNaN(proposedDate.getTime())) {
+      return showToast('Format de date ou heure invalide.', 'error');
+    }
 
     const btn = $('btn-send-visit');
     btn.disabled = true; btn.textContent = 'Envoi...';
@@ -1063,12 +1125,12 @@
       const { error } = await supabase.from('visit_requests').insert([{
         delegate_id: currentDelegate.id,
         pharmacy_id: pharmacyId,
-        proposed_date: new Date(date).toISOString(),
+        proposed_date: proposedDate.toISOString(),
         purpose: purpose || null,
       }]);
       if (error) throw error;
 
-      showToast('✅ Demande de visite envoyée !', 'success');
+      showToast('✅ Demande de visite envoyée avec succès !', 'success');
       $('visit-modal').classList.remove('active');
     } catch (err) {
       showToast('❌ Erreur: ' + (err.message || ''), 'error');

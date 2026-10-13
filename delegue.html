@@ -379,26 +379,57 @@
     <div id="visit-modal" class="modal-overlay">
       <div class="modal-content" style="max-width: 420px;">
         <div class="modal-header">
-          <h3 data-i18n="del_visit_request">Demander une Visite</h3>
+          <h3 style="color: var(--emerald-400); font-weight: 800; display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 20px;">📅</span>
+            <span data-i18n="del_visit_request">Demander une Visite</span>
+          </h3>
           <button class="btn btn--icon" id="btn-cancel-visit"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
         <div class="modal-body">
           <input type="hidden" id="visit-pharmacy-id">
+          
           <div class="form-group">
-            <label class="form-label" data-i18n="btn_pharmacy">Pharmacie</label>
-            <input type="text" id="visit-pharmacy-name" class="form-input" disabled>
+            <label class="form-label" style="color: var(--amber-400); font-weight: 800; font-size: 11px; letter-spacing: 0.8px; text-transform: uppercase; text-shadow: 0 0 8px rgba(251, 191, 36, 0.35);">
+              ⭐ ESPACE PHARMACIE
+            </label>
+            <input type="text" id="visit-pharmacy-name" class="form-input" disabled style="color: var(--amber-400, #fbbf24) !important; font-weight: 800; font-size: 16px; background: rgba(251, 191, 36, 0.08); border: 1px solid rgba(251, 191, 36, 0.4); text-shadow: 0 0 10px rgba(251, 191, 36, 0.3); -webkit-text-fill-color: #fbbf24 !important; opacity: 1 !important;">
           </div>
+
           <div class="form-group">
-            <label class="form-label" data-i18n="del_visit_date">Date et heure *</label>
-            <input type="datetime-local" id="visit-date" class="form-input" required>
+            <label class="form-label" style="color: var(--emerald-400); font-weight: 700; font-size: 12px; display: flex; align-items: center; gap: 6px;">
+              <span>📅</span> <span>Date de la visite *</span>
+            </label>
+            <div style="position: relative; display: flex; align-items: center;">
+              <input type="date" id="visit-date-only" class="form-input" required style="font-weight: 600; padding-right: 44px; color: var(--text-primary);">
+              <button type="button" id="btn-open-calendar" style="position: absolute; right: 10px; background: none; border: none; font-size: 20px; cursor: pointer; color: var(--emerald-400); padding: 4px;" title="Ouvrir le calendrier">📅</button>
+            </div>
           </div>
+
           <div class="form-group">
-            <label class="form-label" data-i18n="del_visit_purpose">Objet de la visite</label>
-            <textarea id="visit-purpose" class="form-input" rows="2"></textarea>
+            <label class="form-label" style="color: var(--emerald-400); font-weight: 700; font-size: 12px; display: flex; align-items: center; gap: 6px;">
+              <span>⏰</span> <span>Heure et minutes (faire défiler) *</span>
+            </label>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="flex: 1;">
+                <label style="display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; font-weight: 600;">Heures</label>
+                <select id="visit-hour" class="form-input form-select" style="font-weight: 700; font-size: 15px; text-align: center; color: var(--emerald-400); height: 44px;"></select>
+              </div>
+              <span style="font-size: 22px; font-weight: 900; color: var(--emerald-400); margin-top: 18px;">:</span>
+              <div style="flex: 1;">
+                <label style="display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; font-weight: 600;">Minutes</label>
+                <select id="visit-minute" class="form-input form-select" style="font-weight: 700; font-size: 15px; text-align: center; color: var(--emerald-400); height: 44px;"></select>
+              </div>
+            </div>
           </div>
+
+          <div class="form-group">
+            <label class="form-label" style="color: var(--emerald-400); font-weight: 700; font-size: 12px;" data-i18n="del_visit_purpose">Objet de la visite</label>
+            <textarea id="visit-purpose" class="form-input" rows="2" placeholder="Ex : Présentation nouveaux produits, réapprovisionnement..."></textarea>
+          </div>
+
           <div class="modal-footer" style="padding: 0; margin-top: 16px;">
             <button class="btn btn--secondary" id="btn-cancel-visit-2" data-i18n="cancel">Annuler</button>
-            <button id="btn-send-visit" class="btn btn--primary" style="flex: 1;" data-i18n="send">Envoyer</button>
+            <button id="btn-send-visit" class="btn btn--primary" style="flex: 1;" data-i18n="send">Envoyer la demande</button>
           </div>
         </div>
       </div>
@@ -476,6 +507,6 @@
   <script src="js/core.js?v=2.2"></script>
   <script src="js/i18n.js?v=2.2"></script>
   <script src="js/geolocation.js?v=2.2"></script>
-  <script src="js/delegue.js?v=4.0"></script>
+  <script src="js/delegue.js?v=4.1"></script>
 </body>
 </html>
