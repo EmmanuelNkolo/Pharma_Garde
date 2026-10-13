@@ -193,3 +193,35 @@
 @keyframes paSpin { to { transform: rotate(360deg); } }
 
 .pa-lang { position: fixed; top: 16px; right: 16px; z-index: 9100; }
+
+/* ── Dynamic Lab Rows ─────────────────────────── */
+.lab-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  animation: paFadeUp 0.25s ease both;
+}
+.lab-row .form-input {
+  flex: 1;
+}
+.btn-remove-lab {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--red-400);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-remove-lab:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: var(--red-400);
+  transform: scale(1.05);
+}
+

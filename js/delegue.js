@@ -100,23 +100,47 @@
     bindClick('btn-logout', handleLogout);
 
     // Add lab button
-    bindClick('btn-add-lab', () => {
-      const container = $('login-labs-container');
-      const row = document.createElement('div');
-      row.style.cssText = 'display: flex; gap: 8px; margin-bottom: 8px;';
-      row.className = 'login-lab-row';
-      const input = document.createElement('input');
-      input.type = 'text'; input.className = 'input-field login-lab-input';
-      input.placeholder = 'Nom du laboratoire';
-      const btnRemove = document.createElement('button');
-      btnRemove.type = 'button'; btnRemove.className = 'btn btn-outline btn-sm';
-      btnRemove.style.cssText = 'padding: 4px 10px; color: var(--red-400); border-color: var(--red-400);';
-      btnRemove.textContent = '✕';
-      btnRemove.addEventListener('click', () => row.remove());
-      row.appendChild(input);
-      row.appendChild(btnRemove);
-      container.appendChild(row);
+    bindClick('btn-add-lab', (e) => {
+      if (e) e.preventDefault();
+      addLabRow();
     });
+
+    // Password show/hide toggle
+    $qa('[data-toggle-pwd]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const input = document.getElementById(btn.getAttribute('data-toggle-pwd'));
+        if (!input) return;
+        const show = input.type === 'password';
+        input.type = show ? 'text' : 'password';
+        btn.textContent = show ? '🙈' : '👁';
+      });
+    });
+
+    // Real-time password feedback
+    const regPwd = $('reg-password');
+    const regPwdConfirm = $('reg-password-confirm');
+    if (regPwd) {
+      regPwd.addEventListener('input', () => {
+        updatePasswordStrength();
+        updatePasswordMatch();
+      });
+    }
+    if (regPwdConfirm) {
+      regPwdConfirm.addEventListener('input', updatePasswordMatch);
+    }
+
+    // Phone number format (+237)
+    const regPhone = $('reg-phone');
+    if (regPhone) {
+      regPhone.addEventListener('input', () => {
+        let d = regPhone.value.replace(/\D/g, '');
+        if (d.startsWith('00237')) d = d.slice(5);
+        else if (d.startsWith('237') && d.length > 9) d = d.slice(3);
+        d = d.slice(0, 9);
+        regPhone.value = d.replace(/^(\d{3})(\d{0,2})(\d{0,2})(\d{0,2}).*$/, (m, a, b, c, e) => [a, b, c, e].filter(Boolean).join(' ')) || d;
+      });
+    }
 
     // GPS
     bindClick('btn-gps', handleGPS);
@@ -224,18 +248,83 @@
   }
 
   // ═══════════════════════════════════════════════════════
+  //  LABS & PASSWORD HELPERS
+  // ═══════════════════════════════════════════════════════
+  function addLabRow(value = '') {
+    const container = $('labs-container');
+    if (!container) return;
+    const row = document.createElement('div');
+    row.className = 'lab-row';
+    row.style.cssText = 'display: flex; gap: 8px; align-items: center; margin-top: 6px;';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'form-input lab-input';
+    input.placeholder = 'Ex: Axcel, Sanofi, Novartis...';
+    input.style.flex = '1';
+    input.value = value;
+
+    const btnRemove = document.createElement('button');
+    btnRemove.type = 'button';
+    btnRemove.className = 'btn-remove-lab';
+    btnRemove.innerHTML = '✕';
+    btnRemove.title = 'Supprimer ce laboratoire';
+    btnRemove.addEventListener('click', () => row.remove());
+
+    row.appendChild(input);
+    row.appendChild(btnRemove);
+    container.appendChild(row);
+    input.focus();
+  }
+
+  function passwordChecks(p) {
+    p = p || '';
+    return {
+      len: p.length >= 8,
+      upper: /[A-Z]/.test(p),
+      digit: /[0-9]/.test(p),
+      lower: /[a-z]/.test(p)
+    };
+  }
+
+  function updatePasswordStrength() {
+    const p = ($('reg-password') || {}).value || '';
+    const c = passwordChecks(p);
+    $qa('#pwd-rules li').forEach(li => {
+      const rule = li.dataset.rule;
+      if (rule && c[rule]) {
+        li.classList.add('ok');
+      } else {
+        li.classList.remove('ok');
+      }
+    });
+    let score = Object.values(c).filter(Boolean).length + (p.length >= 12 ? 1 : 0);
+    const bar = $('pwd-strength-bar');
+    if (!bar) return;
+    const pct = Math.min(100, Math.round((score / 5) * 100));
+    bar.style.width = (p ? pct : 0) + '%';
+    bar.style.background = score <= 2 ? '#f87171' : score <= 3 ? '#fbbf24' : '#10b981';
+  }
+
+  function updatePasswordMatch() {
+    const p = ($('reg-password') || {}).value || '';
+    const p2 = ($('reg-password-confirm') || {}).value || '';
+    const el = $('pwd-match');
+    if (!el) return;
+    if (!p2) { el.textContent = ''; el.className = 'pa-match'; return; }
+    const ok = p === p2;
+    el.textContent = ok ? '✓ Les mots de passe correspondent' : '✗ Les mots de passe ne correspondent pas';
+    el.className = 'pa-match ' + (ok ? 'ok' : 'ko');
+  }
+
+  // ═══════════════════════════════════════════════════════
   //  AUTHENTICATION
   // ═══════════════════════════════════════════════════════
   async function handleLogin() {
-    const email = ($('login-email') || {}).value?.trim();
+    const email = ($('login-email') || {}).value?.trim().toLowerCase();
     const password = ($('login-password') || {}).value;
 
-    // Collect labs
-    const labInputs = document.querySelectorAll('.login-lab-input');
-    const labs = Array.from(labInputs).map(i => i.value.trim()).filter(v => v);
-
     if (!email || !password) return showToast('Veuillez remplir email et mot de passe.', 'error');
-    if (labs.length === 0) return showToast('Veuillez renseigner au moins un laboratoire d\'attache.', 'error');
 
     const btn = $('btn-login');
     btn.disabled = true; btn.textContent = 'Connexion...';
@@ -248,7 +337,17 @@
         .from('delegates').select('*').eq('id', data.user.id).single();
       if (profileError || !profile) throw new Error('Profil délégué non trouvé. Veuillez vous inscrire.');
 
-      // Save session labs (not persisted to DB — per-session only)
+      // Load delegate labs from database
+      let labs = [];
+      try {
+        const { data: dbLabs } = await supabase.from('delegate_labs').select('lab_name').eq('delegate_id', data.user.id);
+        if (dbLabs && dbLabs.length > 0) {
+          labs = dbLabs.map(l => l.lab_name);
+        }
+      } catch (e) {
+        console.warn('Could not fetch delegate labs:', e);
+      }
+
       currentDelegate = profile;
       sessionLabs = labs;
       saveSession(profile, labs);
@@ -259,7 +358,7 @@
       console.error('Login error:', err);
       showToast('❌ ' + (err.message || 'Erreur de connexion'), 'error');
     } finally {
-      btn.disabled = false; btn.textContent = 'Se connecter';
+      btn.disabled = false; btn.textContent = 'Connexion';
     }
   }
 
@@ -268,27 +367,54 @@
     const prenom = ($('reg-firstname') || {}).value?.trim();
     const proCard = ($('reg-procard') || {}).value?.trim();
     const cni = ($('reg-cni') || {}).value?.trim();
-    const phone = ($('reg-phone') || {}).value?.trim();
-    const email = ($('reg-email') || {}).value?.trim();
-    const password = ($('reg-password') || {}).value;
-    const confirmPassword = ($('reg-password-confirm') || {}).value;
+    let phone = ($('reg-phone') || {}).value?.trim().replace(/\D/g, '');
+    if (phone.startsWith('00237')) phone = phone.slice(5);
+    else if (phone.startsWith('237') && phone.length > 9) phone = phone.slice(3);
+    const email = ($('reg-email') || {}).value?.trim().toLowerCase();
+    const password = ($('reg-password') || {}).value || '';
+    const confirmPassword = ($('reg-password-confirm') || {}).value || '';
 
-    if (!nom || !prenom || !proCard || !cni || !phone || !email || !password || !confirmPassword) {
-      return showToast('Veuillez remplir tous les champs obligatoires.', 'error');
+    // Collect labs from registration form
+    const labInputs = document.querySelectorAll('.lab-input');
+    const labs = Array.from(labInputs).map(i => i.value.trim()).filter(Boolean);
+
+    if (!nom || !prenom || !proCard || !cni || !phone || !email) {
+      return showToast('Veuillez remplir tous les champs obligatoires (*).', 'error');
     }
-    // Validation mot de passe: 8 char min, 1 majuscule, 1 chiffre
-    const pwdRegex = /^(?=.*[A-Z])(?=.*\d)[A-Za-z\d@$!%*?&]{8,}$/;
-    if (!pwdRegex.test(password)) {
-      return showToast('Le mot de passe doit contenir au moins 8 caractères, dont 1 majuscule et 1 chiffre.', 'error');
+
+    if (labs.length === 0) {
+      return showToast('Veuillez renseigner au moins un laboratoire d\'attache.', 'error');
     }
-    if (password !== confirmPassword) return showToast('Les mots de passe ne correspondent pas.', 'error');
+
+    // Validation précise du mot de passe
+    if (password.length < 8) {
+      return showToast('Le mot de passe doit comporter au moins 8 caractères.', 'error');
+    }
+    if (!/[A-Z]/.test(password)) {
+      return showToast('Le mot de passe doit contenir au moins 1 lettre majuscule (A-Z).', 'error');
+    }
+    if (!/[0-9]/.test(password)) {
+      return showToast('Le mot de passe doit contenir au moins 1 chiffre (0-9).', 'error');
+    }
+    if (password !== confirmPassword) {
+      return showToast('Les mots de passe ne correspondent pas.', 'error');
+    }
 
     const btn = $('btn-register');
     btn.disabled = true; btn.textContent = 'Inscription en cours...';
 
     try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
-      if (authError) throw authError;
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { role: 'delegate', name: `${prenom} ${nom}` } }
+      });
+      if (authError) {
+        if (/already|registered|exists/i.test(authError.message || '')) {
+          throw new Error('Cet email est déjà utilisé. Connectez-vous avec votre mot de passe.');
+        }
+        throw authError;
+      }
       if (!authData.user) throw new Error('Inscription échouée.');
 
       const { error: insertError } = await supabase.from('delegates').insert([{
@@ -302,20 +428,38 @@
       }]);
       if (insertError) throw insertError;
 
+      // Enregistrer les laboratoires
+      if (labs.length > 0) {
+        try {
+          const labInserts = labs.map(lab_name => ({
+            delegate_id: authData.user.id,
+            lab_name: lab_name
+          }));
+          await supabase.from('delegate_labs').insert(labInserts);
+        } catch (labErr) {
+          console.warn('Erreur insertion delegate_labs:', labErr);
+        }
+      }
+
       showToast('✅ Inscription réussie ! Connectez-vous maintenant.', 'success');
 
-      // Clear form
+      // Réinitialiser le formulaire
       ['reg-lastname', 'reg-firstname', 'reg-procard', 'reg-cni', 'reg-phone', 'reg-email', 'reg-password', 'reg-password-confirm']
         .forEach(id => { const el = $(id); if (el) el.value = ''; });
+      
+      const labsContainer = $('labs-container');
+      if (labsContainer) {
+        labsContainer.innerHTML = '<div class="lab-row"><input type="text" class="form-input lab-input" placeholder="Ex: Axcel, Sanofi, Novartis..."></div>';
+      }
 
-      // Switch to login tab
+      // Basculer vers l'onglet connexion
       const btnShowLogin = $('btn-show-login');
       if (btnShowLogin) btnShowLogin.click();
     } catch (err) {
       console.error('Registration error:', err);
       showToast('❌ ' + (err.message || 'Erreur lors de l\'inscription'), 'error');
     } finally {
-      btn.disabled = false; btn.textContent = 'Demander une inscription';
+      btn.disabled = false; btn.textContent = 'S\'inscrire';
     }
   }
 

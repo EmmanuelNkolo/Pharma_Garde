@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="css/design-system.css">
   <link rel="stylesheet" href="css/pro.css">
+  <link rel="stylesheet" href="css/pharma-auth.css?v=3.1">
 </head>
 <body>
   <div class="app-container">
@@ -44,7 +45,10 @@
           </div>
           <div class="form-group">
             <label class="form-label" style="color: var(--emerald-400);" data-i18n="pharm_password">Mot de passe</label>
-            <input type="password" id="login-password" class="form-input" placeholder="••••••••" data-i18n-placeholder="password_placeholder">
+            <div class="pa-pwd">
+              <input type="password" id="login-password" class="form-input" placeholder="••••••••" data-i18n-placeholder="password_placeholder" autocomplete="current-password">
+              <button type="button" class="pa-pwd__toggle" data-toggle-pwd="login-password" aria-label="Afficher le mot de passe">👁</button>
+            </div>
           </div>
           <button id="btn-login" class="btn btn--primary btn--block" style="margin-top: 20px;">
             <span data-i18n="confirm">Connexion</span>
@@ -86,24 +90,42 @@
           </div>
           <div class="form-group">
             <label class="form-label" style="color: var(--emerald-400);"><span data-i18n="pharm_phone">Téléphone</span> *</label>
-            <input type="tel" id="reg-phone" class="form-input" placeholder="Ex: 699887766" data-i18n-placeholder="ph_phone">
+            <div class="pa-phone">
+              <span class="pa-phone__prefix">+237</span>
+              <input type="tel" id="reg-phone" class="form-input" placeholder="Ex: 699 88 77 66" data-i18n-placeholder="ph_phone" inputmode="tel" maxlength="14">
+            </div>
           </div>
           <div class="form-group">
             <label class="form-label" style="color: var(--emerald-400);"><span data-i18n="pharm_password">Mot de passe</span> *</label>
-            <input type="password" id="reg-password" class="form-input" placeholder="Créez un mot de passe sécurisé" data-i18n-placeholder="ph_pwd_create">
-            <div style="font-size: 11px; color: var(--slate-400); margin-top: 6px;">8 caractères min. (1 majuscule, 1 chiffre)</div>
+            <div class="pa-pwd">
+              <input type="password" id="reg-password" class="form-input" placeholder="Créez un mot de passe sécurisé" data-i18n-placeholder="ph_pwd_create" autocomplete="new-password">
+              <button type="button" class="pa-pwd__toggle" data-toggle-pwd="reg-password" aria-label="Afficher le mot de passe">👁</button>
+            </div>
+            <div class="pa-strength"><div id="pwd-strength-bar" class="pa-strength__bar"></div></div>
+            <ul class="pa-rules" id="pwd-rules">
+              <li data-rule="len">8 caractères min.</li>
+              <li data-rule="upper">1 majuscule (A-Z)</li>
+              <li data-rule="digit">1 chiffre (0-9)</li>
+              <li data-rule="lower">1 minuscule (a-z)</li>
+            </ul>
           </div>
           <div class="form-group">
             <label class="form-label" style="color: var(--emerald-400);">Confirmer le mot de passe *</label>
-            <input type="password" id="reg-password-confirm" class="form-input" placeholder="Retapez le mot de passe" data-i18n-placeholder="ph_pwd_confirm">
+            <div class="pa-pwd">
+              <input type="password" id="reg-password-confirm" class="form-input" placeholder="Retapez le mot de passe" data-i18n-placeholder="ph_pwd_confirm" autocomplete="new-password">
+              <button type="button" class="pa-pwd__toggle" data-toggle-pwd="reg-password-confirm" aria-label="Afficher le mot de passe">👁</button>
+            </div>
+            <div id="pwd-match" class="pa-match"></div>
           </div>
           <div class="form-group">
-            <label class="form-label" style="color: var(--emerald-400);" data-i18n="del_labs">Laboratoire(s)</label>
+            <label class="form-label" style="color: var(--emerald-400);" data-i18n="del_labs">Laboratoire(s) *</label>
             <div id="labs-container" style="display: flex; flex-direction: column; gap: 8px;">
-              <input type="text" class="form-input lab-input" placeholder="Nom du laboratoire">
+              <div class="lab-row">
+                <input type="text" class="form-input lab-input" placeholder="Ex: Axcel, Sanofi, Novartis...">
+              </div>
             </div>
-            <button id="btn-add-lab" class="btn btn--ghost btn--sm" style="margin-top: 4px; color: var(--emerald-400);">
-              + <span data-i18n="del_add_lab">Ajouter un laboratoire</span>
+            <button type="button" id="btn-add-lab" class="btn btn--ghost btn--sm" style="margin-top: 8px; color: var(--emerald-400); display: inline-flex; align-items: center; gap: 6px;">
+              <span style="font-weight: 800; font-size: 15px;">+</span> <span data-i18n="del_add_lab">Ajouter un autre laboratoire</span>
             </button>
           </div>
           <button id="btn-register" class="btn btn--primary btn--block" style="margin-top: 20px;">
