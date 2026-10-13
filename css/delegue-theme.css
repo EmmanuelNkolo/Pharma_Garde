@@ -307,3 +307,157 @@
   0% { transform: scale(0.6); opacity: 1; }
   100% { transform: scale(1.8); opacity: 0; }
 }
+
+/* ── Cartes KPI cliquables ────────────────────────────────────── */
+.stat-card.clickable {
+  cursor: pointer;
+  position: relative;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid var(--border-default);
+  background: rgba(30, 41, 59, 0.65);
+  backdrop-filter: blur(8px);
+}
+
+.stat-card.clickable:hover {
+  transform: translateY(-3px) scale(1.02);
+  border-color: rgba(16, 185, 129, 0.6);
+  background: rgba(16, 185, 129, 0.12);
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.25);
+}
+
+.stat-card.clickable:active {
+  transform: translateY(-1px) scale(0.99);
+}
+
+.stat-card__hint {
+  font-size: 10.5px;
+  color: var(--emerald-400);
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 700;
+}
+
+/* ── Filtres de Période (Aujourd'hui, Semaine, Mois, Année, Tout) ── */
+.period-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+.period-filter-bar::-webkit-scrollbar { display: none; }
+
+.period-pill {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.period-pill:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.period-pill.active {
+  background: rgba(16, 185, 129, 0.16) !important;
+  color: var(--emerald-400) !important;
+  border-color: rgba(52, 211, 153, 0.6) !important;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
+}
+
+/* ── Tableaux Professionnels Délégué (Capture 2, 3, 4) ────────── */
+.pro-table-wrapper {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid var(--border-default);
+  background: rgba(15, 23, 42, 0.7);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  margin-bottom: 16px;
+}
+
+.pro-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+  min-width: 580px;
+}
+
+.pro-table th {
+  background: rgba(30, 41, 59, 0.9);
+  color: var(--emerald-400);
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 12px 14px;
+  border-bottom: 2px solid rgba(16, 185, 129, 0.3);
+  white-space: nowrap;
+}
+
+.pro-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-default);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.pro-table tr:last-child td {
+  border-bottom: none;
+}
+
+.pro-table tr:hover td {
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.badge-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.badge-status--pending {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--amber-400);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+.badge-status--confirmed {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--emerald-400);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+.badge-status--cancelled {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--red-400);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+.badge-status--interested {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--emerald-400);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+.badge-status--ignored {
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--text-muted);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.modal-content--lg {
+  max-width: 780px !important;
+  width: 95% !important;
+}

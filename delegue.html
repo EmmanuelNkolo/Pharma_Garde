@@ -274,37 +274,81 @@
 
           <!-- Panel: Promotions -->
           <div id="panel-promotions" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+              <h4 style="font-size: 15px; font-weight: 700; color: var(--emerald-400); display: flex; align-items: center; gap: 6px;">
+                📢 <span>Mes Campagnes & Promotions</span>
+              </h4>
+              <button type="button" class="btn btn--primary btn--sm" id="btn-new-promo-tab" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px;">
+                <span style="font-weight: 900; font-size: 15px;">+</span> <span data-i18n="del_new_promo">Créer une Promotion</span>
+              </button>
+            </div>
+
+            <!-- Filtres de période (Aujourd'hui, Semaine, Mois, Année) -->
+            <div class="period-filter-bar" id="promo-period-filters">
+              <button type="button" class="period-pill active" data-period="all">Tout</button>
+              <button type="button" class="period-pill" data-period="today">Aujourd'hui</button>
+              <button type="button" class="period-pill" data-period="week">Cette semaine</button>
+              <button type="button" class="period-pill" data-period="month">Ce mois</button>
+              <button type="button" class="period-pill" data-period="year">Cette année</button>
+            </div>
+
             <div id="promotions-list"></div>
           </div>
 
           <!-- Panel: Stats -->
           <div id="panel-stats" style="display: none;">
-            <!-- KPI Cards -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;">
-              <div class="stat-card">
+            <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+              <h4 style="font-size: 15px; font-weight: 700; color: var(--emerald-400);">📊 Tableau de bord & Indicateurs</h4>
+              <span style="font-size: 11px; color: var(--text-muted);">Cliquez sur un indicateur pour voir les détails</span>
+            </div>
+
+            <!-- 4 KPI Cards Cliquables avec Modals Détaillés -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+              <div class="stat-card clickable" id="kpi-card-promos" title="Cliquez pour afficher le tableau des promotions">
                 <div class="stat-card__value" id="stat-total-promos">0</div>
                 <div class="stat-card__label" data-i18n="stat_total_promos">Total promotions</div>
+                <div class="stat-card__hint">👉 Voir tableau détaillé</div>
               </div>
-              <div class="stat-card">
+
+              <div class="stat-card clickable" id="kpi-card-visits" title="Cliquez pour afficher le tableau des visites">
                 <div class="stat-card__value" id="stat-total-visits">0</div>
                 <div class="stat-card__label" data-i18n="stat_total_visits">Total visites</div>
+                <div class="stat-card__hint">👉 Voir tableau détaillé</div>
               </div>
-              <div class="stat-card">
-                <div class="stat-card__value" id="stat-pharmacies-reached">0</div>
-                <div class="stat-card__label" data-i18n="stat_pharmacies_reached">Pharmacies atteintes</div>
-              </div>
-              <div class="stat-card">
+
+              <div class="stat-card clickable" id="kpi-card-response" title="Cliquez pour afficher le ratio et détail des réponses">
                 <div class="stat-card__value" id="stat-response-rate">0%</div>
                 <div class="stat-card__label" data-i18n="stat_response_rate">Taux de réponse</div>
+                <div class="stat-card__hint">👉 Ratio & avis labo</div>
+              </div>
+
+              <div class="stat-card clickable" id="kpi-card-pending" title="Cliquez pour voir les pharmacies en attente">
+                <div class="stat-card__value" id="stat-pending-count" style="color: var(--amber-400);">0</div>
+                <div class="stat-card__label">Pharmacies en attente</div>
+                <div class="stat-card__hint">👉 Structure des attentes</div>
               </div>
             </div>
 
-            <!-- Visit History -->
-            <h4 style="font-size: 14px; font-weight: 700; color: var(--text-secondary); margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">📅 <span data-i18n="del_visit_history">Historique des visites</span></h4>
+            <!-- Historique des Visites avec Filtres -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 6px;">
+              <h4 style="font-size: 14px; font-weight: 700; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+                📅 <span data-i18n="del_visit_history">Historique des visites</span>
+              </h4>
+              <!-- Filtres Période Visites -->
+              <div class="period-filter-bar" id="visit-period-filters" style="margin-bottom: 0;">
+                <button type="button" class="period-pill active" data-period="all">Tout</button>
+                <button type="button" class="period-pill" data-period="today">Aujourd'hui</button>
+                <button type="button" class="period-pill" data-period="week">Semaine</button>
+                <button type="button" class="period-pill" data-period="month">Mois</button>
+                <button type="button" class="period-pill" data-period="year">Année</button>
+              </div>
+            </div>
             <div id="visit-history-list"></div>
 
-            <!-- Promo Tracking -->
-            <h4 style="font-size: 14px; font-weight: 700; color: var(--text-secondary); margin: 16px 0 10px; display: flex; align-items: center; gap: 6px;">📊 <span data-i18n="del_promo_tracking">Suivi des promotions</span></h4>
+            <!-- Suivi des Promotions -->
+            <h4 style="font-size: 14px; font-weight: 700; color: var(--text-secondary); margin: 20px 0 10px; display: flex; align-items: center; gap: 6px;">
+              📊 <span data-i18n="del_promo_tracking">Suivi des promotions</span>
+            </h4>
             <div id="promo-tracking-list"></div>
 
             <!-- Report -->
@@ -315,11 +359,130 @@
 
           <!-- Panel: Alerts -->
           <div id="panel-alerts" style="display: none;">
-            <h4 style="font-size: 14px; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">🔔 <span data-i18n="del_stock_alerts">Alertes Rupture de Stock</span></h4>
-            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;" data-i18n="del_stock_alerts_desc">Les pharmacies de votre zone signalent leurs ruptures ici.</p>
+            <div style="margin-bottom: 12px;">
+              <h4 style="font-size: 15px; font-weight: 700; color: var(--emerald-400); display: flex; align-items: center; gap: 6px;">
+                🔔 <span data-i18n="del_stock_alerts">Alertes & Notifications en temps réel</span>
+              </h4>
+              <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+                Retours de promotions, validations de visites et signalements de ruptures de stock.
+              </p>
+            </div>
             <div id="stock-alerts-list"></div>
           </div>
 
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════ MODALS KPI DÉTAILLÉS ════════════════════ -->
+
+    <!-- 1. Modal KPI: Total Promotions (Date | Nom Produit | Pharmacies atteintes) -->
+    <div id="modal-kpi-promos" class="modal-overlay">
+      <div class="modal-content modal-content--lg">
+        <div class="modal-header">
+          <h3 style="color: var(--emerald-400); font-weight: 800; display: flex; align-items: center; gap: 8px;">
+            📢 <span>Tableau des Promotions Diffusées</span>
+          </h3>
+          <button class="btn btn--icon" id="btn-close-modal-promos"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div class="modal-body" style="padding: 16px;">
+          <div class="pro-table-wrapper">
+            <table class="pro-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Nom du Produit</th>
+                  <th>Laboratoire</th>
+                  <th>Pharmacies atteintes (1 par ligne)</th>
+                  <th>Statut</th>
+                </tr>
+              </thead>
+              <tbody id="table-body-kpi-promos"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Modal KPI: Total Visites (Date | Heure | Nom Pharmacie | Confirmation) -->
+    <div id="modal-kpi-visits" class="modal-overlay">
+      <div class="modal-content modal-content--lg">
+        <div class="modal-header">
+          <h3 style="color: var(--emerald-400); font-weight: 800; display: flex; align-items: center; gap: 8px;">
+            📅 <span>Tableau des Visites & Rendez-vous</span>
+          </h3>
+          <button class="btn btn--icon" id="btn-close-modal-visits"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div class="modal-body" style="padding: 16px;">
+          <div class="pro-table-wrapper">
+            <table class="pro-table">
+              <thead>
+                <tr>
+                  <th>Date de visite</th>
+                  <th>Heure de visite</th>
+                  <th>Pharmacie</th>
+                  <th>Objet de la visite</th>
+                  <th>Statut</th>
+                </tr>
+              </thead>
+              <tbody id="table-body-kpi-visits"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Modal KPI: Taux de Réponse (5 Colonnes demandées manuscrit Image 3 & 4) -->
+    <div id="modal-kpi-response" class="modal-overlay">
+      <div class="modal-content modal-content--lg">
+        <div class="modal-header">
+          <h3 style="color: var(--emerald-400); font-weight: 800; display: flex; align-items: center; gap: 8px;">
+            📊 <span>Taux de Réponse & Retours Pharmacies</span>
+          </h3>
+          <button class="btn btn--icon" id="btn-close-modal-response"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div class="modal-body" style="padding: 16px;">
+          <div class="pro-table-wrapper">
+            <table class="pro-table">
+              <thead>
+                <tr>
+                  <th>1. Promotion</th>
+                  <th>2. Nb Atteintes</th>
+                  <th>3. Avis Favorable (Intéressée)</th>
+                  <th>4. Avis Défavorable (Ignorée)</th>
+                  <th>5. Sans avis (En attente)</th>
+                </tr>
+              </thead>
+              <tbody id="table-body-kpi-response"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Modal KPI: Pharmacies en attente (Pharmacie | Structure attente | Date) -->
+    <div id="modal-kpi-pending" class="modal-overlay">
+      <div class="modal-content modal-content--lg">
+        <div class="modal-header">
+          <h3 style="color: var(--amber-400); font-weight: 800; display: flex; align-items: center; gap: 8px;">
+            ⏳ <span>Pharmacies en Attente de Réponse</span>
+          </h3>
+          <button class="btn btn--icon" id="btn-close-modal-pending"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div class="modal-body" style="padding: 16px;">
+          <div class="pro-table-wrapper">
+            <table class="pro-table">
+              <thead>
+                <tr>
+                  <th>Pharmacie</th>
+                  <th>Structure de l'attente</th>
+                  <th>Date de la demande</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="table-body-kpi-pending"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

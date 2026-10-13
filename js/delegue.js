@@ -19,6 +19,10 @@
   let pharmaciesInRadius = [];
   let allPharmacies = [];
   let myPromotions = [];
+  let allVisits = [];
+  let allTargets = [];
+  let currentPromoPeriod = 'all';
+  let currentVisitPeriod = 'all';
   let activePanel = 'pharmacies';
   let statsChart = null;
 
@@ -186,14 +190,17 @@
     });
 
     // Promotions
-    bindClick('btn-new-promo', () => {
+    const openNewPromoModal = () => {
       populateLabSelect('promo-lab');
       const sc = $('promo-specific-container');
       const bc = $('promo-buttons-container');
       if (sc) sc.style.display = 'none';
       if (bc) bc.style.display = 'flex';
       $('new-promo-modal').classList.add('active');
-    });
+    };
+    bindClick('btn-new-promo', openNewPromoModal);
+    bindClick('btn-new-promo-tab', openNewPromoModal);
+
     bindClick('btn-cancel-promo', () => {
       $('new-promo-modal').classList.remove('active');
       const sc = $('promo-specific-container');
@@ -223,6 +230,45 @@
       if (bc) bc.style.display = 'flex';
     });
     bindClick('btn-save-promo-specific-confirm', () => handleSavePromotion('specific'));
+
+    // Period filters for promotions
+    $qa('#promo-period-filters .period-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        $qa('#promo-period-filters .period-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        currentPromoPeriod = pill.dataset.period || 'all';
+        renderPromotionsList();
+      });
+    });
+
+    // Period filters for visits
+    $qa('#visit-period-filters .period-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        $qa('#visit-period-filters .period-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        currentVisitPeriod = pill.dataset.period || 'all';
+        renderVisitHistory();
+      });
+    });
+
+    // Clickable KPI Cards -> Open Detailed Tables
+    bindClick('kpi-card-promos', () => openKpiModal('promos'));
+    bindClick('kpi-card-visits', () => openKpiModal('visits'));
+    bindClick('kpi-card-response', () => openKpiModal('response'));
+    bindClick('kpi-card-pending', () => openKpiModal('pending'));
+
+    // Close buttons for KPI modals
+    bindClick('btn-close-modal-promos', () => closeKpiModal('promos'));
+    bindClick('btn-close-modal-visits', () => closeKpiModal('visits'));
+    bindClick('btn-close-modal-response', () => closeKpiModal('response'));
+    bindClick('btn-close-modal-pending', () => closeKpiModal('pending'));
+
+    // Backdrop click closes any modal
+    $qa('.modal-overlay').forEach(modal => {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.classList.remove('active');
+      });
+    });
 
     // Visit modal
     bindClick('btn-cancel-visit', () => $('visit-modal').classList.remove('active'));
@@ -554,6 +600,7 @@
       setTimeout(() => { if (delegateMap) delegateMap.invalidateSize(); }, 150);
       loadPharmacies();
       loadPromotions();
+      loadVisits();
       loadStats();
     }
   }
@@ -691,25 +738,23 @@
 
     loadPharmacies();
     loadPromotions();
+    loadVisits();
     loadStats();
     loadStockAlerts();
   }
 
   // ═══════════════════════════════════════════════════════
-  //  PHARMACIES
+  //  PHARMACIES (Uniquement les pharmacies inscrites)
   // ═══════════════════════════════════════════════════════
   async function loadPharmacies() {
     try {
       const { data, error } = await supabase.from('pharmacies').select('id, name, address, city, quarter, phone, whatsapp, lat, lng, status, hours, services, is_open, is_on_duty');
       if (error) throw error;
       let fetched = data || [];
-      const local = typeof LOCAL_PHARMACIES !== 'undefined' ? LOCAL_PHARMACIES : [];
-      
-      local.forEach(lp => {
-        if (!fetched.find(fp => fp.name.toLowerCase() === lp.name.toLowerCase())) {
-          fetched.push(lp);
-        }
-      });
+      // Respecter la logique Capture 5 : uniquement les pharmacies inscrites sur l'application
+      if (fetched.length === 0 && typeof LOCAL_PHARMACIES !== 'undefined') {
+        fetched = LOCAL_PHARMACIES;
+      }
       allPharmacies = fetched;
       filterPharmaciesByRadius();
     } catch (err) {
@@ -859,6 +904,31 @@
   // ═══════════════════════════════════════════════════════
   //  PROMOTIONS
   // ═══════════════════════════════════════════════════════
+  function isDateInPeriod(dateStr, period) {
+    if (!dateStr || !period || period === 'all') return true;
+    const d = new Date(dateStr);
+    const now = new Date();
+    if (isNaN(d.getTime())) return false;
+
+    if (period === 'today') {
+      return d.toDateString() === now.toDateString();
+    }
+    if (period === 'week') {
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(now.getDate() - 7);
+      return d >= oneWeekAgo && d <= now;
+    }
+    if (period === 'month') {
+      const oneMonthAgo = new Date();
+      oneMonthAgo.setDate(now.getDate() - 30);
+      return d >= oneMonthAgo && d <= now;
+    }
+    if (period === 'year') {
+      return d.getFullYear() === now.getFullYear();
+    }
+    return true;
+  }
+
   async function loadPromotions() {
     if (!currentDelegate) return;
     try {
@@ -867,7 +937,12 @@
         .select(`
           *,
           promotion_targets (
-            pharmacy:pharmacies ( name )
+            id,
+            status,
+            sent_at,
+            read_at,
+            responded_at,
+            pharmacy:pharmacies ( id, name, city, phone )
           )
         `)
         .eq('delegate_id', currentDelegate.id)
@@ -884,46 +959,80 @@
     const container = $('promotions-list');
     if (!container) return;
 
-    if (myPromotions.length === 0) {
-      container.innerHTML = '<div style="text-align:center;padding:40px 16px;color:var(--dark-400);">Aucune promotion.<br>Créez votre première campagne !</div>';
+    const filtered = myPromotions.filter(p => isDateInPeriod(p.created_at, currentPromoPeriod));
+
+    if (filtered.length === 0) {
+      container.innerHTML = `
+        <div style="text-align:center;padding:36px 16px;background:var(--dark-800);border-radius:14px;border:1px dashed var(--glass-border);">
+          <div style="font-size:30px;margin-bottom:8px;">📢</div>
+          <div style="font-weight:700;color:var(--dark-200);margin-bottom:4px;">Aucune promotion trouvée pour cette période</div>
+          <div style="font-size:12px;color:var(--dark-400);margin-bottom:14px;">Créez une nouvelle campagne pour diffuser vos produits aux pharmacies.</div>
+          <button type="button" class="btn btn--primary btn--sm" onclick="document.getElementById('btn-new-promo-tab').click()">+ Créer une Promotion</button>
+        </div>`;
       return;
     }
 
     let html = `
-      <div style="overflow-x: auto;">
-      <table style="width:100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+      <div class="pro-table-wrapper">
+      <table class="pro-table">
         <thead>
-          <tr style="background: var(--dark-800); border-bottom: 2px solid var(--glass-border);">
-            <th style="padding: 12px; color: var(--dark-200);">Identité Promo</th>
-            <th style="padding: 12px; color: var(--dark-200);">Date</th>
-            <th style="padding: 12px; color: var(--dark-200);">Nom Produit</th>
-            <th style="padding: 12px; color: var(--dark-200);">Laboratoire</th>
-            <th style="padding: 12px; color: var(--dark-200);">Description</th>
-            <th style="padding: 12px; color: var(--dark-200);">Pharmacies (Diffusion)</th>
+          <tr>
+            <th>Date</th>
+            <th>Produit & Labo</th>
+            <th>Type</th>
+            <th>Pharmacies ciblées</th>
+            <th>Retours</th>
           </tr>
         </thead>
         <tbody>
     `;
 
-    myPromotions.forEach(p => {
-      const date = new Date(p.created_at).toLocaleDateString('fr-FR');
-      const pharmaciesList = (p.promotion_targets || [])
-        .map(t => t.pharmacy?.name)
-        .filter(n => n)
-        .join(', ');
-      
+    filtered.forEach(p => {
+      const date = new Date(p.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+      const targets = p.promotion_targets || [];
+      const totalTargets = targets.length;
+      const interested = targets.filter(t => t.status === 'interested').length;
+      const read = targets.filter(t => t.status !== 'sent').length;
+
+      const pharmaPills = targets.map(t => {
+        const pName = t.pharmacy?.name || 'Pharmacie';
+        let badgeClass = 'badge-neutral';
+        let statusText = 'En attente';
+        if (t.status === 'interested') { badgeClass = 'badge-success'; statusText = 'Intéressée'; }
+        else if (t.status === 'already_stocked') { badgeClass = 'badge-warning'; statusText = 'En stock'; }
+        else if (t.status === 'ignored') { badgeClass = 'badge-danger'; statusText = 'Ignorée'; }
+        else if (t.status === 'read') { badgeClass = 'badge-info'; statusText = 'Vue'; }
+
+        return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+          <span>${escapeHtml(pName)}</span>
+          <span class="badge-status ${badgeClass}" style="font-size:10px;">${statusText}</span>
+        </div>`;
+      }).join('');
+
       html += `
-        <tr style="border-bottom: 1px solid var(--glass-border);">
-          <td style="padding: 12px;">#${p.id.split('-')[0].toUpperCase()}</td>
-          <td style="padding: 12px;">${date}</td>
-          <td style="padding: 12px; font-weight: 600; color: var(--green-400);">${escapeHtml(p.product_name)}</td>
-          <td style="padding: 12px;">${escapeHtml(p.lab_name)}</td>
-          <td style="padding: 12px; color: var(--dark-300);">${escapeHtml(p.description || '-')}</td>
-          <td style="padding: 12px; font-size:12px;">${escapeHtml(pharmaciesList) || '-'}</td>
+        <tr>
+          <td style="white-space:nowrap;font-weight:600;color:var(--dark-300);">${date}</td>
+          <td>
+            <div style="font-weight:700;color:var(--green-400);font-size:14px;">${escapeHtml(p.product_name)}</div>
+            <div style="font-size:12px;color:var(--dark-400);display:flex;align-items:center;gap:4px;">
+              <span>🏭 ${escapeHtml(p.lab_name)}</span>
+            </div>
+            ${p.description ? `<div style="font-size:11px;color:var(--dark-400);margin-top:2px;">${escapeHtml(p.description)}</div>` : ''}
+          </td>
+          <td><span class="badge-status badge-info">${escapeHtml(p.product_type || 'Médicament')}</span></td>
+          <td style="min-width:180px;">
+            <div style="max-height:120px;overflow-y:auto;">
+              ${pharmaPills || '<span style="color:var(--dark-400);font-style:italic;">Aucune cible</span>'}
+            </div>
+          </td>
+          <td style="white-space:nowrap;">
+            <div style="font-size:12px;font-weight:700;color:var(--green-400);">${interested} / ${totalTargets} favorables</div>
+            <div style="font-size:11px;color:var(--dark-400);">${read} lues</div>
+          </td>
         </tr>
       `;
     });
-    
+
     html += '</tbody></table></div>';
     container.innerHTML = html;
   }
@@ -1126,17 +1235,303 @@
         delegate_id: currentDelegate.id,
         pharmacy_id: pharmacyId,
         proposed_date: proposedDate.toISOString(),
-        purpose: purpose || null,
+        purpose: purpose || 'Visite médicale et présentation de gamme',
+        status: 'pending',
       }]);
       if (error) throw error;
 
       showToast('✅ Demande de visite envoyée avec succès !', 'success');
       $('visit-modal').classList.remove('active');
+
+      // Recharger immédiatement l'historique et les statistiques
+      await loadVisits('all');
+      await loadStats();
+
+      // Basculer vers les statistiques et ouvrir immédiatement le tableau des visites
+      openKpiModal('visits');
     } catch (err) {
       showToast('❌ Erreur: ' + (err.message || ''), 'error');
     } finally {
       btn.disabled = false; btn.textContent = 'Envoyer la demande';
     }
+  }
+
+  // ═══════════════════════════════════════════════════════
+  //  VISITES (Historique & Chargement)
+  // ═══════════════════════════════════════════════════════
+  async function loadVisits(period = currentVisitPeriod) {
+    if (!currentDelegate) return;
+    try {
+      const { data: visits, error } = await supabase
+        .from('visit_requests')
+        .select('*, pharmacy:pharmacies(id, name, city, phone)')
+        .eq('delegate_id', currentDelegate.id)
+        .order('proposed_date', { ascending: false });
+      if (error) throw error;
+      allVisits = visits || [];
+      renderVisitHistory();
+    } catch (err) {
+      console.error('Load visits error:', err);
+    }
+  }
+
+  function renderVisitHistory() {
+    const container = $('visit-history-list');
+    if (!container) return;
+
+    const filtered = allVisits.filter(v => isDateInPeriod(v.proposed_date || v.created_at, currentVisitPeriod));
+
+    if (filtered.length === 0) {
+      container.innerHTML = '<div style="text-align:center;padding:24px;color:var(--dark-400);font-size:13px;background:var(--dark-800);border-radius:12px;">Aucune visite trouvée pour cette période.</div>';
+      return;
+    }
+
+    const statusLabels = { pending: 'En attente', confirmed: 'Confirmée', rescheduled: 'Reportée', cancelled: 'Refusée', completed: 'Réalisée' };
+    const statusBadges = { pending: 'badge-warning', confirmed: 'badge-success', rescheduled: 'badge-info', cancelled: 'badge-danger', completed: 'badge-neutral' };
+
+    let html = `
+      <div class="pro-table-wrapper">
+      <table class="pro-table">
+        <thead>
+          <tr>
+            <th>Date & Heure</th>
+            <th>Pharmacie</th>
+            <th>Objet</th>
+            <th>Statut</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    filtered.forEach(v => {
+      const d = new Date(v.proposed_date);
+      const dateFormatted = d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+      const timeFormatted = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      const pharmaName = v.pharmacy?.name || 'Pharmacie';
+      const status = statusLabels[v.status] || v.status;
+      const badgeClass = statusBadges[v.status] || 'badge-neutral';
+
+      html += `
+        <tr>
+          <td style="white-space:nowrap;">
+            <div style="font-weight:700;color:var(--dark-100);">${dateFormatted}</div>
+            <div style="font-size:12px;color:var(--green-400);">${timeFormatted}</div>
+          </td>
+          <td>
+            <div style="font-weight:700;color:var(--dark-100);">${escapeHtml(pharmaName)}</div>
+            ${v.pharmacy?.phone ? `<div style="font-size:11px;color:var(--dark-400);">📞 ${v.pharmacy.phone}</div>` : ''}
+          </td>
+          <td style="color:var(--dark-300);">${escapeHtml(v.purpose || 'Présentation de gamme')}</td>
+          <td><span class="badge-status ${badgeClass}">${status}</span></td>
+        </tr>
+      `;
+    });
+
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+  }
+
+  // ═══════════════════════════════════════════════════════
+  //  MODALS KPI DÉTAILLÉS (Captures 2, 3, 4)
+  // ═══════════════════════════════════════════════════════
+  function openKpiModal(type) {
+    if (type === 'promos') {
+      renderKpiPromosModal();
+      $('modal-kpi-promos').classList.add('active');
+    } else if (type === 'visits') {
+      renderKpiVisitsModal();
+      $('modal-kpi-visits').classList.add('active');
+    } else if (type === 'response') {
+      renderKpiResponseModal();
+      $('modal-kpi-response').classList.add('active');
+    } else if (type === 'pending') {
+      renderKpiPendingModal();
+      $('modal-kpi-pending').classList.add('active');
+    }
+  }
+
+  function closeKpiModal(type) {
+    const el = $('modal-kpi-' + type);
+    if (el) el.classList.remove('active');
+  }
+
+  function renderKpiPromosModal() {
+    const tbody = $('table-body-kpi-promos');
+    if (!tbody) return;
+
+    if (myPromotions.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--dark-400);">Aucune promotion diffusée pour le moment.</td></tr>';
+      return;
+    }
+
+    let rows = '';
+    myPromotions.forEach(p => {
+      const date = new Date(p.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+      const targets = p.promotion_targets || [];
+      const pharmaLines = targets.length > 0 
+        ? targets.map(t => {
+            const statusLabel = t.status === 'interested' ? '✅ Intéressée' : t.status === 'already_stocked' ? '📦 En stock' : t.status === 'ignored' ? '❌ Ignorée' : '⏳ En attente';
+            return `<div style="padding: 3px 0; border-bottom: 1px dashed rgba(255,255,255,0.08); display: flex; justify-content: space-between; gap: 8px;">
+              <span>${escapeHtml(t.pharmacy?.name || 'Pharmacie')}</span>
+              <span style="font-size: 11px; opacity: 0.85;">${statusLabel}</span>
+            </div>`;
+          }).join('')
+        : '<span style="color:var(--dark-400);font-style:italic;">Aucune pharmacie ciblée</span>';
+
+      rows += `
+        <tr>
+          <td style="font-weight:600;white-space:nowrap;">${date}</td>
+          <td><strong style="color:var(--green-400);">${escapeHtml(p.product_name)}</strong></td>
+          <td>${escapeHtml(p.lab_name)}</td>
+          <td style="min-width:220px;">${pharmaLines}</td>
+          <td><span class="badge-status badge-success">Diffusée (${targets.length})</span></td>
+        </tr>
+      `;
+    });
+    tbody.innerHTML = rows;
+  }
+
+  function renderKpiVisitsModal() {
+    const tbody = $('table-body-kpi-visits');
+    if (!tbody) return;
+
+    if (allVisits.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--dark-400);">Aucune visite planifiée pour le moment.</td></tr>';
+      return;
+    }
+
+    const statusLabels = { pending: 'En attente', confirmed: 'Confirmée', rescheduled: 'Reportée', cancelled: 'Refusée', completed: 'Réalisée' };
+    const statusBadges = { pending: 'badge-warning', confirmed: 'badge-success', rescheduled: 'badge-info', cancelled: 'badge-danger', completed: 'badge-neutral' };
+
+    let rows = '';
+    allVisits.forEach(v => {
+      const d = new Date(v.proposed_date);
+      const dateStr = d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+      const timeStr = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      const pharmaName = v.pharmacy?.name || 'Pharmacie';
+      const status = statusLabels[v.status] || v.status;
+      const badge = statusBadges[v.status] || 'badge-neutral';
+
+      rows += `
+        <tr>
+          <td style="white-space:nowrap;">
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span>📅 ${dateStr}</span>
+              ${v.status === 'confirmed' ? '<span title="Date confirmée par la pharmacie" style="color:var(--green-400);font-weight:bold;">✓</span>' : ''}
+            </div>
+          </td>
+          <td style="white-space:nowrap;">
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span>⏰ ${timeStr}</span>
+              ${v.status === 'confirmed' ? '<span title="Heure confirmée par la pharmacie" style="color:var(--green-400);font-weight:bold;">✓</span>' : ''}
+            </div>
+          </td>
+          <td>
+            <strong>${escapeHtml(pharmaName)}</strong>
+            ${v.pharmacy?.phone ? `<div style="font-size:11px;color:var(--dark-400);">📞 ${v.pharmacy.phone}</div>` : ''}
+          </td>
+          <td style="color:var(--dark-300);">${escapeHtml(v.purpose || 'Visite médicale')}</td>
+          <td><span class="badge-status ${badge}">${status}</span></td>
+        </tr>
+      `;
+    });
+    tbody.innerHTML = rows;
+  }
+
+  function renderKpiResponseModal() {
+    const tbody = $('table-body-kpi-response');
+    if (!tbody) return;
+
+    if (myPromotions.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--dark-400);">Aucune promotion enregistrée.</td></tr>';
+      return;
+    }
+
+    let rows = '';
+    myPromotions.forEach(p => {
+      const targets = p.promotion_targets || [];
+      const total = targets.length;
+      const favorable = targets.filter(t => t.status === 'interested' || t.status === 'already_stocked');
+      const defavorable = targets.filter(t => t.status === 'ignored');
+      const sansAvis = targets.filter(t => t.status === 'sent' || t.status === 'read');
+
+      const favNames = favorable.length > 0 
+        ? favorable.map(t => `<div style="color:var(--green-400);padding:2px 0;">• ${escapeHtml(t.pharmacy?.name || 'Pharmacie')}</div>`).join('') 
+        : '<span style="color:var(--dark-400);font-style:italic;">Aucun</span>';
+
+      const defavNames = defavorable.length > 0 
+        ? defavorable.map(t => `<div style="color:var(--red-400);padding:2px 0;">• ${escapeHtml(t.pharmacy?.name || 'Pharmacie')}</div>`).join('') 
+        : '<span style="color:var(--dark-400);font-style:italic;">Aucun</span>';
+
+      const sansAvisNames = sansAvis.length > 0 
+        ? sansAvis.map(t => `<div style="color:var(--amber-400);padding:2px 0;">• ${escapeHtml(t.pharmacy?.name || 'Pharmacie')}</div>`).join('') 
+        : '<span style="color:var(--dark-400);font-style:italic;">Tous ont répondu</span>';
+
+      rows += `
+        <tr>
+          <td>
+            <strong style="color:var(--green-400);font-size:14px;">${escapeHtml(p.product_name)}</strong>
+            <div style="font-size:11px;color:var(--dark-400);">🏭 ${escapeHtml(p.lab_name)}</div>
+          </td>
+          <td style="font-weight:800;font-size:15px;color:var(--dark-100);text-align:center;">${total}</td>
+          <td><div style="max-height:100px;overflow-y:auto;font-size:12px;">${favNames}</div></td>
+          <td><div style="max-height:100px;overflow-y:auto;font-size:12px;">${defavNames}</div></td>
+          <td><div style="max-height:100px;overflow-y:auto;font-size:12px;">${sansAvisNames}</div></td>
+        </tr>
+      `;
+    });
+    tbody.innerHTML = rows;
+  }
+
+  function renderKpiPendingModal() {
+    const tbody = $('table-body-kpi-pending');
+    if (!tbody) return;
+
+    const pendingItems = [];
+
+    // Visites en attente
+    allVisits.filter(v => v.status === 'pending').forEach(v => {
+      pendingItems.push({
+        pharmaName: v.pharmacy?.name || 'Pharmacie',
+        structure: `Rendez-vous visite prévu le ${new Date(v.proposed_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })} à ${new Date(v.proposed_date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`,
+        date: new Date(v.created_at || v.proposed_date).toLocaleDateString('fr-FR'),
+        type: 'visite',
+        phone: v.pharmacy?.phone,
+      });
+    });
+
+    // Promotions en attente d'avis
+    myPromotions.forEach(p => {
+      (p.promotion_targets || []).filter(t => t.status === 'sent' || t.status === 'read').forEach(t => {
+        pendingItems.push({
+          pharmaName: t.pharmacy?.name || 'Pharmacie',
+          structure: `Retour sur promotion : ${p.product_name} (${p.lab_name})`,
+          date: new Date(t.sent_at || p.created_at).toLocaleDateString('fr-FR'),
+          type: 'promo',
+          phone: t.pharmacy?.phone,
+        });
+      });
+    });
+
+    if (pendingItems.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--dark-400);">Aucune pharmacie en attente actuellement.</td></tr>';
+      return;
+    }
+
+    let rows = '';
+    pendingItems.forEach(item => {
+      rows += `
+        <tr>
+          <td><strong style="color:var(--dark-100);">${escapeHtml(item.pharmaName)}</strong></td>
+          <td><span style="color:var(--amber-400);">${escapeHtml(item.structure)}</span></td>
+          <td style="white-space:nowrap;color:var(--dark-300);">${item.date}</td>
+          <td>
+            ${item.phone ? `<a href="tel:${item.phone}" class="btn btn--sm btn--primary" style="padding:4px 10px;font-size:11px;">📞 Relancer</a>` : '<span style="color:var(--dark-400);font-size:11px;">En attente</span>'}
+          </td>
+        </tr>
+      `;
+    });
+    tbody.innerHTML = rows;
   }
 
   // ═══════════════════════════════════════════════════════
@@ -1148,25 +1543,54 @@
     try {
       // 1. Fetch Promos
       const { data: promos } = await supabase
-        .from('delegate_promotions').select('*').eq('delegate_id', currentDelegate.id);
-      const promoIds = (promos || []).map(p => p.id);
-
-      let targets = [];
-      if (promoIds.length > 0) {
-        const { data } = await supabase.from('promotion_targets').select('*, pharmacy:pharmacy_id(name)').in('promotion_id', promoIds);
-        targets = data || [];
-      }
+        .from('delegate_promotions')
+        .select(`
+          *,
+          promotion_targets (
+            id,
+            status,
+            sent_at,
+            read_at,
+            responded_at,
+            pharmacy:pharmacies ( id, name, city, phone )
+          )
+        `)
+        .eq('delegate_id', currentDelegate.id);
+      myPromotions = promos || [];
 
       // 2. Fetch Visits
       const { data: visits } = await supabase
-        .from('visit_requests').select('*').eq('delegate_id', currentDelegate.id);
+        .from('visit_requests')
+        .select('*, pharmacy:pharmacies(id, name, city, phone)')
+        .eq('delegate_id', currentDelegate.id)
+        .order('proposed_date', { ascending: false });
+      allVisits = visits || [];
 
-      // --- STATS SUMMARY ---
+      // 3. Targets
+      let targets = [];
+      myPromotions.forEach(p => {
+        if (p.promotion_targets) targets = targets.concat(p.promotion_targets);
+      });
+      allTargets = targets;
+
+      // --- STATS SUMMARY & 4 KPI CARDS ---
       const setVal = (id, val) => { const el = $(id); if (el) el.textContent = val; };
+      setVal('stat-total-promos', myPromotions.length);
       setVal('stat-promos-sent', targets.length);
-      setVal('stat-visits', (visits || []).length);
-      setVal('stat-pharmacies-covered', new Set(targets.map(t => t.pharmacy_id)).size);
+      setVal('stat-total-visits', allVisits.length);
+      setVal('stat-visits', allVisits.length);
+      setVal('stat-pharmacies-covered', new Set(targets.map(t => t.pharmacy?.id || t.pharmacy_id)).size);
       setVal('stat-labs-active', sessionLabs.length);
+
+      // Pending Count
+      const pendingVisitsCount = allVisits.filter(v => v.status === 'pending').length;
+      const pendingPromosCount = targets.filter(t => t.status === 'sent' || t.status === 'read').length;
+      setVal('stat-pending-count', pendingVisitsCount + pendingPromosCount);
+
+      // Response Rate
+      const favorableCount = targets.filter(t => t.status === 'interested' || t.status === 'already_stocked').length;
+      const ratePct = targets.length > 0 ? Math.round((favorableCount / targets.length) * 100) : 0;
+      setVal('stat-response-rate', `${ratePct}%`);
 
       const readCount = targets.filter(t => t.status !== 'sent').length;
       const interestedCount = targets.filter(t => t.status === 'interested').length;
@@ -1184,8 +1608,8 @@
       const medStats = {};
       const labStats = {};
       
-      promos.forEach(p => {
-        const myTargets = targets.filter(t => t.promotion_id === p.id);
+      myPromotions.forEach(p => {
+        const myTargets = (p.promotion_targets || []);
         const interested = myTargets.filter(t => t.status === 'interested').length;
         
         // Med
@@ -1230,56 +1654,13 @@
       renderVisitHistory();
 
       // --- PROMO RESPONSE TRACKING ---
-      renderPromoTracking(promos, targets);
+      renderPromoTracking(myPromotions, targets);
 
     } catch (err) {
       console.error('Load stats error:', err);
     }
   }
 
-  async function renderVisitHistory() {
-    const container = $('visit-history-list');
-    if (!container) return;
-    try {
-      const { data: visits } = await supabase
-        .from('visit_requests')
-        .select('*, pharmacy:pharmacy_id(name)')
-        .eq('delegate_id', currentDelegate.id)
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (!visits || visits.length === 0) {
-        container.innerHTML = '<div style="text-align:center;padding:24px;color:var(--dark-400);font-size:14px;">Aucune visite planifiee.</div>';
-        return;
-      }
-
-      const statusLabels = { pending: 'En attente', confirmed: 'Confirmee', rescheduled: 'Reportee', cancelled: 'Refusee', completed: 'Realisee' };
-      const statusColors = { pending: '#f59e0b', confirmed: '#10b981', rescheduled: '#3b82f6', cancelled: '#ef4444', completed: '#6b7280' };
-
-      let html = '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;text-align:left;font-size:13px;">';
-      html += '<thead><tr style="background:var(--dark-800);border-bottom:2px solid var(--glass-border);">';
-      html += '<th style="padding:12px;color:var(--dark-200);">Pharmacie</th>';
-      html += '<th style="padding:12px;color:var(--dark-200);">Date prevue</th>';
-      html += '<th style="padding:12px;color:var(--dark-200);">Objet</th>';
-      html += '<th style="padding:12px;color:var(--dark-200);">Statut</th>';
-      html += '</tr></thead><tbody>';
-
-      visits.forEach(v => {
-        const name = v.pharmacy?.name || 'Pharmacie';
-        const date = new Date(v.proposed_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-        const status = statusLabels[v.status] || v.status;
-        const color = statusColors[v.status] || '#888';
-        html += '<tr style="border-bottom:1px solid var(--glass-border);">';
-        html += '<td style="padding:12px;font-weight:600;">' + escapeHtml(name) + '</td>';
-        html += '<td style="padding:12px;">' + date + '</td>';
-        html += '<td style="padding:12px;color:var(--dark-300);">' + escapeHtml(v.purpose || '-') + '</td>';
-        html += '<td style="padding:12px;"><span style="background:' + color + '22;color:' + color + ';padding:4px 10px;border-radius:12px;font-size:12px;font-weight:600;">' + status + '</span></td>';
-        html += '</tr>';
-      });
-      html += '</tbody></table></div>';
-      container.innerHTML = html;
-    } catch (e) { console.error('Visit history error:', e); }
-  }
 
   function renderPromoTracking(promos, targets) {
     const container = $('promo-tracking-list');

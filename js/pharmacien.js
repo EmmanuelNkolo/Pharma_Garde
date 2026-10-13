@@ -9,6 +9,7 @@
   let activeRequests = [];
   let realtimeChannel = null;
   let reservationChannel = null;
+  let delegateChannel = null;
   let pendingTimers = {};
   let currentStatFilter = 'today';
   let currentStatType = null;
@@ -720,6 +721,7 @@
     subscribeToReservations();
     startExpirationChecker();
     loadDelegateInteractions();
+    subscribeToDelegateVisitsAndPromos();
     initSettings();
     setupTabs();
     if (typeof updateStatusDisplay === 'function') updateStatusDisplay();
@@ -728,6 +730,7 @@
   function handleLogout() {
     if (realtimeChannel) { supabase.removeChannel(realtimeChannel); realtimeChannel = null; }
     if (reservationChannel) { supabase.removeChannel(reservationChannel); reservationChannel = null; }
+    if (delegateChannel) { supabase.removeChannel(delegateChannel); delegateChannel = null; }
     Object.values(pendingTimers).forEach(t => clearTimeout(t));
     pendingTimers = {};
     currentPharmacy = null;
@@ -2121,6 +2124,37 @@
     }
   }
 
+  
+
+  function subscribeToDelegateVisitsAndPromos() {
+    if (!currentPharmacy) return;
+    try {
+      delegateChannel = supabase
+        .channel('pharmacy_delegates_' + currentPharmacy.id)
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'visit_requests',
+          filter: 'pharmacy_id=eq.' + currentPharmacy.id
+        }, async (payload) => {
+          await loadReceivedVisits();
+          if (payload.eventType === 'INSERT') {
+            showToast('🔔 Nouvelle demande de visite d\'un délégué médical !', 'info');
+          }
+        })
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'promotion_targets',
+          filter: 'pharmacy_id=eq.' + currentPharmacy.id
+        }, async (payload) => {
+          await loadReceivedPromotions();
+          if (payload.eventType === 'INSERT') {
+            showToast('📢 Nouvelle promotion reçue d\'un laboratoire !', 'info');
+          }
+        })
+        .subscribe();
+    } catch (e) {
+      console.warn('Delegate subscription error:', e);
+    }
+  }
+
   // ═══════════════════════════════════════════════════════
   //  SETTINGS (Phase 5 — Automation)
   // ═══════════════════════════════════════════════════════
@@ -2247,6 +2281,7 @@
           if (pEl) pEl.style.display = t === tabId ? 'block' : 'none';
         });
         if (tabId === 'tab-stats') { try { updateStatCounters(); } catch (e) { } }
+        if (tabId === 'tab-delegates') { loadReceivedPromotions(); loadReceivedVisits(); }
       });
     });
   }
