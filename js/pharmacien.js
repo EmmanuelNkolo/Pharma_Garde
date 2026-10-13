@@ -20,14 +20,20 @@
 
   // ── Init ───────────────────────────────────────────────
   function init() {
-    if (typeof I18n !== 'undefined') I18n.init();
-    bindLoginTabs();
-    bindEvents();
+    try { bindAuthUI(); } catch (e) { console.error('Auth UI binding error:', e); }
+    try { bindEvents(); } catch (e) { console.error('Event binding error:', e); }
+    try { bindDashboardUI(); } catch (e) { console.error('Dashboard UI binding error:', e); }
+
+    // Password-recovery link coming back from email
+    if (/[?&]reset=true/.test(window.location.search) || /type=recovery/.test(window.location.hash)) {
+      handleRecoveryReturn();
+      return;
+    }
 
     const saved = loadSession();
     if (saved) {
       currentPharmacy = saved;
-      showDashboard();
+      try { showDashboard(); } catch (e) { console.error('Dashboard error:', e); }
     }
   }
 
@@ -38,6 +44,7 @@
         id: pharmacy.id, name: pharmacy.name, phone: pharmacy.phone,
         address: pharmacy.address, lat: pharmacy.lat, lng: pharmacy.lng,
         whatsapp: pharmacy.whatsapp, city: pharmacy.city, quarter: pharmacy.quarter,
+        hours: pharmacy.hours, status: pharmacy.status, email: pharmacy.email,
       }));
     } catch (e) { }
   }
@@ -53,34 +60,571 @@
     try { localStorage.removeItem(SESSION_KEY); } catch (e) { }
   }
 
-  // ── Login Tabs ─────────────────────────────────────────
-  function bindLoginTabs() {
-    const btnShowRegister = document.getElementById('btn-show-register');
-    const btnShowLogin = document.getElementById('btn-show-login');
-    const loginForm = document.getElementById('login-form');
-    const registerForm = document.getElementById('register-form');
+  // ═══════════════════════════════════════════════════════
+  //  AUTH UI (views, password helpers, GPS capture)
+  // ═══════════════════════════════════════════════════════
+  const PENDING_KEY = 'pharmagarde_pending_pharmacy';
+  let gpsWatchId = null;
+  let gpsTimer = null;
+  let gpsBest = null;
+  let gpsAutoTried = false;
+  let gpsFallbackAccepted = false;
 
-    if (btnShowRegister && loginForm && registerForm) {
-      btnShowRegister.addEventListener('click', () => {
-        loginForm.classList.add('hidden');
-        registerForm.classList.remove('hidden');
-      });
+  function showAuthView(view) {
+    ['login', 'register', 'reset'].forEach(v => {
+      const el = document.getElementById(v + '-form');
+      if (el) el.classList.toggle('hidden', v !== view);
+    });
+    const screen = document.getElementById('login-screen');
+    if (screen) screen.scrollTop = 0;
+    window.scrollTo(0, 0);
+
+    if (view === 'register' && !gpsAutoTried) {
+      gpsAutoTried = true;
+      // Automatic capture as soon as the registration form opens
+      setTimeout(startGpsCapture, 350);
     }
+  }
 
-    if (btnShowLogin && loginForm && registerForm) {
-      btnShowLogin.addEventListener('click', () => {
-        registerForm.classList.add('hidden');
-        loginForm.classList.remove('hidden');
+  function bindAuthUI() {
+    // View switches (login ⇄ register ⇄ reset)
+    $$('[data-pa-view]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        showAuthView(btn.getAttribute('data-pa-view'));
       });
-    }
+    });
 
-    // City "Autre" toggle
+    // Show / hide password
+    $$('[data-toggle-pwd]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById(btn.getAttribute('data-toggle-pwd'));
+        if (!input) return;
+        const show = input.type === 'password';
+        input.type = show ? 'text' : 'password';
+        btn.textContent = show ? '🙈' : '👁';
+      });
+    });
+
+    // Enter key submits
+    const onEnter = (ids, fn) => ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); fn(); } });
+    });
+    onEnter(['login-email', 'login-password'], handleLogin);
+    onEnter(['reset-email'], handlePasswordReset);
+
+    // City "Autre"
     const regCity = $('#reg-city');
     if (regCity) {
       regCity.addEventListener('change', () => {
         const otherGroup = $('#reg-other-city-group');
         if (otherGroup) otherGroup.style.display = regCity.value === 'Autre' ? 'block' : 'none';
+        clearFieldError(regCity);
       });
+    }
+
+    // Phone formatting
+    ['reg-phone', 'reg-whatsapp'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('input', () => {
+        el.value = formatCmPhone(el.value);
+        clearFieldError(el);
+        if (id === 'reg-phone' && $('#reg-same-whatsapp') && $('#reg-same-whatsapp').checked) {
+          $('#reg-whatsapp').value = el.value;
+        }
+      });
+    });
+    const same = $('#reg-same-whatsapp');
+    if (same) same.addEventListener('change', () => {
+      const wa = $('#reg-whatsapp');
+      if (!wa) return;
+      wa.value = same.checked ? ($('#reg-phone').value || '') : '';
+      wa.readOnly = same.checked;
+    });
+
+    // Clear errors on input
+    ['reg-name', 'reg-manager', 'reg-license', 'reg-quarter', 'reg-other-city', 'reg-email'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', () => clearFieldError(el));
+    });
+
+    // Password strength / match
+    const pwd = $('#reg-password');
+    const pwd2 = $('#reg-password-confirm');
+    if (pwd) pwd.addEventListener('input', () => { updatePasswordStrength(); updatePasswordMatch(); });
+    if (pwd2) pwd2.addEventListener('input', updatePasswordMatch);
+  }
+
+  // ── Validation helpers ──
+  function normalizeCmPhone(v) {
+    let d = String(v || '').replace(/\D/g, '');
+    if (d.startsWith('00237')) d = d.slice(5);
+    else if (d.startsWith('237') && d.length > 9) d = d.slice(3);
+    return d;
+  }
+  function isValidCmPhone(v) { return /^[26]\d{8}$/.test(normalizeCmPhone(v)); }
+  function formatCmPhone(v) {
+    const d = normalizeCmPhone(v).slice(0, 9);
+    return d.replace(/^(\d{3})(\d{0,2})(\d{0,2})(\d{0,2}).*$/, (m, a, b, c, e) => [a, b, c, e].filter(Boolean).join(' ')) || d;
+  }
+  function isValidEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(v || '').trim()); }
+
+  function passwordChecks(p) {
+    return { len: p.length >= 8, upper: /[A-Z]/.test(p), digit: /[0-9]/.test(p), lower: /[a-z]/.test(p) };
+  }
+
+  function updatePasswordStrength() {
+    const p = ($('#reg-password') || {}).value || '';
+    const c = passwordChecks(p);
+    $$('#pwd-rules li').forEach(li => li.classList.toggle('ok', !!c[li.dataset.rule]));
+    let score = Object.values(c).filter(Boolean).length + (p.length >= 12 ? 1 : 0) + (/[^A-Za-z0-9]/.test(p) ? 1 : 0);
+    const bar = $('#pwd-strength-bar');
+    if (!bar) return;
+    const pct = Math.min(100, Math.round((score / 6) * 100));
+    bar.style.width = (p ? pct : 0) + '%';
+    bar.style.background = score <= 2 ? '#f87171' : score <= 4 ? '#fbbf24' : '#10b981';
+  }
+
+  function updatePasswordMatch() {
+    const p = ($('#reg-password') || {}).value || '';
+    const p2 = ($('#reg-password-confirm') || {}).value || '';
+    const el = $('#pwd-match');
+    if (!el) return;
+    if (!p2) { el.textContent = ''; el.className = 'pa-match'; return; }
+    const ok = p === p2;
+    el.textContent = ok ? '✓ Les mots de passe correspondent' : '✗ Les mots de passe ne correspondent pas';
+    el.className = 'pa-match ' + (ok ? 'ok' : 'ko');
+  }
+
+  function setFieldError(el) {
+    if (!el) return;
+    el.classList.add('pa-input-error');
+    const field = el.closest('.pa-field');
+    if (field) field.classList.add('has-error');
+  }
+  function clearFieldError(el) {
+    if (!el) return;
+    el.classList.remove('pa-input-error');
+    const field = el.closest('.pa-field');
+    if (field) field.classList.remove('has-error');
+  }
+
+  function setBtnLoading(btn, loading, label) {
+    if (!btn) return;
+    if (loading) {
+      btn.dataset.label = btn.dataset.label || btn.innerHTML;
+      btn.innerHTML = '<span class="pa-spinner"></span>' + (label || 'Patientez...');
+      btn.disabled = true;
+    } else {
+      btn.innerHTML = btn.dataset.label || label || btn.innerHTML;
+      btn.disabled = false;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════
+  //  GPS CAPTURE (automatic, best-accuracy)
+  // ═══════════════════════════════════════════════════════
+  function setGpsUI(state, title, detail) {
+    const card = $('#gps-card');
+    if (!card) return;
+    card.classList.remove('is-loading', 'is-ok', 'is-warn', 'is-error');
+    if (state) card.classList.add('is-' + state);
+    if ($('#gps-status-text')) $('#gps-status-text').textContent = title;
+    if ($('#gps-detail-text')) $('#gps-detail-text').innerHTML = detail;
+  }
+
+  function renderGpsActions(mode) {
+    const box = $('#gps-card .pa-gps__actions');
+    if (!box) return;
+    if (mode === 'loading') {
+      box.innerHTML = '<button type="button" class="btn btn--secondary btn--sm" id="btn-gps-stop">⏹ Valider cette position</button>';
+      $('#btn-gps-stop').addEventListener('click', () => finishGpsCapture(true));
+    } else if (mode === 'done') {
+      box.innerHTML = '<button type="button" class="btn btn--secondary btn--sm" id="btn-detect-gps">🔄 Recapturer</button>';
+      $('#btn-detect-gps').addEventListener('click', startGpsCapture);
+    } else if (mode === 'error') {
+      box.innerHTML = '<button type="button" class="btn btn--primary btn--sm" id="btn-detect-gps">📡 Réessayer</button>' +
+        '<button type="button" class="btn btn--ghost btn--sm" id="btn-gps-fallback" style="color: var(--amber-400);">Continuer sans GPS</button>';
+      $('#btn-detect-gps').addEventListener('click', startGpsCapture);
+      $('#btn-gps-fallback').addEventListener('click', () => {
+        gpsFallbackAccepted = true;
+        setGpsUI('warn', 'Position approximative', 'La position sera estimée à partir de la ville et du quartier. Vous pourrez la corriger plus tard depuis les paramètres, <strong>depuis la pharmacie</strong>.');
+        renderGpsActions('done');
+      });
+    } else {
+      box.innerHTML = '<button type="button" class="btn btn--primary btn--sm" id="btn-detect-gps">📡 Capturer la position</button>';
+      $('#btn-detect-gps').addEventListener('click', startGpsCapture);
+    }
+  }
+
+  function startGpsCapture() {
+    if (!navigator.geolocation) {
+      setGpsUI('error', 'GPS non disponible', 'Votre navigateur ne permet pas la géolocalisation.');
+      renderGpsActions('error');
+      return;
+    }
+    if (!window.isSecureContext && location.hostname !== 'localhost') {
+      setGpsUI('error', 'Connexion non sécurisée', 'La géolocalisation nécessite une connexion HTTPS.');
+      renderGpsActions('error');
+      return;
+    }
+    stopGpsWatch();
+    gpsBest = null;
+    gpsFallbackAccepted = false;
+    setGpsUI('loading', 'Recherche du signal GPS…', 'Autorisez l\'accès à la position. Restez à l\'intérieur de la pharmacie, près d\'une porte ou d\'une fenêtre.');
+    renderGpsActions('loading');
+
+    gpsWatchId = navigator.geolocation.watchPosition(onGpsPosition, onGpsError, {
+      enableHighAccuracy: true, maximumAge: 0, timeout: 20000,
+    });
+    // Stop after 20 s with the best reading we got
+    gpsTimer = setTimeout(() => finishGpsCapture(false), 20000);
+  }
+
+  function onGpsPosition(p) {
+    const reading = { lat: p.coords.latitude, lng: p.coords.longitude, accuracy: Math.round(p.coords.accuracy || 9999) };
+    if (!gpsBest || reading.accuracy < gpsBest.accuracy) gpsBest = reading;
+    setGpsUI('loading', `Affinage de la précision… ±${gpsBest.accuracy} m`,
+      `${gpsBest.lat.toFixed(6)}, ${gpsBest.lng.toFixed(6)} — patientez quelques secondes pour une meilleure précision.`);
+    if (gpsBest.accuracy <= 20) finishGpsCapture(false);
+  }
+
+  function onGpsError(err) {
+    if (gpsBest) return; // keep best reading if we already have one
+    stopGpsWatch();
+    const msgs = {
+      1: 'Accès refusé. Autorisez la localisation pour ce site dans les paramètres du navigateur, puis réessayez.',
+      2: 'Signal GPS indisponible. Activez la localisation (GPS) de votre téléphone.',
+      3: 'Délai dépassé. Rapprochez-vous d\'une fenêtre et réessayez.',
+    };
+    setGpsUI('error', 'Position non capturée', msgs[err && err.code] || 'Erreur de géolocalisation.');
+    renderGpsActions('error');
+  }
+
+  function stopGpsWatch() {
+    if (gpsWatchId !== null && navigator.geolocation) navigator.geolocation.clearWatch(gpsWatchId);
+    gpsWatchId = null;
+    if (gpsTimer) clearTimeout(gpsTimer);
+    gpsTimer = null;
+  }
+
+  function finishGpsCapture(manual) {
+    stopGpsWatch();
+    if (!gpsBest) {
+      if (manual) { setGpsUI('error', 'Aucune position reçue', 'Le signal GPS n\'a pas encore été reçu. Réessayez.'); renderGpsActions('error'); }
+      else onGpsError({ code: 3 });
+      return;
+    }
+    const { lat, lng, accuracy } = gpsBest;
+    $('#reg-lat').value = lat;
+    $('#reg-lng').value = lng;
+    $('#reg-accuracy').value = accuracy;
+
+    const good = accuracy <= 50;
+    setGpsUI(good ? 'ok' : 'warn',
+      good ? `✅ Position exacte capturée (±${accuracy} m)` : `⚠️ Position capturée — précision faible (±${accuracy} m)`,
+      `${lat.toFixed(6)}, ${lng.toFixed(6)}` + (good ? '' : '<br>Pour plus de précision, activez le GPS et recapturez depuis la pharmacie.'));
+    renderGpsActions('done');
+    renderGpsMap(lat, lng);
+    reverseGeocode(lat, lng);
+  }
+
+  function renderGpsMap(lat, lng) {
+    const map = $('#gps-map');
+    if (!map) return;
+    const d = 0.0025;
+    const bbox = [lng - d, lat - d, lng + d, lat + d].join('%2C');
+    map.innerHTML = `<iframe loading="lazy" title="Position de la pharmacie" src="https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat}%2C${lng}"></iframe>`;
+  }
+
+  async function reverseGeocode(lat, lng) {
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=17&addressdetails=1&accept-language=fr`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const a = data.address || {};
+      const city = a.city || a.town || a.village || a.municipality || a.county || '';
+      const quarter = a.suburb || a.neighbourhood || a.quarter || a.city_district || a.hamlet || '';
+      const citySel = $('#reg-city');
+      if (citySel && !citySel.value && city) {
+        const norm = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        const match = Array.from(citySel.options).find(o => o.value && norm(city).includes(norm(o.value)));
+        if (match) citySel.value = match.value;
+        else { citySel.value = 'Autre'; $('#reg-other-city-group').style.display = 'block'; $('#reg-other-city').value = city; }
+        clearFieldError(citySel);
+      }
+      const q = $('#reg-quarter');
+      if (q && !q.value && quarter) { q.value = quarter; clearFieldError(q); }
+      const lm = $('#reg-landmark');
+      if (lm && !lm.value && a.road) lm.placeholder = 'Ex : ' + a.road + (a.house_number ? ' ' + a.house_number : '');
+    } catch (e) { /* silent: optional enhancement */ }
+  }
+
+  async function handleDetectGPS() { startGpsCapture(); }
+
+  // ── LOGIN ──────────────────────────────────────────────
+  async function handleLogin() {
+    const emailEl = $('#login-email');
+    const pwdEl = $('#login-password');
+    const email = ((emailEl || {}).value || '').trim().toLowerCase();
+    const password = (pwdEl || {}).value || '';
+    if (!email || !password) { showToast('Veuillez saisir votre email et votre mot de passe', 'error'); return; }
+    if (!isValidEmail(email)) { showToast('Adresse email invalide', 'error'); return; }
+    if (typeof supabase === 'undefined' || !supabase.auth) { showToast('Service indisponible. Vérifiez votre connexion internet.', 'error'); return; }
+
+    const btn = $('#btn-login');
+    setBtnLoading(btn, true, 'Connexion...');
+
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      if (authError || !authData || !authData.user) {
+        const msg = authError && /confirm/i.test(authError.message)
+          ? '📧 Confirmez d\'abord votre email (lien reçu à l\'inscription).'
+          : '❌ Email ou mot de passe incorrect';
+        showToast(msg, 'error');
+        return;
+      }
+
+      let { data: profile } = await supabase.from('pharmacies').select('*').eq('id', authData.user.id).maybeSingle();
+
+      // Profile pending (email confirmation was required at sign-up)
+      if (!profile) {
+        const pending = loadPendingProfile(email);
+        if (pending) {
+          pending.id = authData.user.id;
+          profile = await insertPharmacyProfile(pending);
+          clearPendingProfile();
+        }
+      }
+
+      if (!profile) {
+        await supabase.auth.signOut().catch(() => {});
+        showToast('⚠️ Aucun profil pharmacie lié à ce compte. Veuillez vous inscrire.', 'error');
+        return;
+      }
+
+      currentPharmacy = profile;
+      saveSession(profile);
+      showDashboard();
+      showToast(`✅ Bienvenue, ${profile.name} !`, 'success');
+    } catch (err) {
+      console.error('Login error:', err);
+      showToast('❌ Erreur de connexion : ' + (err.message || 'réessayez'), 'error');
+    } finally {
+      setBtnLoading(btn, false);
+    }
+  }
+
+  // ── REGISTER ───────────────────────────────────────────
+  function savePendingProfile(p) { try { localStorage.setItem(PENDING_KEY, JSON.stringify(p)); } catch (e) { } }
+  function loadPendingProfile(email) {
+    try {
+      const p = JSON.parse(localStorage.getItem(PENDING_KEY) || 'null');
+      return p && p.email === email ? p : null;
+    } catch (e) { return null; }
+  }
+  function clearPendingProfile() { try { localStorage.removeItem(PENDING_KEY); } catch (e) { } }
+
+  // Insert profile; if optional columns don't exist yet in DB, retry with base columns only
+  async function insertPharmacyProfile(data) {
+    const optional = ['manager_name', 'license_number', 'landmark', 'gps_accuracy'];
+    let { data: row, error } = await supabase.from('pharmacies').insert([data]).select().single();
+    if (error && /column|schema cache/i.test(error.message || '')) {
+      const base = Object.assign({}, data);
+      optional.forEach(k => delete base[k]);
+      ({ data: row, error } = await supabase.from('pharmacies').insert([base]).select().single());
+    }
+    if (error) {
+      console.error('Profile insertion error:', error);
+      if (/duplicate|unique/i.test(error.message || '')) {
+        throw new Error(/phone/i.test(error.message) ? 'Ce numéro de téléphone est déjà utilisé par une autre pharmacie.' : 'Cette pharmacie est déjà inscrite.');
+      }
+      throw new Error('Profil non créé : ' + (error.message || 'erreur inconnue'));
+    }
+    return row;
+  }
+
+  function validateRegisterForm() {
+    const get = (id) => document.getElementById(id);
+    const errors = [];
+    const req = (id, ok) => { const el = get(id); if (!ok) { setFieldError(el); errors.push(el); } else clearFieldError(el); };
+
+    const city = get('reg-city').value;
+    req('reg-name', get('reg-name').value.trim().length >= 3);
+    req('reg-manager', get('reg-manager').value.trim().length >= 3);
+    req('reg-license', get('reg-license').value.trim().length >= 3);
+    req('reg-city', !!city);
+    if (city === 'Autre') req('reg-other-city', get('reg-other-city').value.trim().length >= 2);
+    req('reg-quarter', get('reg-quarter').value.trim().length >= 2);
+    req('reg-phone', isValidCmPhone(get('reg-phone').value));
+    const wa = get('reg-whatsapp').value.trim();
+    req('reg-whatsapp', !wa || isValidCmPhone(wa));
+    req('reg-email', isValidEmail(get('reg-email').value));
+
+    const p = get('reg-password').value;
+    const c = passwordChecks(p);
+    req('reg-password', c.len && c.upper && c.digit && c.lower);
+    req('reg-password-confirm', !!p && p === get('reg-password-confirm').value);
+
+    if (errors.length) {
+      errors[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => errors[0].focus({ preventScroll: true }), 300);
+      if (errors[0].id === 'reg-password') showToast('Mot de passe : 8 caractères min., 1 majuscule, 1 minuscule et 1 chiffre', 'error');
+      else if (errors[0].id === 'reg-password-confirm') showToast('Les mots de passe ne correspondent pas', 'error');
+      else showToast('Veuillez corriger les champs signalés en rouge', 'error');
+      return false;
+    }
+
+    const hasGps = !!(get('reg-lat').value && get('reg-lng').value);
+    if (!hasGps && !gpsFallbackAccepted) {
+      $('#gps-card').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      showToast('📍 Capturez la position GPS de la pharmacie (ou choisissez « Continuer sans GPS »)', 'error');
+      if (gpsWatchId === null) { setGpsUI('error', 'Position requise', 'La position exacte permet aux patients de trouver votre officine.'); renderGpsActions('error'); }
+      return false;
+    }
+
+    if (!get('reg-terms').checked) {
+      get('reg-terms').closest('.pa-terms').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      showToast('Veuillez accepter les conditions d\'utilisation', 'error');
+      return false;
+    }
+    return true;
+  }
+
+  async function handleRegister() {
+    if (!validateRegisterForm()) return;
+    if (typeof supabase === 'undefined' || !supabase.auth) { showToast('Service indisponible. Vérifiez votre connexion internet.', 'error'); return; }
+
+    const v = (id) => ((document.getElementById(id) || {}).value || '').trim();
+    const citySel = v('reg-city');
+    const city = citySel === 'Autre' ? v('reg-other-city') : citySel;
+    const quarter = v('reg-quarter');
+    const landmark = v('reg-landmark');
+    const email = v('reg-email').toLowerCase();
+    const password = document.getElementById('reg-password').value;
+    const phone = normalizeCmPhone(v('reg-phone'));
+    const whatsapp = v('reg-whatsapp') ? normalizeCmPhone(v('reg-whatsapp')) : null;
+
+    const btn = $('#btn-register');
+    setBtnLoading(btn, true, 'Inscription en cours...');
+
+    try {
+      // Coordinates: precise GPS, otherwise geocode quarter + city
+      let lat = parseFloat(v('reg-lat'));
+      let lng = parseFloat(v('reg-lng'));
+      const accuracy = v('reg-accuracy') ? parseFloat(v('reg-accuracy')) : null;
+      if (isNaN(lat) || isNaN(lng)) {
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(quarter + ', ' + city + ', Cameroun')}`);
+          const geo = await res.json();
+          if (geo && geo.length) { lat = parseFloat(geo[0].lat); lng = parseFloat(geo[0].lon); }
+        } catch (e) { }
+        if (isNaN(lat) || isNaN(lng)) { const c = getCityCoords(city); lat = c.lat; lng = c.lng; }
+      }
+
+      const services = [];
+      if ($('#reg-service-garde').checked) services.push('garde_nuit');
+      if ($('#reg-service-livraison').checked) services.push('livraison');
+      if ($('#reg-service-assurance').checked) services.push('assurance');
+      if ($('#reg-service-conseil').checked) services.push('conseil');
+
+      const profileData = {
+        name: v('reg-name'),
+        address: [landmark, quarter, city].filter(Boolean).join(', '),
+        city, quarter, phone, whatsapp, email, lat, lng,
+        status: 'open', hours: `${v('reg-hour-open') || '08:00'} - ${v('reg-hour-close') || '21:00'}`,
+        services, is_on_duty: false, is_open: true,
+        manager_name: v('reg-manager'),
+        license_number: v('reg-license').toUpperCase(),
+        landmark: landmark || null,
+        gps_accuracy: accuracy,
+        created_at: new Date().toISOString(),
+      };
+
+      // 1) Auth account
+      let userId = null;
+      let hasSession = false;
+      const { data: authData, error: authError } = await supabase.auth.signUp({ email, password, options: { data: { role: 'pharmacy', name: profileData.name } } });
+      if (authError) {
+        if (/already|registered|exists/i.test(authError.message || '')) {
+          const { data: s, error: sErr } = await supabase.auth.signInWithPassword({ email, password });
+          if (sErr) throw new Error('Cet email est déjà utilisé. Connectez-vous ou réinitialisez votre mot de passe.');
+          userId = s.user.id; hasSession = true;
+        } else { throw authError; }
+      } else {
+        if (!authData || !authData.user) throw new Error('Création du compte impossible.');
+        userId = authData.user.id;
+        hasSession = !!authData.session;
+        // Supabase returns a user with no identities when the email already exists
+        if (authData.user.identities && authData.user.identities.length === 0) {
+          throw new Error('Cet email est déjà utilisé. Connectez-vous ou réinitialisez votre mot de passe.');
+        }
+      }
+
+      profileData.id = userId;
+
+      // 2) Email confirmation required → store profile, create it on first login
+      if (!hasSession) {
+        savePendingProfile(profileData);
+        showToast('📧 Compte créé ! Confirmez votre email via le lien reçu, puis connectez-vous.', 'success');
+        showAuthView('login');
+        if ($('#login-email')) $('#login-email').value = email;
+        return;
+      }
+
+      // 3) Profile
+      const existing = await supabase.from('pharmacies').select('*').eq('id', userId).maybeSingle();
+      const data = existing.data || await insertPharmacyProfile(profileData);
+
+      clearPendingProfile();
+      showToast('✅ Pharmacie inscrite avec succès !', 'success');
+      currentPharmacy = data;
+      saveSession(data);
+      showDashboard();
+    } catch (err) {
+      console.error('Registration error:', err);
+      showToast('❌ ' + (err.message || 'Erreur lors de l\'inscription'), 'error');
+    } finally {
+      setBtnLoading(btn, false);
+    }
+  }
+
+  // ── PASSWORD RESET ─────────────────────────────────────
+  async function handlePasswordReset() {
+    const email = (($('#reset-email') || {}).value || '').trim().toLowerCase();
+    if (!isValidEmail(email)) { showToast('Veuillez saisir un email valide', 'error'); return; }
+
+    const btn = $('#btn-reset-password');
+    setBtnLoading(btn, true, 'Envoi en cours...');
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + '/pharmacien.html?reset=true' });
+      if (error) throw error;
+      showToast('✅ Lien de réinitialisation envoyé ! Consultez votre boîte mail.', 'success');
+      setTimeout(() => showAuthView('login'), 2500);
+    } catch (err) {
+      showToast('❌ Erreur lors de l\'envoi : ' + (err.message || ''), 'error');
+    } finally {
+      setBtnLoading(btn, false);
+    }
+  }
+
+  // Back from the email link: let the user choose a new password
+  async function handleRecoveryReturn() {
+    showAuthView('login');
+    const pwd = window.prompt('Choisissez votre nouveau mot de passe (8 caractères min., 1 majuscule, 1 minuscule, 1 chiffre) :');
+    if (!pwd) return;
+    const c = passwordChecks(pwd);
+    if (!(c.len && c.upper && c.digit && c.lower)) { showToast('Mot de passe trop faible. Recommencez depuis le lien reçu.', 'error'); return; }
+    try {
+      const { error } = await supabase.auth.updateUser({ password: pwd });
+      if (error) throw error;
+      showToast('✅ Mot de passe mis à jour. Connectez-vous.', 'success');
+      history.replaceState(null, '', window.location.pathname);
+    } catch (err) {
+      showToast('❌ Lien expiré ou invalide. Refaites une demande.', 'error');
     }
   }
 
@@ -129,177 +673,6 @@
     bindGuardSwitch();
     bindStatCards();
     bindFilterButtons();
-  }
-
-  // ── GPS Detection for Registration ─────────────────────
-  async function handleDetectGPS() {
-    const btn = $('#btn-detect-gps');
-    if (btn) { btn.textContent = '📍 Détection en cours...'; btn.disabled = true; }
-
-    try {
-      const pos = await new Promise((resolve, reject) => {
-        if (!navigator.geolocation) return reject(new Error('GPS non supporté'));
-        navigator.geolocation.getCurrentPosition(
-          (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
-          (e) => reject(e),
-          { enableHighAccuracy: true, timeout: 15000 }
-        );
-      });
-
-      $('#reg-lat').value = pos.lat;
-      $('#reg-lng').value = pos.lng;
-      $('#gps-coords').textContent = `${pos.lat.toFixed(5)}, ${pos.lng.toFixed(5)}`;
-      $('#gps-status').style.display = 'block';
-      showToast('✅ Position GPS détectée !', 'success');
-    } catch (e) {
-      showToast('❌ Impossible de détecter la position GPS', 'error');
-    } finally {
-      if (btn) { btn.innerHTML = '📍 Détecter la position'; btn.disabled = false; }
-    }
-  }
-
-  // ── LOGIN ──────────────────────────────────────────────
-  async function handleLogin() {
-    const email = ($('#login-email') || {}).value || '';
-    const password = ($('#login-password') || {}).value || '';
-    if (!email.trim() || !password) { showToast('Veuillez remplir tous les champs', 'error'); return; }
-
-    const btn = $('#btn-login');
-    btn.textContent = 'Connexion...'; btn.disabled = true;
-
-    try {
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-      if (authError || !authData.user) { showToast('❌ Email ou mot de passe incorrect', 'error'); return; }
-
-      const { data: profile, error: profileError } = await supabase.from('pharmacies').select('*').eq('id', authData.user.id).single();
-      if (profileError || !profile) { showToast('⚠️ Profil non trouvé. Veuillez vous réinscrire.', 'error'); return; }
-
-      currentPharmacy = profile;
-      saveSession(profile);
-      showDashboard();
-      showToast(`✅ Bienvenue, ${profile.name} !`, 'success');
-    } catch (err) {
-      console.error('Login error:', err);
-      showToast('❌ Erreur de connexion.', 'error');
-    } finally {
-      btn.textContent = 'Se connecter'; btn.disabled = false;
-    }
-  }
-
-  // ── REGISTER ───────────────────────────────────────────
-  async function handleRegister() {
-    const name = ($('#reg-name') || {}).value || '';
-    const citySelect = ($('#reg-city') || {}).value || '';
-    const otherCity = ($('#reg-other-city') || {}).value || '';
-    const city = citySelect === 'Autre' ? otherCity.trim() : citySelect;
-    const quarter = ($('#reg-quarter') || {}).value || '';
-    const phone = (($('#reg-phone') || {}).value || '').trim().replace(/\s+/g, '');
-    const password = ($('#reg-password') || {}).value || '';
-    const passwordConfirm = ($('#reg-password-confirm') || {}).value || '';
-    const whatsapp = ($('#reg-whatsapp') || {}).value || '';
-    const email = (($('#reg-email') || {}).value || '').trim();
-    const hourOpen = ($('#reg-hour-open') || {}).value || '08:00';
-    const hourClose = ($('#reg-hour-close') || {}).value || '21:00';
-    const latVal = ($('#reg-lat') || {}).value;
-    const lngVal = ($('#reg-lng') || {}).value;
-
-    if (!name.trim() || !city || !quarter.trim() || !phone || !email) { showToast('Veuillez remplir tous les champs obligatoires (*)', 'error'); return; }
-    if (!password || password.length < 8 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
-      showToast('Le mot de passe doit contenir au moins 8 caractères, dont 1 majuscule et 1 chiffre', 'error');
-      return;
-    }
-    if (password !== passwordConfirm) { showToast('Les mots de passe ne correspondent pas', 'error'); return; }
-
-    const btn = $('#btn-register');
-    btn.textContent = 'Inscription en cours...'; btn.disabled = true;
-
-    try {
-      let authUserId = null;
-      const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
-
-      if (authError) {
-        if (authError.message.includes('already registered') || authError.message.includes('User already registered')) {
-          const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-          if (signInError) { showToast('❌ Cet email est déjà utilisé', 'error'); throw signInError; }
-          authUserId = signInData.user.id;
-        } else { throw authError; }
-      } else {
-        if (!authData.user) throw new Error("Inscription Auth échouée");
-        authUserId = authData.user.id;
-      }
-
-      // Use real GPS if available, otherwise fetch from Nominatim API
-      let lat, lng;
-      if (latVal && lngVal) {
-        lat = parseFloat(latVal);
-        lng = parseFloat(lngVal);
-      } else {
-        try {
-          // Attempt to geocode using Quarter + City + Cameroon
-          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(quarter + ', ' + city + ', Cameroon')}`);
-          const geoData = await res.json();
-          if (geoData && geoData.length > 0) {
-            lat = parseFloat(geoData[0].lat);
-            lng = parseFloat(geoData[0].lon);
-          } else {
-            // Fallback to Douala if totally unknown
-            lat = 4.0511 + (Math.random() - 0.5) * 0.05;
-            lng = 9.7679 + (Math.random() - 0.5) * 0.05;
-          }
-        } catch(e) {
-          console.error("Geocoding failed", e);
-          lat = 4.0511;
-          lng = 9.7679;
-        }
-      }
-
-      const services = [];
-      if ($('#reg-service-garde') && $('#reg-service-garde').checked) services.push('garde_nuit');
-      if ($('#reg-service-livraison') && $('#reg-service-livraison').checked) services.push('livraison');
-      if ($('#reg-service-assurance') && $('#reg-service-assurance').checked) services.push('assurance');
-      if ($('#reg-service-conseil') && $('#reg-service-conseil').checked) services.push('conseil');
-
-      const insertData = {
-        id: authUserId, name: name.trim(), address: `${quarter.trim()}, ${city}`,
-        city, quarter: quarter.trim(), phone, whatsapp: whatsapp || null, email,
-        lat, lng, status: 'open', hours: `${hourOpen} - ${hourClose}`,
-        services, is_on_duty: false, is_open: true, rating: 4.5,
-        created_at: new Date().toISOString(),
-      };
-
-      const { data, error } = await supabase.from('pharmacies').insert([insertData]).select().single();
-      if (error) { console.error('Profile insertion error:', error); throw new Error('Profil non créé. Numéro déjà existant ?'); }
-
-      showToast('✅ Pharmacie inscrite avec succès !', 'success');
-      currentPharmacy = data;
-      saveSession(data);
-      showDashboard();
-    } catch (err) {
-      console.error('Registration error:', err);
-      showToast('❌ Erreur: ' + (err.message || ''), 'error');
-    } finally {
-      btn.textContent = 'Inscrire ma pharmacie'; btn.disabled = false;
-    }
-  }
-
-  // ── PASSWORD RESET ─────────────────────────────────────
-  async function handlePasswordReset() {
-    const email = (($('#reset-email') || {}).value || '').trim();
-    if (!email) { showToast('Veuillez remplir votre email', 'error'); return; }
-
-    const btn = $('#btn-reset-password');
-    btn.textContent = 'Envoi en cours...'; btn.disabled = true;
-
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + '/pharmacien.html?reset=true' });
-      if (error) throw error;
-      showToast('✅ Email de réinitialisation envoyé !', 'success');
-      setTimeout(() => { if ($('#tab-login')) $('#tab-login').click(); }, 3000);
-    } catch (err) {
-      showToast('❌ Erreur lors de la réinitialisation.', 'error');
-    } finally {
-      btn.textContent = 'Réinitialiser le mot de passe'; btn.disabled = false;
-    }
   }
 
   // ── DELETE ACCOUNT ─────────────────────────────────────
@@ -1855,12 +2228,155 @@
   }
 
   // ═══════════════════════════════════════════════════════
+  //  DASHBOARD UI BRIDGE (tabs, status, settings, modals)
+  // ═══════════════════════════════════════════════════════
+  const DASH_TABS = { 'tab-requests': 'panel-requests', 'tab-history': 'panel-history', 'tab-delegates': 'panel-delegates', 'tab-stats': 'panel-stats-pharm' };
+  let dashTabsBound = false;
+
+  function setupTabs() {
+    if (dashTabsBound) return;
+    dashTabsBound = true;
+    Object.keys(DASH_TABS).forEach(tabId => {
+      const tab = document.getElementById(tabId);
+      if (!tab) return;
+      tab.addEventListener('click', () => {
+        Object.entries(DASH_TABS).forEach(([t, p]) => {
+          const tEl = document.getElementById(t);
+          const pEl = document.getElementById(p);
+          if (tEl) tEl.classList.toggle('active', t === tabId);
+          if (pEl) pEl.style.display = t === tabId ? 'block' : 'none';
+        });
+        if (tabId === 'tab-stats') { try { updateStatCounters(); } catch (e) { } }
+      });
+    });
+  }
+
+  function updateStatusDisplay() {
+    const status = (currentPharmacy && currentPharmacy.status) || 'open';
+    const labels = { open: 'Ouverte', guard: 'De garde', closed: 'Fermée' };
+    const badges = { open: 'badge--emerald', guard: 'badge--amber', closed: 'badge--red' };
+    ['open', 'guard', 'closed'].forEach(s => {
+      const b = document.getElementById('status-' + s);
+      if (b) { b.classList.toggle('active', s === status); b.style.opacity = s === status ? '1' : '0.55'; }
+    });
+    const badge = document.getElementById('pharmacy-status-badge');
+    if (badge) { badge.textContent = labels[status]; badge.className = 'badge ' + badges[status]; }
+  }
+
+  async function togglePharmacyStatus(status) {
+    if (!currentPharmacy) return;
+    const previous = currentPharmacy.status;
+    currentPharmacy.status = status;
+    updateStatusDisplay();
+    try {
+      const { error } = await supabase.from('pharmacies')
+        .update({ status, is_open: status !== 'closed', is_on_duty: status === 'guard' })
+        .eq('id', currentPharmacy.id);
+      if (error) throw error;
+      saveSession(currentPharmacy);
+      showToast('✅ Statut mis à jour', 'success');
+    } catch (err) {
+      currentPharmacy.status = previous;
+      updateStatusDisplay();
+      showToast('❌ Erreur de mise à jour du statut', 'error');
+    }
+  }
+
+  async function sendStockAlert() {
+    if (!currentPharmacy) return;
+    const product = (($('#stock-alert-product') || {}).value || '').trim();
+    if (!product) { showToast('Indiquez le produit en rupture', 'error'); return; }
+    const btn = $('#btn-send-stock-alert');
+    setBtnLoading(btn, true, 'Envoi...');
+    try {
+      const { error } = await supabase.from('stock_alerts').insert([{
+        pharmacy_id: currentPharmacy.id, product_name: product,
+        urgency: ($('#stock-alert-urgency') || {}).value || 'normal',
+        radius: parseInt(($('#stock-alert-radius') || {}).value || '5', 10),
+        message: (($('#stock-alert-message') || {}).value || '').trim() || null,
+        pharmacy_lat: currentPharmacy.lat, pharmacy_lng: currentPharmacy.lng,
+      }]);
+      if (error) throw error;
+      showToast('✅ Alerte envoyée aux délégués de votre zone', 'success');
+      $('#stock-alert-product').value = ''; $('#stock-alert-message').value = '';
+      $('#stock-alert-modal').classList.remove('active');
+    } catch (err) {
+      console.error('Stock alert error:', err);
+      showToast('❌ Envoi impossible : ' + (err.message || ''), 'error');
+    } finally { setBtnLoading(btn, false); }
+  }
+
+  async function verifyReservationCode(code) {
+    if (!currentPharmacy) return;
+    code = String(code || '').trim().toUpperCase();
+    if (!/^PG-[A-Z0-9]{4}$/.test(code)) { showToast('Format attendu : PG-XXXX', 'error'); return; }
+    try {
+      const { data, error } = await supabase.from('responses').select('*')
+        .eq('pharmacy_id', currentPharmacy.id).eq('reservation_code', code).maybeSingle();
+      if (error) throw error;
+      if (!data) { showToast('❌ Code introuvable pour votre pharmacie', 'error'); return; }
+      if (data.collected_at) { showToast('⚠️ Ce code a déjà été utilisé', 'warning'); return; }
+      await supabase.from('responses').update({ collected_at: new Date().toISOString() }).eq('id', data.id);
+      showToast('✅ Code valide — réservation retirée', 'success');
+      $('#verify-code-input').value = '';
+      $('#code-verify-modal').classList.remove('active');
+    } catch (err) {
+      console.error('Verify code error:', err);
+      showToast('❌ Vérification impossible', 'error');
+    }
+  }
+
+  function bindDashboardUI() {
+    const panel = $('#settings-panel');
+    const open = $('#settings-open');
+    const close = $('#settings-close');
+    if (open && panel) open.addEventListener('click', () => {
+      if (currentPharmacy) {
+        const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+        set('settings-name', currentPharmacy.name); set('settings-address', currentPharmacy.address);
+        set('settings-phone', currentPharmacy.phone); set('settings-whatsapp', currentPharmacy.whatsapp);
+        set('settings-hours', currentPharmacy.hours);
+      }
+      panel.style.display = 'block';
+    });
+    if (close && panel) close.addEventListener('click', () => { panel.style.display = 'none'; });
+
+    const save = $('#settings-save');
+    if (save) save.addEventListener('click', async () => {
+      if (!currentPharmacy) return;
+      const v = (id) => ((document.getElementById(id) || {}).value || '').trim();
+      const updates = {
+        name: v('settings-name'), address: v('settings-address'),
+        phone: normalizeCmPhone(v('settings-phone')),
+        whatsapp: v('settings-whatsapp') ? normalizeCmPhone(v('settings-whatsapp')) : null,
+        hours: v('settings-hours') || '08:00 - 21:00',
+      };
+      if (!updates.name || !updates.address || !isValidCmPhone(updates.phone)) { showToast('Nom, adresse et téléphone valides requis', 'error'); return; }
+      setBtnLoading(save, true, 'Enregistrement...');
+      try {
+        const { error } = await supabase.from('pharmacies').update(updates).eq('id', currentPharmacy.id);
+        if (error) throw error;
+        Object.assign(currentPharmacy, updates);
+        saveSession(currentPharmacy);
+        $('#dash-pharmacy-name').textContent = currentPharmacy.name;
+        showToast('✅ Profil mis à jour', 'success');
+        panel.style.display = 'none';
+      } catch (err) { showToast('❌ Erreur : ' + (err.message || ''), 'error'); }
+      finally { setBtnLoading(save, false); }
+    });
+
+    // Close modals by tapping the backdrop
+    $$('.modal-overlay').forEach(m => m.addEventListener('click', (e) => { if (e.target === m) m.classList.remove('active'); }));
+  }
+
+  // ═══════════════════════════════════════════════════════
   //  PUBLIC API & INIT
   // ═══════════════════════════════════════════════════════
   window.PharmDash = {
-    sendStockAlert: sendStockAlert,
+    sendStockAlert,
     verifyCode: verifyReservationCode,
     toggleStatus: togglePharmacyStatus,
+    loadHistory,
     prepareResponse,
     confirmAction,
     cancelReservation,
@@ -1868,13 +2384,13 @@
     confirmMedicinePurchase,
     respondPromo: respondToPromotion,
     respondVisit: respondToVisit,
+    showView: showAuthView,
   };
 
+  // I18n auto-initializes itself (js/i18n.js)
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => { if (typeof I18n !== 'undefined') I18n.init(); });
     document.addEventListener('DOMContentLoaded', init);
   } else {
-    if (typeof I18n !== 'undefined') I18n.init();
     init();
   }
 })();

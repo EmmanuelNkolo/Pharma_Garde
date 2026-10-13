@@ -1,0 +1,195 @@
+/* ================================================================
+   Pharma-Garde — Pharmacy Auth (Login / Register / Reset)
+   ================================================================ */
+
+#login-screen.pa-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(16, 185, 129, 0.12), transparent 60%),
+    radial-gradient(900px 500px at 110% 110%, rgba(251, 191, 36, 0.08), transparent 60%),
+    var(--bg-primary);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 72px 16px 48px;
+}
+
+.pa-wrap {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.pa-card {
+  padding: 28px 22px;
+  animation: paFadeUp 0.35s ease both;
+}
+
+@keyframes paFadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.pa-head { text-align: center; margin-bottom: 22px; }
+
+.pa-icon {
+  width: 60px; height: 60px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 12px; font-size: 26px;
+  background: linear-gradient(135deg, rgba(16,185,129,0.18), rgba(52,211,153,0.06));
+  box-shadow: 0 0 0 1px rgba(16,185,129,0.25), 0 8px 24px rgba(16,185,129,0.15);
+}
+
+.pa-title {
+  font-size: 23px; font-weight: 800; line-height: 1.25;
+  background: linear-gradient(135deg, #fde68a 0%, #fbbf24 45%, #d97706 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 10px rgba(251, 191, 36, 0.25));
+}
+
+.pa-subtitle { font-size: 13px; color: var(--text-muted); margin-top: 6px; line-height: 1.5; }
+
+/* ── Sections ─────────────────────────────────── */
+.pa-section {
+  border: 1px solid var(--border-default);
+  background: rgba(255,255,255,0.015);
+  border-radius: 14px;
+  padding: 16px 14px 4px;
+  margin-bottom: 14px;
+}
+
+.pa-section__title {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13px; font-weight: 800; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--amber-400);
+  margin-bottom: 14px;
+}
+
+.pa-section__num {
+  width: 22px; height: 22px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; color: #0a0f1c;
+  background: linear-gradient(135deg, #fbbf24, #d97706);
+}
+
+.pa-label {
+  display: block; font-size: 12px; font-weight: 700;
+  letter-spacing: 0.03em; text-transform: uppercase;
+  color: var(--emerald-400); margin-bottom: 6px;
+}
+.pa-label .req { color: #f87171; margin-left: 2px; }
+
+.pa-hint { font-size: 11px; color: var(--text-muted); margin-top: 6px; line-height: 1.45; }
+
+.pa-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 360px) { .pa-grid-2 { grid-template-columns: 1fr; } }
+
+.pa-input-error { border-color: rgba(248,113,113,0.7) !important; box-shadow: 0 0 0 3px rgba(248,113,113,0.12) !important; }
+.pa-error-msg { font-size: 11px; color: #f87171; margin-top: 5px; display: none; }
+.pa-input-error + .pa-error-msg,
+.pa-field.has-error .pa-error-msg { display: block; }
+
+/* Phone prefix */
+.pa-phone { display: flex; align-items: stretch; }
+.pa-phone__prefix {
+  display: flex; align-items: center; padding: 0 12px;
+  border: 1px solid var(--border-default); border-right: 0;
+  border-radius: var(--radius-md, 10px) 0 0 var(--radius-md, 10px);
+  background: rgba(16,185,129,0.08); color: var(--emerald-400);
+  font-weight: 700; font-size: 14px; white-space: nowrap;
+}
+.pa-phone .form-input { border-radius: 0 var(--radius-md, 10px) var(--radius-md, 10px) 0; }
+
+/* Password */
+.pa-pwd { position: relative; }
+.pa-pwd .form-input { padding-right: 46px; }
+.pa-pwd__toggle {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  width: 36px; height: 36px; border: 0; background: transparent;
+  color: var(--text-muted); cursor: pointer; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+}
+.pa-pwd__toggle:hover { color: var(--emerald-400); background: rgba(16,185,129,0.08); }
+
+.pa-strength { height: 6px; border-radius: 6px; background: rgba(255,255,255,0.06); overflow: hidden; margin-top: 8px; }
+.pa-strength__bar { height: 100%; width: 0; border-radius: 6px; transition: width .25s ease, background .25s ease; }
+
+.pa-rules { list-style: none; padding: 0; margin: 8px 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; }
+.pa-rules li { font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+.pa-rules li::before { content: '○'; font-size: 11px; }
+.pa-rules li.ok { color: var(--emerald-400); }
+.pa-rules li.ok::before { content: '✓'; font-weight: 800; }
+
+.pa-match { font-size: 11px; margin-top: 6px; min-height: 14px; }
+.pa-match.ok { color: var(--emerald-400); }
+.pa-match.ko { color: #f87171; }
+
+/* ── GPS Card ─────────────────────────────────── */
+.pa-gps {
+  border-radius: 12px; padding: 14px;
+  border: 1px dashed rgba(16,185,129,0.4);
+  background: linear-gradient(135deg, rgba(16,185,129,0.08), rgba(16,185,129,0.02));
+  margin-bottom: 14px;
+}
+.pa-gps.is-ok { border-style: solid; border-color: rgba(16,185,129,0.55); }
+.pa-gps.is-warn { border-color: rgba(251,191,36,0.55); background: linear-gradient(135deg, rgba(251,191,36,0.08), rgba(251,191,36,0.02)); }
+.pa-gps.is-error { border-color: rgba(248,113,113,0.55); background: linear-gradient(135deg, rgba(248,113,113,0.08), rgba(248,113,113,0.02)); }
+
+.pa-gps__row { display: flex; align-items: center; gap: 12px; }
+.pa-gps__pin {
+  flex: 0 0 auto; width: 42px; height: 42px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-size: 20px;
+  background: rgba(16,185,129,0.15);
+}
+.pa-gps.is-loading .pa-gps__pin { animation: paPulse 1.2s ease-in-out infinite; }
+@keyframes paPulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.45); }
+  50%     { box-shadow: 0 0 0 10px rgba(16,185,129,0); }
+}
+.pa-gps__status { font-size: 13px; font-weight: 700; color: var(--text-primary, #fff); }
+.pa-gps__detail { font-size: 12px; color: var(--text-muted); margin-top: 2px; word-break: break-word; }
+
+.pa-gps__map {
+  margin-top: 12px; border-radius: 10px; overflow: hidden;
+  border: 1px solid var(--border-default); height: 180px; display: none;
+  background: #0f172a;
+}
+.pa-gps__map iframe { width: 100%; height: 100%; border: 0; filter: saturate(0.9); }
+.pa-gps.is-ok .pa-gps__map, .pa-gps.is-warn .pa-gps__map { display: block; }
+
+.pa-gps__actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.pa-gps__actions .btn { flex: 1 1 auto; }
+
+/* ── Chips (services) ─────────────────────────── */
+.pa-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.pa-chip { position: relative; }
+.pa-chip input { position: absolute; opacity: 0; pointer-events: none; }
+.pa-chip span {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 12px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  border: 1px solid var(--border-default); color: var(--text-secondary);
+  cursor: pointer; transition: all .15s ease; user-select: none;
+}
+.pa-chip input:checked + span {
+  color: var(--emerald-400); border-color: rgba(16,185,129,0.5);
+  background: rgba(16,185,129,0.12);
+}
+
+/* ── Terms ────────────────────────────────────── */
+.pa-terms { display: flex; gap: 10px; align-items: flex-start; font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin: 6px 2px 4px; }
+.pa-terms input { margin-top: 3px; width: 18px; height: 18px; accent-color: #10b981; flex: 0 0 auto; }
+
+.pa-switch-link { text-align: center; margin-top: 14px; }
+.pa-forgot { display: block; text-align: right; font-size: 12px; margin-top: -4px; margin-bottom: 4px; color: var(--emerald-400); background: none; border: 0; cursor: pointer; padding: 4px 0; margin-left: auto; }
+
+.pa-spinner {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.35); border-top-color: #fff;
+  display: inline-block; animation: paSpin .7s linear infinite; vertical-align: -3px; margin-right: 8px;
+}
+@keyframes paSpin { to { transform: rotate(360deg); } }
+
+.pa-lang { position: fixed; top: 16px; right: 16px; z-index: 9100; }

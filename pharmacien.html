@@ -11,101 +11,245 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/design-system.css">
   <link rel="stylesheet" href="css/pro.css">
+  <link rel="stylesheet" href="css/pharma-auth.css?v=3.0">
 </head>
 <body>
   <div class="app-container">
 
-    <!-- ════════════════════ LOGIN ════════════════════ -->
-    <div id="login-screen" style="position: fixed; inset: 0; z-index: 9000; background: var(--bg-primary); display: flex; align-items: center; justify-content: center; padding: 24px;">
-      <div style="width: 100%; max-width: 420px;">
-        <!-- Language -->
-        <div class="lang-switch" style="position: fixed; top: 16px; right: 16px;">
-          <button class="lang-switch__btn active" data-lang="fr">FR</button>
-          <button class="lang-switch__btn" data-lang="en">EN</button>
-        </div>
-        <a href="index.html" class="btn btn--ghost" style="margin-bottom: 16px;">
+    <!-- ════════════════════ AUTH (LOGIN / REGISTER / RESET) ════════════════════ -->
+    <div id="login-screen" class="pa-screen">
+      <div class="lang-switch pa-lang">
+        <button type="button" class="lang-switch__btn active" data-lang="fr">FR</button>
+        <button type="button" class="lang-switch__btn" data-lang="en">EN</button>
+      </div>
+
+      <div class="pa-wrap">
+        <a href="index.html" class="btn btn--ghost" style="margin-bottom: 14px;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
           <span data-i18n="back">Retour</span>
         </a>
 
-        <!-- Login Form -->
-        <div id="login-form" class="glass-card" style="padding: 32px;">
-          <div style="text-align: center; margin-bottom: 24px;">
-            <div style="width: 56px; height: 56px; background: linear-gradient(135deg, rgba(16,185,129,0.15), rgba(52,211,153,0.08)); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; font-size: 24px;">🏥</div>
-            <h2 style="font-size: 22px; font-weight: 800; color: var(--amber-400); text-shadow: 0 0 10px rgba(251,191,36,0.3);" data-i18n="pharm_login_title">Connexion Pharmacie</h2>
+        <!-- ─────────── LOGIN ─────────── -->
+        <form id="login-form" class="glass-card pa-card" novalidate autocomplete="on" onsubmit="return false;">
+          <div class="pa-head">
+            <div class="pa-icon">🏥</div>
+            <h1 class="pa-title">Connexion Pharmacie</h1>
+            <p class="pa-subtitle">Accédez à l'espace professionnel de votre officine.</p>
           </div>
-          <div class="form-group">
-            <label class="form-label" style="color: var(--emerald-400);" data-i18n="pharm_email">Email</label>
-            <input type="email" id="login-email" class="form-input" placeholder="pharmacie@email.com" data-i18n-placeholder="email_placeholder">
-          </div>
-          <div class="form-group">
-            <label class="form-label" style="color: var(--emerald-400);" data-i18n="pharm_password">Mot de passe</label>
-            <input type="password" id="login-password" class="form-input" placeholder="••••••••" data-i18n-placeholder="password_placeholder">
-          </div>
-          <button type="button" id="btn-login" class="btn btn--primary btn--block" style="margin-top: 20px;">
-            <span data-i18n="login_btn">Connexion</span>
-          </button>
-          <div style="text-align: center; margin-top: 16px;">
-            <button type="button" id="btn-show-register" class="btn btn--ghost" style="font-size: 13px; color: var(--emerald-400);">
-              <span data-i18n="pharm_register_title">Inscrire ma pharmacie</span>
-            </button>
-          </div>
-        </div>
 
-        <!-- Register Form -->
-        <div id="register-form" class="glass-card hidden" style="padding: 32px; max-height: 80vh; overflow-y: auto;">
-          <div style="text-align: center; margin-bottom: 24px;">
-            <h2 style="font-size: 22px; font-weight: 800; color: var(--amber-400); text-shadow: 0 0 10px rgba(251,191,36,0.3);" data-i18n="pharm_register_title">Inscription Pharmacie</h2>
+          <div class="form-group">
+            <label class="pa-label" for="login-email">Email professionnel <span class="req">*</span></label>
+            <input type="email" id="login-email" class="form-input" placeholder="Ex : contact@pharmacie-centrale.cm" autocomplete="email" inputmode="email">
           </div>
           <div class="form-group">
-            <label class="form-label" style="color: var(--emerald-400);" data-i18n="pharm_name">Nom de la pharmacie *</label>
-            <input type="text" id="reg-name" class="form-input" placeholder="Pharmacie Centrale">
-          </div>
-          <div class="form-group">
-            <label class="form-label" style="color: var(--emerald-400);" data-i18n="pharm_address">Adresse *</label>
-            <input type="text" id="reg-address" class="form-input">
-          </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-            <div class="form-group">
-              <label class="form-label" style="color: var(--emerald-400);" data-i18n="pharm_city">Ville</label>
-              <input type="text" id="reg-city" class="form-input" placeholder="Douala">
-            </div>
-            <div class="form-group">
-              <label class="form-label" style="color: var(--emerald-400);" data-i18n="pharm_quarter">Quartier</label>
-              <input type="text" id="reg-quarter" class="form-input">
+            <label class="pa-label" for="login-password">Mot de passe <span class="req">*</span></label>
+            <div class="pa-pwd">
+              <input type="password" id="login-password" class="form-input" placeholder="Votre mot de passe" autocomplete="current-password">
+              <button type="button" class="pa-pwd__toggle" data-toggle-pwd="login-password" aria-label="Afficher le mot de passe">👁</button>
             </div>
           </div>
-          <div class="form-group">
-            <label class="form-label" style="color: var(--emerald-400);" data-i18n="pharm_phone">Téléphone *</label>
-            <input type="tel" id="reg-phone" class="form-input" placeholder="6XX XXX XXX">
-          </div>
-          <div class="form-group">
-            <label class="form-label" style="color: var(--emerald-400);">WhatsApp</label>
-            <input type="tel" id="reg-whatsapp" class="form-input" placeholder="6XX XXX XXX">
-          </div>
-          <div class="form-group">
-            <label class="form-label" style="color: var(--emerald-400);" data-i18n="pharm_email">Email *</label>
-            <input type="email" id="reg-email" class="form-input">
-          </div>
-          <div class="form-group">
-            <label class="form-label" style="color: var(--emerald-400);" data-i18n="pharm_password">Mot de passe *</label>
-            <input type="password" id="reg-password" class="form-input" placeholder="Créez un mot de passe sécurisé" data-i18n-placeholder="ph_pwd_create">
-            <div style="font-size: 11px; color: var(--slate-400); margin-top: 6px;">8 caractères min. (1 majuscule, 1 chiffre)</div>
-          </div>
-          <div class="form-group">
-            <label class="form-label" style="color: var(--emerald-400);">Confirmer le mot de passe *</label>
-            <input type="password" id="reg-password-confirm" class="form-input" placeholder="Retapez le mot de passe" data-i18n-placeholder="ph_pwd_confirm">
-          </div>
-          <p style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">📍 La position GPS sera détectée automatiquement.</p>
-          <button type="button" id="btn-register" class="btn btn--primary btn--block" style="margin-top: 20px;">
-            <span data-i18n="confirm">S'inscrire</span>
-          </button>
-          <div style="text-align: center; margin-top: 12px;">
-            <button type="button" id="btn-show-login" class="btn btn--ghost" style="font-size: 13px;">
-              Déjà inscrit ? <span style="color: var(--emerald-400);">Se connecter</span>
+          <button type="button" class="pa-forgot" data-pa-view="reset">Mot de passe oublié ?</button>
+
+          <button type="button" id="btn-login" class="btn btn--primary btn--block" style="margin-top: 12px;">Se connecter</button>
+
+          <div class="pa-switch-link">
+            <span style="font-size: 13px; color: var(--text-muted);">Nouvelle officine ?</span>
+            <button type="button" id="btn-show-register" class="btn btn--ghost" data-pa-view="register" style="font-size: 14px; color: var(--emerald-400); font-weight: 700;">
+              Inscription Pharmacie →
             </button>
           </div>
-        </div>
+        </form>
+
+        <!-- ─────────── REGISTER ─────────── -->
+        <form id="register-form" class="glass-card pa-card hidden" novalidate autocomplete="on" onsubmit="return false;">
+          <div class="pa-head">
+            <div class="pa-icon">⚕️</div>
+            <h2 class="pa-title">Inscription Pharmacie</h2>
+            <p class="pa-subtitle">Créez l'espace professionnel de votre officine. Les champs marqués <span style="color:#f87171;">*</span> sont obligatoires.</p>
+          </div>
+
+          <!-- 1. Identité -->
+          <div class="pa-section">
+            <div class="pa-section__title"><span class="pa-section__num">1</span> Identité de l'officine</div>
+            <div class="form-group pa-field">
+              <label class="pa-label" for="reg-name">Nom de la pharmacie <span class="req">*</span></label>
+              <input type="text" id="reg-name" class="form-input" placeholder="Ex : Pharmacie du Centre" autocomplete="organization" maxlength="120">
+              <div class="pa-error-msg">Indiquez le nom de la pharmacie.</div>
+            </div>
+            <div class="form-group pa-field">
+              <label class="pa-label" for="reg-manager">Pharmacien titulaire <span class="req">*</span></label>
+              <input type="text" id="reg-manager" class="form-input" placeholder="Ex : Dr Marie Ngo Bassa" autocomplete="name" maxlength="120">
+              <div class="pa-error-msg">Indiquez le nom du pharmacien titulaire.</div>
+            </div>
+            <div class="form-group pa-field">
+              <label class="pa-label" for="reg-license">N° d'autorisation / Ordre (ONPC) <span class="req">*</span></label>
+              <input type="text" id="reg-license" class="form-input" placeholder="Ex : ONPC-2019-0457" maxlength="60" style="text-transform: uppercase;">
+              <div class="pa-hint">Numéro d'inscription à l'Ordre ou d'autorisation d'ouverture. Il sert à vérifier votre officine.</div>
+              <div class="pa-error-msg">Indiquez votre numéro d'autorisation.</div>
+            </div>
+          </div>
+
+          <!-- 2. Localisation -->
+          <div class="pa-section">
+            <div class="pa-section__title"><span class="pa-section__num">2</span> Localisation exacte</div>
+
+            <div id="gps-card" class="pa-gps">
+              <div class="pa-gps__row">
+                <div class="pa-gps__pin">📍</div>
+                <div style="flex:1; min-width:0;">
+                  <div id="gps-status-text" class="pa-gps__status">Position GPS non capturée</div>
+                  <div id="gps-detail-text" class="pa-gps__detail">Faites l'inscription <strong>depuis l'intérieur de votre pharmacie</strong> pour enregistrer ses coordonnées exactes.</div>
+                </div>
+              </div>
+              <div class="pa-gps__map" id="gps-map"></div>
+              <div class="pa-gps__actions">
+                <button type="button" id="btn-detect-gps" class="btn btn--primary btn--sm">📡 Capturer la position</button>
+              </div>
+            </div>
+            <input type="hidden" id="reg-lat">
+            <input type="hidden" id="reg-lng">
+            <input type="hidden" id="reg-accuracy">
+
+            <div class="pa-grid-2">
+              <div class="form-group pa-field">
+                <label class="pa-label" for="reg-city">Ville <span class="req">*</span></label>
+                <select id="reg-city" class="form-input form-select">
+                  <option value="">Choisir…</option>
+                  <option>Douala</option><option>Yaoundé</option><option>Bafoussam</option><option>Bamenda</option>
+                  <option>Garoua</option><option>Maroua</option><option>Ngaoundéré</option><option>Bertoua</option>
+                  <option>Ebolowa</option><option>Kribi</option><option>Limbé</option><option>Buéa</option>
+                  <option>Kumba</option><option>Nkongsamba</option><option>Edéa</option><option>Dschang</option>
+                  <option>Foumban</option><option>Sangmélima</option><option value="Autre">Autre…</option>
+                </select>
+                <div class="pa-error-msg">Choisissez la ville.</div>
+              </div>
+              <div class="form-group pa-field">
+                <label class="pa-label" for="reg-quarter">Quartier <span class="req">*</span></label>
+                <input type="text" id="reg-quarter" class="form-input" placeholder="Ex : Bonamoussadi" maxlength="80">
+                <div class="pa-error-msg">Indiquez le quartier.</div>
+              </div>
+            </div>
+            <div class="form-group pa-field" id="reg-other-city-group" style="display:none;">
+              <label class="pa-label" for="reg-other-city">Nom de la ville <span class="req">*</span></label>
+              <input type="text" id="reg-other-city" class="form-input" placeholder="Ex : Mbalmayo" maxlength="80">
+              <div class="pa-error-msg">Indiquez le nom de la ville.</div>
+            </div>
+            <div class="form-group">
+              <label class="pa-label" for="reg-landmark">Repère / adresse précise</label>
+              <input type="text" id="reg-landmark" class="form-input" placeholder="Ex : Face station Total, carrefour Kotto" maxlength="160">
+              <div class="pa-hint">Aide les patients à vous trouver facilement.</div>
+            </div>
+          </div>
+
+          <!-- 3. Contacts -->
+          <div class="pa-section">
+            <div class="pa-section__title"><span class="pa-section__num">3</span> Contacts</div>
+            <div class="form-group pa-field">
+              <label class="pa-label" for="reg-phone">Téléphone de l'officine <span class="req">*</span></label>
+              <div class="pa-phone">
+                <span class="pa-phone__prefix">+237</span>
+                <input type="tel" id="reg-phone" class="form-input" placeholder="Ex : 699 88 77 66" inputmode="tel" autocomplete="tel-national" maxlength="14">
+              </div>
+              <div class="pa-error-msg">Numéro camerounais invalide (9 chiffres, commençant par 2 ou 6).</div>
+            </div>
+            <div class="form-group pa-field">
+              <label class="pa-label" for="reg-whatsapp">WhatsApp</label>
+              <div class="pa-phone">
+                <span class="pa-phone__prefix">+237</span>
+                <input type="tel" id="reg-whatsapp" class="form-input" placeholder="Ex : 677 66 55 44" inputmode="tel" maxlength="14">
+              </div>
+              <label class="pa-terms" style="margin-top:8px;">
+                <input type="checkbox" id="reg-same-whatsapp"> <span>Même numéro que le téléphone</span>
+              </label>
+              <div class="pa-error-msg">Numéro WhatsApp invalide.</div>
+            </div>
+            <div class="form-group pa-field">
+              <label class="pa-label" for="reg-email">Email professionnel <span class="req">*</span></label>
+              <input type="email" id="reg-email" class="form-input" placeholder="Ex : contact@pharmacie-centre.cm" autocomplete="email" inputmode="email">
+              <div class="pa-hint">Servira d'identifiant de connexion.</div>
+              <div class="pa-error-msg">Adresse email invalide.</div>
+            </div>
+          </div>
+
+          <!-- 4. Horaires & services -->
+          <div class="pa-section">
+            <div class="pa-section__title"><span class="pa-section__num">4</span> Horaires &amp; services</div>
+            <div class="pa-grid-2">
+              <div class="form-group">
+                <label class="pa-label" for="reg-hour-open">Ouverture</label>
+                <input type="time" id="reg-hour-open" class="form-input" value="08:00">
+              </div>
+              <div class="form-group">
+                <label class="pa-label" for="reg-hour-close">Fermeture</label>
+                <input type="time" id="reg-hour-close" class="form-input" value="21:00">
+              </div>
+            </div>
+            <label class="pa-label">Services proposés</label>
+            <div class="pa-chips">
+              <label class="pa-chip"><input type="checkbox" id="reg-service-garde"><span>🌙 Garde de nuit</span></label>
+              <label class="pa-chip"><input type="checkbox" id="reg-service-livraison"><span>🛵 Livraison</span></label>
+              <label class="pa-chip"><input type="checkbox" id="reg-service-assurance"><span>🛡️ Assurances</span></label>
+              <label class="pa-chip"><input type="checkbox" id="reg-service-conseil" checked><span>💬 Conseil</span></label>
+            </div>
+          </div>
+
+          <!-- 5. Sécurité -->
+          <div class="pa-section">
+            <div class="pa-section__title"><span class="pa-section__num">5</span> Sécurité du compte</div>
+            <div class="form-group pa-field">
+              <label class="pa-label" for="reg-password">Mot de passe <span class="req">*</span></label>
+              <div class="pa-pwd">
+                <input type="password" id="reg-password" class="form-input" placeholder="Créez un mot de passe sécurisé" autocomplete="new-password">
+                <button type="button" class="pa-pwd__toggle" data-toggle-pwd="reg-password" aria-label="Afficher le mot de passe">👁</button>
+              </div>
+              <div class="pa-strength"><div id="pwd-strength-bar" class="pa-strength__bar"></div></div>
+              <ul class="pa-rules" id="pwd-rules">
+                <li data-rule="len">8 caractères min.</li>
+                <li data-rule="upper">1 majuscule</li>
+                <li data-rule="digit">1 chiffre</li>
+                <li data-rule="lower">1 minuscule</li>
+              </ul>
+            </div>
+            <div class="form-group pa-field">
+              <label class="pa-label" for="reg-password-confirm">Confirmer le mot de passe <span class="req">*</span></label>
+              <div class="pa-pwd">
+                <input type="password" id="reg-password-confirm" class="form-input" placeholder="Retapez le mot de passe" autocomplete="new-password">
+                <button type="button" class="pa-pwd__toggle" data-toggle-pwd="reg-password-confirm" aria-label="Afficher le mot de passe">👁</button>
+              </div>
+              <div id="pwd-match" class="pa-match"></div>
+            </div>
+          </div>
+
+          <label class="pa-terms">
+            <input type="checkbox" id="reg-terms">
+            <span>Je certifie être habilité(e) à représenter cette officine et j'accepte les conditions d'utilisation de Pharma-Garde. <span style="color:#f87171;">*</span></span>
+          </label>
+
+          <button type="button" id="btn-register" class="btn btn--primary btn--block" style="margin-top: 16px;">Inscrire ma pharmacie</button>
+
+          <div class="pa-switch-link">
+            <button type="button" id="btn-show-login" class="btn btn--ghost" data-pa-view="login" style="font-size: 13px;">
+              Déjà inscrit ? <span style="color: var(--emerald-400); font-weight: 700;">Se connecter</span>
+            </button>
+          </div>
+        </form>
+
+        <!-- ─────────── RESET PASSWORD ─────────── -->
+        <form id="reset-form" class="glass-card pa-card hidden" novalidate onsubmit="return false;">
+          <div class="pa-head">
+            <div class="pa-icon">🔑</div>
+            <h2 class="pa-title">Mot de passe oublié</h2>
+            <p class="pa-subtitle">Saisissez l'email de votre pharmacie : nous vous enverrons un lien de réinitialisation.</p>
+          </div>
+          <div class="form-group">
+            <label class="pa-label" for="reset-email">Email professionnel <span class="req">*</span></label>
+            <input type="email" id="reset-email" class="form-input" placeholder="Ex : contact@pharmacie-centre.cm" autocomplete="email">
+          </div>
+          <button type="button" id="btn-reset-password" class="btn btn--primary btn--block" style="margin-top: 12px;">Envoyer le lien</button>
+          <div class="pa-switch-link">
+            <button type="button" class="btn btn--ghost" data-pa-view="login" style="font-size: 13px; color: var(--emerald-400);">← Retour à la connexion</button>
+          </div>
+        </form>
       </div>
     </div>
 
@@ -155,7 +299,7 @@
         <!-- Requests Panel -->
         <div id="panel-requests">
           <h4 style="font-size: 14px; font-weight: 700; color: var(--text-secondary); margin-bottom: 12px;" data-i18n="pharm_requests_active">Demandes actives</h4>
-          <div id="requests-list"></div>
+          <div id="active-requests"></div>
         </div>
 
         <!-- History Panel -->
@@ -171,9 +315,9 @@
         <!-- Delegates Panel -->
         <div id="panel-delegates" style="display: none;">
           <h4 style="font-size: 14px; font-weight: 700; color: var(--text-secondary); margin-bottom: 12px;" data-i18n="pharm_promos">Promotions reçues</h4>
-          <div id="received-promos-list"></div>
+          <div id="delegate-promos-list"></div>
           <h4 style="font-size: 14px; font-weight: 700; color: var(--text-secondary); margin: 20px 0 12px;" data-i18n="del_visits">Demandes de visite</h4>
-          <div id="received-visits-list"></div>
+          <div id="delegate-visits-list"></div>
         </div>
 
         <!-- Stats Panel -->
@@ -283,10 +427,10 @@
   <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="js/supabaseClient.js?v=2.2"></script>
-  <script src="js/core.js?v=2.2"></script>
-  <script src="js/i18n.js?v=2.2"></script>
-  <script src="js/geolocation.js?v=2.2"></script>
-  <script src="js/pharmacien.js?v=2.2"></script>
+  <script src="js/supabaseClient.js?v=3.0"></script>
+  <script src="js/core.js?v=3.0"></script>
+  <script src="js/i18n.js?v=3.0"></script>
+  <script src="js/geolocation.js?v=3.0"></script>
+  <script src="js/pharmacien.js?v=3.0"></script>
 </body>
 </html>
