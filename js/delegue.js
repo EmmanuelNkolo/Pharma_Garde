@@ -12,6 +12,8 @@
   let sessionLabs = [];
   let delegateMap = null;
   let userMarker = null;
+  let radiusCircle = null;
+  let mapMask = null;
   let userLat = null, userLng = null;
   let currentRadius = 5;
   let pharmaciesInRadius = [];
@@ -163,13 +165,24 @@
 
     // Recenter
     bindClick('btn-recenter', () => {
-      if (delegateMap && userLat) delegateMap.setView([userLat, userLng], 14);
+      if (delegateMap && userLat && userLng) delegateMap.setView([userLat, userLng], 14);
+    });
+
+    // Zoom buttons
+    bindClick('btn-zoom-in', () => {
+      if (delegateMap) delegateMap.zoomIn();
+    });
+    bindClick('btn-zoom-out', () => {
+      if (delegateMap) delegateMap.zoomOut();
     });
 
     // Fullscreen
     bindClick('btn-fullscreen', () => {
-      if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
-      else document.exitFullscreen();
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
     });
 
     // Promotions
@@ -528,11 +541,17 @@
 
     subscribeToDelegateUpdates();
 
-    // If map not initialized, show location modal
+    // Default to Douala coordinates if not yet set
+    if (!userLat || !userLng) {
+      userLat = 4.0511;
+      userLng = 9.7679;
+    }
+
+    // Always initialize map immediately so the screen is NEVER black!
     if (!delegateMap) {
-      $('location-modal').classList.add('active');
+      initMap(userLat, userLng);
     } else {
-      $('location-modal').classList.remove('active');
+      setTimeout(() => { if (delegateMap) delegateMap.invalidateSize(); }, 150);
       loadPharmacies();
       loadPromotions();
       loadStats();
@@ -544,8 +563,10 @@
   // ═══════════════════════════════════════════════════════
   async function handleGPS() {
     const btn = $('btn-gps');
-    btn.innerHTML = '<span class="spinner" style="width:18px;height:18px;border-width:2px;margin-right:8px;"></span> Détection...';
-    btn.disabled = true;
+    if (btn) {
+      btn.innerHTML = '<span class="spinner" style="width:18px;height:18px;border-width:2px;margin-right:8px;"></span> Détection...';
+      btn.disabled = true;
+    }
 
     try {
       const pos = await PG.locate({ desired: 30, maxWait: 25000 });
@@ -557,43 +578,116 @@
       try {
         const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${userLat}&lon=${userLng}&zoom=10`);
         const geo = await res.json();
-        const city = geo.address?.city || geo.address?.town || geo.address?.village || 'Cameroun';
+        const city = geo.address?.city || geo.address?.town || geo.address?.village || 'Douala';
         const cityDisplay = $('city-name-display');
         if (cityDisplay) cityDisplay.textContent = city;
       } catch (e) { /* silent */ }
 
       // Hide location modal
-      $('location-modal').classList.remove('active');
+      const locModal = $('location-modal');
+      if (locModal) locModal.classList.remove('active');
 
-      // Initialize map
-      initMap(userLat, userLng);
+      // Initialize or recenter map
+      if (!delegateMap) {
+        initMap(userLat, userLng);
+      } else {
+        if (userMarker) userMarker.setLatLng([userLat, userLng]);
+        delegateMap.setView([userLat, userLng], 14);
+        drawRadiusCircle(userLat, userLng, currentRadius);
+        filterPharmaciesByRadius();
+      }
       showToast('✅ Position détectée !', 'success');
     } catch (err) {
       console.error('GPS error:', err);
       showToast('❌ Impossible de détecter votre position.', 'error');
-      btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> <span>Détecter ma position</span>';
-      btn.disabled = false;
+      if (btn) {
+        btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> <span>Détecter ma position</span>';
+        btn.disabled = false;
+      }
     }
   }
 
-  function initMap(lat, lng) {
-    if (delegateMap) delegateMap.remove();
+  function drawRadiusCircle(lat, lng, radiusKm) {
+    if (!delegateMap) return;
+    if (radiusCircle) {
+      try { delegateMap.removeLayer(radiusCircle); } catch (e) {}
+      radiusCircle = null;
+    }
+    if (mapMask) {
+      try { delegateMap.removeLayer(mapMask); } catch (e) {}
+      mapMask = null;
+    }
 
-    delegateMap = L.map('map', { zoomControl: false }).setView([lat, lng], 14);
-    L.control.zoom({ position: 'topright' }).addTo(delegateMap);
+    // Spotlight circle matching Capture 2
+    radiusCircle = L.circle([lat, lng], {
+      radius: radiusKm * 1000,
+      color: '#3b82f6',
+      fillColor: '#bfdbfe',
+      fillOpacity: 0.1,
+      weight: 2,
+    }).addTo(delegateMap);
+
+    // Dark exterior polygon mask to highlight the circle
+    const hole = [];
+    const R = 6371;
+    const lat1 = lat * Math.PI / 180;
+    const lon1 = lng * Math.PI / 180;
+    const d = radiusKm / R;
+    for (let i = 0; i < 64; i++) {
+      const brng = (i * 360 / 64) * Math.PI / 180;
+      const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(brng));
+      const lon2 = lon1 + Math.atan2(Math.sin(brng) * Math.sin(d) * Math.cos(lat1), Math.cos(d) - Math.sin(lat1) * Math.sin(lat2));
+      hole.push([lat2 * 180 / Math.PI, lon2 * 180 / Math.PI]);
+    }
+
+    const outerBounds = [
+      [90, -360],
+      [90, 360],
+      [-90, 360],
+      [-90, -360]
+    ];
+
+    mapMask = L.polygon([outerBounds, hole], {
+      stroke: false,
+      fillColor: '#0a0f1c',
+      fillOpacity: 0.52
+    }).addTo(delegateMap);
+  }
+
+  function initMap(lat, lng) {
+    if (delegateMap) {
+      try { delegateMap.remove(); } catch (e) {}
+      delegateMap = null;
+    }
+
+    const mapEl = $('delegate-map');
+    if (!mapEl) {
+      console.error('delegate-map element not found');
+      return;
+    }
+
+    delegateMap = L.map('delegate-map', { zoomControl: false }).setView([lat, lng], 13);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap',
+      attribution: '© OpenStreetMap contributors',
       maxZoom: 19,
     }).addTo(delegateMap);
 
-    // User marker (blue pulse)
+    // User marker (blue pulse matching Capture 2)
     const userIcon = L.divIcon({
       className: 'user-marker-icon',
       html: '<div class="user-marker-pulse"></div><div class="user-marker-dot"></div>',
-      iconSize: [20, 20], iconAnchor: [10, 10],
+      iconSize: [20, 20],
+      iconAnchor: [10, 10],
     });
-    userMarker = L.marker([lat, lng], { icon: userIcon }).addTo(delegateMap);
+    userMarker = L.marker([lat, lng], { icon: userIcon, zIndexOffset: 1000 }).addTo(delegateMap);
+
+    // Draw spotlight circle
+    drawRadiusCircle(lat, lng, currentRadius);
+
+    setTimeout(() => {
+      if (delegateMap) delegateMap.invalidateSize();
+    }, 200);
 
     loadPharmacies();
     loadPromotions();
@@ -644,30 +738,39 @@
     });
 
     pharmaciesInRadius.forEach(p => {
-      let markerClass = 'marker-closed';
-      let emoji = '💊';
-      if (p.status === 'open') { markerClass = 'marker-open'; emoji = '💊'; }
-      else if (p.status === 'guard') { markerClass = 'marker-guard'; emoji = '🌙'; }
+      let bgColor = '#64748b';
+      let emoji = '🛒';
+      if (p.is_on_duty || p.status === 'guard') {
+        bgColor = '#f59e0b';
+        emoji = '🏥';
+      } else if (p.is_open || p.status === 'open') {
+        bgColor = '#10b981';
+        emoji = '💊';
+      }
 
       const icon = L.divIcon({
-        html: `<div class="pharmacy-marker ${markerClass}">
-                 <div class="pharmacy-marker-dot">${emoji}</div>
-               </div>`,
-        className: 'pharmacy-marker-wrapper',
-        iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -20],
+        className: 'pharm-marker',
+        html: `<div style="width:26px;height:26px;background:${bgColor};border:2px solid #ffffff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;box-shadow:0 3px 10px rgba(0,0,0,0.4);">${emoji}</div>`,
+        iconSize: [26, 26],
+        iconAnchor: [13, 13],
+        popupAnchor: [0, -14],
       });
       const marker = L.marker([p.lat, p.lng], { icon }).addTo(delegateMap);
       marker._isPharmacyMarker = true;
-      marker.bindPopup(`<strong>${escapeHtml(p.name)}</strong><br>${escapeHtml(p.address)}<br><em>${p.status === 'open' ? 'Ouverte' : p.status === 'guard' ? 'Garde' : 'Fermée'}</em>`);
+      marker.bindPopup(`
+        <div style="font-family:Inter,sans-serif;min-width:180px;">
+          <strong style="color:#0f172a;font-size:14px;">${escapeHtml(p.name)}</strong><br>
+          <span style="color:#64748b;font-size:12px;">${escapeHtml(p.address || p.quarter || '')}</span><br>
+          <div style="margin-top:6px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:700;font-size:12px;color:${bgColor};">${p.is_on_duty || p.status === 'guard' ? 'De garde' : (p.is_open || p.status === 'open' ? 'Ouverte' : 'Fermée')}</span>
+            <span style="font-size:11px;color:#94a3b8;">${haversine(userLat, userLng, p.lat, p.lng).toFixed(1)} km</span>
+          </div>
+        </div>
+      `);
     });
 
-    // Draw radius circle
-    delegateMap.eachLayer(layer => { if (layer._isRadiusCircle) delegateMap.removeLayer(layer); });
-    const circle = L.circle([userLat, userLng], {
-      radius: currentRadius * 1000, color: '#059669', fillColor: '#059669',
-      fillOpacity: 0.15, weight: 3, dashArray: '8, 8',
-    }).addTo(delegateMap);
-    circle._isRadiusCircle = true;
+    // Draw spotlight circle and outer mask
+    drawRadiusCircle(userLat, userLng, currentRadius);
   }
 
   function renderPharmacyList() {
@@ -1346,11 +1449,19 @@
       if (el) el.style.display = (p === panel) ? 'block' : 'none';
     });
 
-    // Highlight active button
-    const btnMap = { pharmacies: 'btn-pharmacies', promotions: 'btn-promotions', stats: 'btn-stats' };
+    // Highlight active button (with subtle emerald glow)
+    const btnMap = {
+      pharmacies: 'btn-pharmacies',
+      promotions: 'btn-promotions',
+      stats: 'btn-stats',
+      alerts: 'btn-alerts',
+    };
     Object.entries(btnMap).forEach(([key, id]) => {
       const el = $(id);
-      if (el) el.classList.toggle('action-btn-active', key === panel);
+      if (el) {
+        el.classList.toggle('active', key === panel);
+        el.classList.toggle('action-btn-active', key === panel);
+      }
     });
 
     // Load alerts when switching
