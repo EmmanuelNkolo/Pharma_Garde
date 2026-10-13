@@ -490,3 +490,174 @@
 .pharma-btn.btn-call { color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
 .pharma-btn.btn-whatsapp { color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
 .pharma-btn.btn-route { color: #60a5fa; border: 1px solid rgba(96,165,250,0.3); }
+
+/* ── Welcome Screen (Portail multi-espaces & Support Paysage) ───── */
+.welcome-screen-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background:
+    radial-gradient(1000px 500px at 50% 0%, rgba(16, 185, 129, 0.12), transparent 70%),
+    radial-gradient(800px 400px at 50% 100%, rgba(15, 23, 42, 0.8), transparent 70%),
+    var(--bg-primary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-y: auto !important;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  padding: 32px 16px 48px;
+}
+
+.welcome-screen-overlay.hidden {
+  display: none !important;
+}
+
+.welcome-screen__inner {
+  margin: auto;
+  width: 100%;
+  max-width: 440px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0 24px;
+}
+
+.welcome-screen__logo {
+  margin: 0 auto 20px;
+  animation: none;
+}
+
+.welcome-screen__title-lead {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 4px;
+}
+
+.welcome-screen__title-main {
+  font-size: 32px;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--emerald-400), var(--emerald-200));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 8px;
+}
+
+.welcome-screen__subtitle {
+  color: var(--text-secondary);
+  font-size: 15px;
+  margin-bottom: 32px;
+  line-height: 1.4;
+}
+
+.welcome-screen__spaces {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.welcome-screen__btn {
+  padding: 16px 20px;
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-default);
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+  width: 100%;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.welcome-screen__btn:hover,
+.welcome-screen__btn:active {
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(52, 211, 153, 0.5);
+  color: var(--emerald-300);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.2);
+}
+
+.welcome-screen__footer {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-top: 28px;
+  line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── Optimisation spéciale Mode Paysage Mobile (Orientation Landscape) ─── */
+@media (orientation: landscape) and (max-height: 600px), (max-height: 520px) {
+  .welcome-screen-overlay {
+    padding: 14px 16px 24px !important;
+    justify-content: flex-start !important; /* Défilement garanti sans bloquer le haut */
+  }
+
+  .welcome-screen__inner {
+    margin: 0 auto !important;
+    max-width: 720px !important;
+    padding: 4px 0 16px !important;
+  }
+
+  .welcome-screen__logo {
+    display: none !important; /* Gagne 70px de hauteur sur les téléphones en paysage */
+  }
+
+  .welcome-screen__title-lead {
+    font-size: 11px !important;
+    letter-spacing: 1.5px !important;
+    margin-bottom: 2px !important;
+  }
+
+  .welcome-screen__title-main {
+    font-size: 24px !important;
+    margin-bottom: 4px !important;
+  }
+
+  .welcome-screen__subtitle {
+    font-size: 13px !important;
+    margin-bottom: 14px !important;
+  }
+
+  /* Affichage des 3 espaces en 3 colonnes pour tout voir d'un seul coup d'œil */
+  .welcome-screen__spaces {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 10px !important;
+    width: 100% !important;
+  }
+
+  .welcome-screen__btn {
+    padding: 12px 8px !important;
+    font-size: 13px !important;
+    flex-direction: column !important;
+    gap: 6px !important;
+    text-align: center !important;
+  }
+
+  .welcome-screen__btn svg {
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  .welcome-screen__footer {
+    margin-top: 12px !important;
+    font-size: 11px !important;
+    gap: 2px !important;
+  }
+}
+
