@@ -1215,7 +1215,7 @@ const App = (() => {
       return new Date(b.created_at) - new Date(a.created_at); // Newer responses first if same request
     });
 
-    listEl.innerHTML = confirmBtnHtml + sortedResponses.map(resp => {
+    listEl.innerHTML = multiReqBar + confirmBtnHtml + sortedResponses.map(resp => {
       const pos = Geolocation.getPosition();
       let distance = '—';
       const p = findPharmacy(resp.pharmacy_id);
@@ -1283,6 +1283,32 @@ const App = (() => {
         </div>
       `;
     }).join('');
+  }
+
+  
+  function generateReservationCode() {
+    const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+    let code = 'PG-';
+    for (let i = 0; i < 4; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  }
+
+  function openNewSearchWithoutCancel() {
+    // Keep active requests and responses intact, open modal for additional search
+    selectedMedicines = [];
+    insuranceName = null;
+    renderMedicineTags();
+    showSearchStep(1);
+    
+    const btn = $('#proceed-search-btn');
+    if (btn) btn.disabled = true;
+    const input = $('#medicine-input');
+    if (input) { input.value = ''; input.focus(); }
+    
+    const modal = document.getElementById('search-modal');
+    if (modal) modal.classList.add('active');
   }
 
   function toggleReserveMedicine(btnEl) {
