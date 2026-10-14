@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-serve(async (req) => {
+serve(async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -144,7 +144,7 @@ serve(async (req) => {
       }
 
       return new Response(JSON.stringify({ 
-        success: true,
+        success: true, 
         status: mappedStatus,
         raw_status: data.transaction.status
       }), {
@@ -155,8 +155,8 @@ serve(async (req) => {
       throw new Error('Action non reconnue');
     }
 
-  } catch (error) {
-    return new Response(JSON.stringify({ success: false, error: error.message }), {
+  } catch (error: any) {
+    return new Response(JSON.stringify({ success: false, error: error?.message || String(error) }), {
       status: 200, // On retourne 200 pour que le frontend puisse lire l'erreur JSON
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

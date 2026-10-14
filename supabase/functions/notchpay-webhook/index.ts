@@ -29,7 +29,7 @@ async function verifyNotchPaySignature(payload: string, signature: string, secre
 // =====================================================================
 // MAIN HANDLER
 // =====================================================================
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-notch-signature' } });
   }
@@ -96,9 +96,9 @@ serve(async (req) => {
       status: 200,
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Unhandled webhook error:', error);
-    return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
+    return new Response(JSON.stringify({ error: error?.message || 'Internal Server Error' }), {
       headers: { 'Content-Type': 'application/json' },
       status: 500,
     });
