@@ -284,8 +284,28 @@
     bindClick('delete-confirm', handleDeleteAccount);
 
     // Settings
-    bindClick('settings-open', () => $('settings-panel').classList.add('open'));
-    bindClick('settings-close', () => $('settings-panel').classList.remove('open'));
+    bindClick('settings-open', () => {
+      if (!currentDelegate) return;
+      const s = (id, val) => { const el = $(id); if (el) el.value = val || ''; };
+      s('settings-lastname', currentDelegate.last_name);
+      s('settings-firstname', currentDelegate.first_name);
+      s('settings-email', currentDelegate.email);
+      s('settings-phone', currentDelegate.phone);
+      const labsDiv = $('settings-labs');
+      if (labsDiv) labsDiv.textContent = (sessionLabs && sessionLabs.length > 0) ? sessionLabs.join(', ') : 'Aucun';
+      const panel = $('settings-panel');
+      if (panel) {
+        panel.style.display = 'block';
+        panel.classList.add('open');
+      }
+    });
+    bindClick('settings-close', () => {
+      const panel = $('settings-panel');
+      if (panel) {
+        panel.style.display = 'none';
+        panel.classList.remove('open');
+      }
+    });
     bindClick('settings-save', handleSaveSettings);
 
     // Download report
@@ -548,9 +568,25 @@
     sessionLabs = [];
     clearSession();
     if (delegateMap) { delegateMap.remove(); delegateMap = null; }
-    $('dashboard').classList.add('hidden');
-    $('login-screen').classList.remove('hidden');
-    $('login-screen').style.display = '';
+    if (typeof supabase !== 'undefined' && supabase.auth) {
+      supabase.auth.signOut().catch(() => {});
+    }
+    const dash = $('dashboard');
+    if (dash) dash.classList.add('hidden');
+    const loginScreen = $('login-screen');
+    if (loginScreen) {
+      loginScreen.style.display = 'flex';
+      loginScreen.classList.remove('hidden');
+    }
+    const loginForm = $('login-form');
+    if (loginForm) loginForm.classList.remove('hidden');
+    const registerForm = $('register-form');
+    if (registerForm) registerForm.classList.add('hidden');
+    const settingsPanel = $('settings-panel');
+    if (settingsPanel) {
+      settingsPanel.classList.remove('open');
+      settingsPanel.style.display = 'none';
+    }
     showToast('Déconnexion réussie.', 'info');
   }
 
@@ -1977,7 +2013,11 @@
       saveSession(currentDelegate, sessionLabs);
 
       showToast('✅ Profil mis à jour !', 'success');
-      $('settings-panel').classList.remove('open');
+      const panel = $('settings-panel');
+      if (panel) {
+        panel.style.display = 'none';
+        panel.classList.remove('open');
+      }
     } catch (err) {
       showToast('❌ Erreur: ' + (err.message || ''), 'error');
     }
@@ -2037,6 +2077,8 @@
   //  PUBLIC API (for inline onclick handlers)
   // ═══════════════════════════════════════════════════════
   window.DelegateApp = {
+    clearSession,
+    handleLogout,
     openSendPromo,
     openVisitRequest,
     getRoute,

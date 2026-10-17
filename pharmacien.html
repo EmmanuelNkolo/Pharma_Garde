@@ -24,7 +24,7 @@
       </div>
 
       <div class="pa-wrap">
-        <a href="index.html" class="btn btn--ghost" style="margin-bottom: 14px;">
+        <a href="index.html" class="btn btn--ghost" style="margin-bottom: 14px;" onclick="try{sessionStorage.removeItem('pharmagarde_pharmacy_session');localStorage.removeItem('pharmagarde_pharmacy_session');}catch(e){}">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
           <span data-i18n="back">Retour</span>
         </a>
@@ -260,7 +260,7 @@
       <header class="pharm-header">
         <!-- Gauche : Retour Accueil + Logo + Titre App + Espace Pharmacie en Or -->
         <div class="pharm-header__left">
-          <a href="index.html" class="pg-home" title="Retour à l'accueil" aria-label="Retour à l'accueil">
+          <a href="index.html" class="pg-home" title="Retour à l'accueil" aria-label="Retour à l'accueil" onclick="try{sessionStorage.removeItem('pharmagarde_pharmacy_session');localStorage.removeItem('pharmagarde_pharmacy_session');}catch(e){}">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
           </a>
           <div class="pg-logo">

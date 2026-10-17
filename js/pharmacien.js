@@ -23,7 +23,6 @@
   function init() {
     try { bindAuthUI(); } catch (e) { console.error('Auth UI binding error:', e); }
     try { bindEvents(); } catch (e) { console.error('Event binding error:', e); }
-    try { bindDashboardUI(); } catch (e) { console.error('Dashboard UI binding error:', e); }
 
     // Password-recovery link coming back from email
     if (/[?&]reset=true/.test(window.location.search) || /type=recovery/.test(window.location.hash)) {
@@ -31,34 +30,45 @@
       return;
     }
 
+    // Always clear permanent localStorage to ensure nobody enters someone else's account
+    try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+
     const saved = loadSession();
     if (saved) {
       currentPharmacy = saved;
       try { showDashboard(); } catch (e) { console.error('Dashboard error:', e); }
+    } else {
+      // Prompt for login credentials on entry
+      showAuthView('login');
     }
   }
 
-  // ── Session ────────────────────────────────────────────
+  // ── Session (sessionStorage active tab only) ─────────────
   function saveSession(pharmacy) {
     try {
-      localStorage.setItem(SESSION_KEY, JSON.stringify({
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify({
         id: pharmacy.id, name: pharmacy.name, phone: pharmacy.phone,
         address: pharmacy.address, lat: pharmacy.lat, lng: pharmacy.lng,
         whatsapp: pharmacy.whatsapp, city: pharmacy.city, quarter: pharmacy.quarter,
         hours: pharmacy.hours, status: pharmacy.status, email: pharmacy.email,
       }));
+      // Never store persistent credentials in localStorage
+      localStorage.removeItem(SESSION_KEY);
     } catch (e) { }
   }
 
   function loadSession() {
     try {
-      const saved = localStorage.getItem(SESSION_KEY);
+      const saved = sessionStorage.getItem(SESSION_KEY);
       return saved ? JSON.parse(saved) : null;
     } catch (e) { return null; }
   }
 
   function clearSession() {
-    try { localStorage.removeItem(SESSION_KEY); } catch (e) { }
+    try {
+      sessionStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(SESSION_KEY);
+    } catch (e) { }
   }
 
   // ═══════════════════════════════════════════════════════
@@ -859,10 +869,18 @@
     currentPharmacy = null;
     clearSession();
     activeRequests = [];
+    if (typeof supabase !== 'undefined' && supabase.auth) {
+      supabase.auth.signOut().catch(() => {});
+    }
     const dashScreen = document.getElementById('dashboard');
     const loginScreen = document.getElementById('login-screen');
+    const settingsPanel = document.getElementById('settings-panel');
+    if (settingsPanel) settingsPanel.style.display = 'none';
     if (dashScreen) dashScreen.classList.add('hidden');
-    if (loginScreen) loginScreen.classList.remove('hidden');
+    if (loginScreen) {
+      loginScreen.classList.remove('hidden');
+      showAuthView('login');
+    }
     showToast('Déconnexion réussie', 'info');
   }
 
@@ -2231,7 +2249,42 @@
   //  SETTINGS PANEL
   // ═══════════════════════════════════════════════════════
   function initSettings() {
+    const btnOpen = document.getElementById('settings-open');
+    const btnClose = document.getElementById('settings-close');
+    const panel = document.getElementById('settings-panel');
     const save = document.getElementById('settings-save');
+    const btnLogout = document.getElementById('btn-logout');
+
+    if (btnOpen) {
+      btnOpen.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (!currentPharmacy) return;
+        if (panel) {
+          const v = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+          v('settings-name', currentPharmacy.name);
+          v('settings-address', currentPharmacy.address);
+          v('settings-phone', currentPharmacy.phone);
+          v('settings-whatsapp', currentPharmacy.whatsapp);
+          v('settings-hours', currentPharmacy.hours || '08:00 - 21:00');
+          panel.style.display = 'block';
+        }
+      });
+    }
+
+    if (btnClose) {
+      btnClose.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (panel) panel.style.display = 'none';
+      });
+    }
+
+    if (btnLogout) {
+      btnLogout.addEventListener('click', (e) => {
+        e.preventDefault();
+        handleLogout();
+      });
+    }
+
     if (save) {
       save.addEventListener('click', async () => {
         if (!currentPharmacy) return;
@@ -2256,11 +2309,9 @@
           const nameEl = document.getElementById('dash-pharmacy-name');
           if (nameEl) nameEl.textContent = currentPharmacy.name;
           showToast('✅ Profil mis à jour avec succès', 'success');
-          const panel = document.getElementById('settings-panel');
           if (panel) panel.style.display = 'none';
         } catch (err) {
           showToast('✅ Paramètres enregistrés localement', 'info');
-          const panel = document.getElementById('settings-panel');
           if (panel) panel.style.display = 'none';
         } finally {
           setBtnLoading(save, false);
@@ -2273,6 +2324,8 @@
   //  PUBLIC INTERFACE (WINDOW.PHARMDASH)
   // ═══════════════════════════════════════════════════════
   window.PharmDash = {
+    clearSession,
+    handleLogout,
     // Navigation & Tabs
     switchMainTab,
     toggleStatus: togglePharmacyStatus,
