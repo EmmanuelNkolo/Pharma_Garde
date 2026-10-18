@@ -204,15 +204,10 @@
             <span id="city-name-display">Douala</span>
           </span>
 
-                    <!-- Profil Widget dans le Header -->
-          <button type="button" class="pg-head-me" id="header-profile-btn" title="Mon profil délégué">
+                    <!-- Profil & Réglages Délégué dans le Header (remplace le bouton réglages) -->
+          <button type="button" class="pg-head-me" id="settings-open" title="Mon Profil &amp; Paramètres">
             <span id="header-avatar-slot"></span>
             <span class="pg-head-me__name" id="header-delegate-name">Profil</span>
-          </button>
-
-          <!-- Settings -->
-          <button class="btn btn--icon" id="settings-open" title="Paramètres">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           </button>
         </div>
       </header>
@@ -237,21 +232,6 @@
       <div id="bottom-sheet" class="delegate-sidebar">
         <div class="bottom-sheet__handle delegate-sidebar__handle"></div>
                 <div class="delegate-sidebar__content">
-
-          <!-- Profil Délégué WhatsApp-Style (Capture photo caméra/galerie + Nom + Laboratoires) -->
-          <div id="delegate-profile-card" class="pg-me">
-            <button type="button" class="pg-me__photo" id="btn-delegate-avatar" title="Changer ma photo de profil (Caméra / Galerie)">
-              <span id="delegate-avatar-slot"></span>
-              <span class="pg-me__cam">📷</span>
-            </button>
-            <div class="pg-me__info">
-              <div class="pg-me__hello">Délégué Médical</div>
-              <div class="pg-me__name" id="delegate-card-name">Mon Profil</div>
-              <div class="pg-me__meta" id="delegate-card-meta">Matricule &amp; Contact</div>
-              <div class="pg-me__labs" id="delegate-card-labs"></div>
-            </div>
-            <button type="button" class="pg-icon-btn pg-me__edit" id="btn-edit-delegate-profile" title="Modifier mon profil">✏️</button>
-          </div>
 
 
           <!-- 4 Onglets Principaux (Pharmacies, Promotions, Stats, Alertes) avec style harmonieux -->
@@ -661,7 +641,7 @@
     <!-- Settings Panel -->
     <div id="settings-panel" style="display: none; position: fixed; top: 0; right: 0; bottom: 0; width: 100%; max-width: 400px; background: var(--bg-card); border-left: 1px solid var(--border-default); z-index: 2000; box-shadow: -8px 0 40px rgba(0,0,0,0.4); overflow-y: auto; padding: 24px; animation: modalSlideIn 0.3s ease;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-        <h3 style="font-size: 18px; font-weight: 700;">⚙️ <span data-i18n="del_settings">Paramètres</span></h3>
+        <h3 style="font-size: 18px; font-weight: 700;">👤 <span data-i18n="del_profile_settings">Profil &amp; Paramètres</span></h3>
         <button class="btn btn--icon" id="settings-close"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
 
