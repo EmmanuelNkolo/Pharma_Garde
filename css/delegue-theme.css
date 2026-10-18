@@ -55,21 +55,20 @@
 
 /* ── Pilules de rayon dans le Header ──────────────────────────── */
 .header-radius-pills {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   background: rgba(255, 255, 255, 0.04);
   padding: 3px 6px;
   border-radius: 999px;
   border: 1px solid var(--border-default);
-  overflow-x: auto;
-  max-width: 260px;
-  scrollbar-width: none;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .header-radius-pills::-webkit-scrollbar { display: none; }
 
 .header-radius-pills .radius-pill {
-  padding: 5px 11px;
+  padding: 4px 10px;
   font-size: 11.5px;
   font-weight: 700;
   border-radius: 999px;
@@ -78,6 +77,7 @@
   border: 1px solid transparent;
   cursor: pointer;
   white-space: nowrap;
+  flex-shrink: 0;
   transition: all 0.2s ease;
 }
 
