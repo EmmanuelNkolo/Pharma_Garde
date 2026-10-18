@@ -22,6 +22,8 @@
   let allVisits = [];
   let allTargets = [];
   let currentPromoPeriod = 'all';
+  let currentPromoPeriodState = { type: 'all' };
+  let promoFilterControl = null;
   let currentVisitPeriod = 'all';
   let activePanel = 'pharmacies';
   let statsChart = null;
@@ -307,6 +309,14 @@
       }
     });
     bindClick('settings-save', handleSaveSettings);
+    // Profile & Avatar events (WhatsApp style)
+    bindClick('btn-delegate-avatar', handleAvatarCamera);
+    bindClick('btn-cam-avatar', handleAvatarCamera);
+    bindClick('btn-gallery-avatar', handleAvatarGallery);
+    bindClick('btn-remove-avatar', handleAvatarRemove);
+    bindClick('btn-edit-delegate-profile', () => { $('settings-open')?.click(); });
+    bindClick('header-profile-btn', () => { $('settings-open')?.click(); });
+
 
     // Download report
     bindClick('btn-download-report', handleDownloadReport);
@@ -324,6 +334,99 @@
   function bindClick(id, handler) {
     const el = $(id);
     if (el) el.addEventListener('click', handler);
+  }
+
+
+  // ═══════════════════════════════════════════════════════
+  //  DELEGATE PROFILE & AVATAR (WhatsApp Style)
+  // ═══════════════════════════════════════════════════════
+  function getDelegateAvatar() {
+    if (!currentDelegate) return '';
+    return currentDelegate.avatar_url || localStorage.getItem('pharmagarde_delegate_avatar_' + currentDelegate.id) || '';
+  }
+
+  async function saveDelegateAvatar(dataUrl) {
+    if (!currentDelegate) return;
+    try {
+      if (dataUrl) {
+        localStorage.setItem('pharmagarde_delegate_avatar_' + currentDelegate.id, dataUrl);
+      } else {
+        localStorage.removeItem('pharmagarde_delegate_avatar_' + currentDelegate.id);
+      }
+      currentDelegate.avatar_url = dataUrl || '';
+      saveSession(currentDelegate, sessionLabs);
+
+      if (typeof supabase !== 'undefined' && supabase.from) {
+        await supabase.from('delegates').update({ avatar_url: dataUrl || null }).eq('id', currentDelegate.id);
+      }
+      updateDelegateProfileUI();
+      showToast(dataUrl ? '✅ Photo de profil mise à jour !' : 'Photo de profil supprimée.', 'success');
+    } catch (e) {
+      updateDelegateProfileUI();
+      showToast('Photo enregistrée localement', 'info');
+    }
+  }
+
+  function updateDelegateProfileUI() {
+    if (!currentDelegate) return;
+    const avatar = getDelegateAvatar();
+    const fullName = `${currentDelegate.first_name || ''} ${currentDelegate.last_name || ''}`.trim() || 'Mon Profil';
+    const cardNum = currentDelegate.pro_card_number || 'DP-2023';
+    const phone = currentDelegate.phone || '';
+
+    // Header Widget
+    const headSlot = $('header-avatar-slot');
+    if (headSlot && typeof PGConnect !== 'undefined') {
+      headSlot.innerHTML = PGConnect.avatarHtml({ url: avatar, name: fullName, size: 30, variant: 'delegate' });
+    }
+    const headName = $('header-delegate-name');
+    if (headName) headName.textContent = fullName;
+
+    // Sidebar Card
+    const sideSlot = $('delegate-avatar-slot');
+    if (sideSlot && typeof PGConnect !== 'undefined') {
+      sideSlot.innerHTML = PGConnect.avatarHtml({ url: avatar, name: fullName, size: 58, variant: 'delegate' });
+    }
+    const sideName = $('delegate-card-name');
+    if (sideName) sideName.textContent = fullName;
+
+    const sideMeta = $('delegate-card-meta');
+    if (sideMeta) sideMeta.textContent = `N° ${cardNum}` + (phone ? ` • 📞 ${phone}` : '');
+
+    const sideLabs = $('delegate-card-labs');
+    if (sideLabs) {
+      if (sessionLabs && sessionLabs.length > 0) {
+        sideLabs.innerHTML = sessionLabs.slice(0, 3).map(l => `<span class="pg-chip pg-chip--gold">🏭 ${escapeHtml(l)}</span>`).join('');
+      } else {
+        sideLabs.innerHTML = '<span class="pg-chip pg-chip--gray">Aucun laboratoire associé</span>';
+      }
+    }
+
+    // Settings Modal Slots
+    const setSlot = $('settings-avatar-slot');
+    if (setSlot && typeof PGConnect !== 'undefined') {
+      setSlot.innerHTML = PGConnect.avatarHtml({ url: avatar, name: fullName, size: 84, variant: 'delegate' });
+    }
+    const btnRemove = $('btn-remove-avatar');
+    if (btnRemove) {
+      btnRemove.style.display = avatar ? 'inline-block' : 'none';
+    }
+  }
+
+  async function handleAvatarCamera() {
+    if (typeof PGConnect === 'undefined') return;
+    const photo = await PGConnect.captureFromCamera();
+    if (photo) await saveDelegateAvatar(photo);
+  }
+
+  async function handleAvatarGallery() {
+    if (typeof PGConnect === 'undefined') return;
+    const photo = await PGConnect.pickFromGallery();
+    if (photo) await saveDelegateAvatar(photo);
+  }
+
+  async function handleAvatarRemove() {
+    await saveDelegateAvatar(null);
   }
 
   // ═══════════════════════════════════════════════════════
@@ -995,7 +1098,7 @@
     const container = $('promotions-list');
     if (!container) return;
 
-    const filtered = myPromotions.filter(p => isDateInPeriod(p.created_at, currentPromoPeriod));
+    const filtered = myPromotions.filter(p => (typeof PGConnect !== 'undefined') ? PGConnect.periodMatch(p.created_at, currentPromoPeriodState) : isDateInPeriod(p.created_at, currentPromoPeriod));
 
     if (filtered.length === 0) {
       container.innerHTML = `
@@ -2073,6 +2176,82 @@
     if (currentVal) select.value = currentVal;
   }
 
+
+  // ── Open Pharmacy Interaction Profile (WhatsApp style mutual history) ──
+  function openPharmacyDetail(pharmacyId) {
+    if (!pharmacyId || typeof PGConnect === 'undefined') return;
+    const p = allPharmacies.find(item => item.id === pharmacyId) || pharmaciesInRadius.find(item => item.id === pharmacyId);
+    if (!p) return;
+
+    // Gathers promotions sent to this pharmacy by this delegate
+    const pharmacyPromos = myPromotions.filter(promo => {
+      const targets = promo.promotion_targets || [];
+      return targets.some(t => t.pharmacy_id === pharmacyId || (t.pharmacy && t.pharmacy.id === pharmacyId));
+    });
+
+    // Gathers visits requested with this pharmacy
+    const pharmacyVisits = allVisits.filter(v => v.pharmacy_id === pharmacyId || (v.pharmacy && v.pharmacy.id === pharmacyId));
+
+    // Build timeline events
+    const events = [];
+    pharmacyPromos.forEach(pr => {
+      const tgt = (pr.promotion_targets || []).find(t => t.pharmacy_id === pharmacyId || (t.pharmacy && t.pharmacy.id === pharmacyId)) || {};
+      const statusLabel = tgt.status === 'interested' ? 'Intéressée' : tgt.status === 'already_stocked' ? 'En stock' : tgt.status === 'ignored' ? 'Ignorée' : 'Envoyée';
+      const tone = tgt.status === 'interested' ? 'green' : tgt.status === 'ignored' ? 'red' : 'gold';
+      events.push({
+        at: pr.created_at,
+        icon: '📢',
+        title: `Promotion : ${pr.product_name} (${pr.lab_name})`,
+        text: pr.description || 'Offre et conditions commerciales transmises à l\'officine.',
+        status: statusLabel,
+        tone: tone,
+        side: 'mine'
+      });
+    });
+
+    pharmacyVisits.forEach(v => {
+      const statusLabel = v.status === 'confirmed' ? 'Confirmée' : v.status === 'rescheduled' ? 'Reportée' : v.status === 'cancelled' ? 'Refusée' : 'En attente';
+      const tone = v.status === 'confirmed' ? 'green' : v.status === 'cancelled' ? 'red' : 'gold';
+      events.push({
+        at: v.proposed_date || v.created_at,
+        icon: '📅',
+        title: `Rendez-vous visite médicale`,
+        text: `Motif : ${v.purpose || 'Présentation de gamme'}. Date : ${new Date(v.proposed_date).toLocaleString('fr-FR')}`,
+        status: statusLabel,
+        tone: tone,
+        side: 'mine'
+      });
+    });
+
+    PGConnect.openConversation({
+      myRole: 'delegate',
+      pharmacyId: p.id,
+      delegateId: currentDelegate ? currentDelegate.id : 'demo_del',
+      contact: {
+        name: p.name,
+        subtitle: p.address || (p.quarter + ', ' + p.city),
+        avatarUrl: '',
+        variant: 'pharmacy',
+        chips: p.status === 'guard' ? ['De Garde 🌙'] : (p.status === 'open' ? ['Ouverte'] : ['Fermée']),
+        phone: p.phone,
+        whatsapp: p.whatsapp || p.phone,
+        details: [
+          { label: 'Adresse', value: p.address || p.quarter },
+          { label: 'Ville', value: p.city },
+          { label: 'Horaires', value: p.hours || '08h00 - 21h00' },
+          { label: 'Téléphone', value: p.phone },
+          { label: 'WhatsApp', value: p.whatsapp || p.phone }
+        ]
+      },
+      events: events,
+      stats: [
+        { label: 'Promos envoyées', value: pharmacyPromos.length },
+        { label: 'Visites', value: pharmacyVisits.length },
+        { label: 'Distance', value: (userLat && userLng ? haversine(userLat, userLng, p.lat, p.lng).toFixed(1) + ' km' : '-') }
+      ]
+    });
+  }
+
   // ═══════════════════════════════════════════════════════
   //  PUBLIC API (for inline onclick handlers)
   // ═══════════════════════════════════════════════════════
@@ -2082,6 +2261,10 @@
     openSendPromo,
     openVisitRequest,
     getRoute,
+    openDetail: openPharmacyDetail,
+    updateProfile: updateDelegateProfileUI,
+    pickAvatarCamera: handleAvatarCamera,
+    pickAvatarGallery: handleAvatarGallery,
   };
 
   // ── Real-time subscription for delegate ─────────────

@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="css/design-system.css">
   <link rel="stylesheet" href="css/pro.css">
   <link rel="stylesheet" href="css/pharma-auth.css?v=3.0">
+  <link rel="stylesheet" href="css/pg-connect.css?v=1.0">
 </head>
 <body>
   <div class="app-container">
@@ -300,6 +301,9 @@
           </div>
           <button type="button" class="btn btn--icon" id="btn-fullscreen" title="Plein écran">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+          </button>
+                    <button type="button" class="pg-icon-btn" id="btn-dev-support-header" title="Assistance Développeur (+237 694 929 909)" onclick="PGConnect.openSupport('Espace Pharmacie')">
+            🛟
           </button>
           <button type="button" class="btn btn--icon" id="settings-open" title="Paramètres de l'officine">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-2.82.33v.18A2 2 0 0 1 12 23a2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9 1.65 1.65 0 0 0 4.27 7.18l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -662,6 +666,8 @@
       <div class="form-group"><label class="form-label">Horaires</label><input type="text" id="settings-hours" class="form-input" placeholder="08:00 - 21:00"></div>
       <button id="settings-save" class="btn btn--primary btn--block" style="margin-top: 16px;" data-i18n="save">Enregistrer</button>
       <hr style="border-color: var(--border-default); margin: 24px 0;">
+      <!-- Assistance Développeur Pharma-Garde -->
+      <div id="pharmacy-support-container" style="margin-top: 16px; margin-bottom: 16px;"></div>
       <button id="btn-logout" class="btn btn--secondary btn--block" data-i18n="pharm_logout">Déconnexion</button>
     </div>
 
@@ -675,6 +681,7 @@
   <script src="js/core.js?v=4.0"></script>
   <script src="js/i18n.js?v=4.0"></script>
   <script src="js/geolocation.js?v=4.0"></script>
+  <script src="js/pg-connect.js?v=1.0"></script>
   <script src="js/pharmacien.js?v=4.0"></script>
 </body>
 </html>

@@ -1738,7 +1738,7 @@
     await loadReceivedVisits();
   }
 
-  async function loadReceivedPromotions() {
+    async function loadReceivedPromotions() {
     const container = document.getElementById('delegate-promos-list');
     if (!container) return;
 
@@ -1758,25 +1758,59 @@
         return;
       }
 
+      // Fetch all unique delegates involved to display their profiles & photos
+      const delegateIds = [...new Set(targets.map(t => t.delegate_promotions?.delegate_id).filter(Boolean))];
+      let delegateProfiles = {};
+      if (delegateIds.length > 0) {
+        try {
+          const { data: delegatesData } = await supabase.from('delegates').select('id, first_name, last_name, phone, whatsapp, avatar_url, pro_card_number').in('id', delegateIds);
+          (delegatesData || []).forEach(d => { delegateProfiles[d.id] = d; });
+        } catch (errDel) {
+          console.warn('Could not load delegate profiles:', errDel);
+        }
+      }
+
       container.innerHTML = targets.map(t => {
         const promo = t.delegate_promotions || {};
         const isInterested = t.status === 'interested';
         const isIgnored = t.status === 'ignored';
+        const delId = promo.delegate_id;
+        const del = delegateProfiles[delId] || {};
+        const delName = (del.first_name || del.last_name) ? `${del.first_name || ''} ${del.last_name || ''}`.trim() : 'Délégué Médical';
+        const delCard = del.pro_card_number || (delId ? 'DM-' + delId.slice(-4).toUpperCase() : 'DM-8821');
+        const delAvatar = del.avatar_url || (delId ? localStorage.getItem('pharmagarde_delegate_avatar_' + delId) : '') || '';
+
+        const avatarMarkup = (typeof PGConnect !== 'undefined')
+          ? PGConnect.avatarHtml({ url: delAvatar, name: delName, size: 42, variant: 'delegate' })
+          : `<div style="width:40px; height:40px; border-radius:50%; background:#b45309; display:flex; align-items:center; justify-content:center; font-weight:800; color:#fff;">💼</div>`;
 
         return `
-          <div class="pharm-card" style="margin-bottom:12px; border-color:rgba(251,191,36,0.25);">
+          <div class="pharm-card" style="margin-bottom:12px; border-color:rgba(251,191,36,0.3); background: rgba(15, 23, 42, 0.85);">
+            <!-- Profil Délégué Header cliquable (style WhatsApp) -->
+            <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:10px; margin-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.07);">
+              <button type="button" class="pg-who" onclick="PharmDash.openDelegateChat('${delId || ''}', '${escapeHtml(delName)}', '${escapeHtml(promo.lab_name || '')}', '${escapeHtml(del.phone || '')}', '${escapeHtml(del.whatsapp || '')}', '${escapeHtml(delCard)}', '${escapeHtml(delAvatar)}')" title="Voir le profil du délégué et l'historique complet">
+                ${avatarMarkup}
+                <div>
+                  <span class="pg-who__name">💼 ${escapeHtml(delName)} <span style="color:#10b981; font-size:11px;">✔️ Vérifié</span></span>
+                  <span class="pg-who__sub">Laboratoire : ${escapeHtml(promo.lab_name || 'Partenaire Officine')} • N° ${escapeHtml(delCard)}</span>
+                </div>
+              </button>
+              <button type="button" class="btn btn--sm" style="background:rgba(251,191,36,0.14); color:#fbbf24; border:1px solid rgba(251,191,36,0.4); font-weight:800; font-size:11.5px;" onclick="PharmDash.openDelegateChat('${delId || ''}', '${escapeHtml(delName)}', '${escapeHtml(promo.lab_name || '')}', '${escapeHtml(del.phone || '')}', '${escapeHtml(del.whatsapp || '')}', '${escapeHtml(delCard)}', '${escapeHtml(delAvatar)}')">
+                💬 Échanges &amp; Profil
+              </button>
+            </div>
+
             <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
               <div>
                 <div style="font-weight:800; font-size:15px; color:#fff;">🎁 ${escapeHtml(promo.product_name || 'Offre Délégué')}</div>
-                <div style="font-size:12px; color:#fbbf24; margin-top:2px;">🏭 Laboratoire : ${escapeHtml(promo.lab_name || 'Novartis / Sanofi')}</div>
-                <div style="font-size:11.5px; color:var(--text-muted);">Délégué Matricule : ${t.delegate_id ? 'DM-' + t.delegate_id.slice(-4).toUpperCase() : 'DM-8821'}</div>
+                <div style="font-size:12px; color:#fbbf24; margin-top:2px;">🏭 Laboratoire : ${escapeHtml(promo.lab_name || 'Laboratoire Partenaire')}</div>
               </div>
               <span class="chip ${isInterested ? 'chip--green' : isIgnored ? 'chip--gray' : 'chip--gold'}" style="font-size:11px;">
                 ${isInterested ? '✅ Intéressé' : isIgnored ? '❌ Ignorée' : '📨 Nouvelle Offre'}
               </span>
             </div>
             <p style="font-size:12.5px; color:var(--text-secondary); margin-bottom:10px; line-height:1.5;">
-              ${escapeHtml(promo.description || 'Présentation de la nouvelle gamme et conditions tarifaires préférentielles pour officines.')}
+              ${escapeHtml(promo.description || 'Présentation de la gamme et conditions tarifaires préférentielles pour officines.')}
             </p>
             ${promo.document_url ? `<a href="${promo.document_url}" target="_blank" style="display:inline-block; font-size:12px; color:#34d399; margin-bottom:10px;">📎 Consulter le document PDF</a><br>` : ''}
             <div style="display:flex; gap:8px;">
@@ -1786,6 +1820,7 @@
               <button class="btn btn--sm" style="background:${isIgnored ? '#4b5563' : 'rgba(255,255,255,0.05)'}; color:${isIgnored ? '#fff' : 'var(--text-muted)'}; border:1px solid rgba(255,255,255,0.1);" onclick="PharmDash.respondPromo('${t.id}', 'ignored')">
                 ❌ Ignorée
               </button>
+              ${del.phone ? `<a href="tel:${del.phone}" class="btn btn--sm" style="background:rgba(255,255,255,0.05); color:#fff; text-decoration:none;">📞 Appeler</a>` : ''}
             </div>
           </div>
         `;
@@ -1918,6 +1953,86 @@
     } catch (e) {
       showToast('Modification enregistrée', 'info');
     }
+  }
+
+
+  // ── Open Delegate Profile Sheet & Full Exchange Timeline (WhatsApp style) ──
+  async function openDelegateChat(delegateId, delegateName, labName, phone, whatsapp, cardNum, avatarUrl) {
+    if (typeof PGConnect === 'undefined' || !currentPharmacy) return;
+
+    // Fetch past promotions and visits with this delegate
+    let events = [];
+    try {
+      const { data: promos } = await supabase
+        .from('promotion_targets')
+        .select('*, delegate_promotions(*)')
+        .eq('pharmacy_id', currentPharmacy.id);
+
+      (promos || []).forEach(pr => {
+        const p = pr.delegate_promotions || {};
+        if (p.delegate_id === delegateId || !delegateId) {
+          const statusLabel = pr.status === 'interested' ? 'Intéressé' : pr.status === 'ignored' ? 'Ignorée' : 'Offre reçue';
+          events.push({
+            at: pr.sent_at || pr.created_at,
+            icon: '🎁',
+            title: `Offre : ${p.product_name || 'Produit'} (${p.lab_name || labName})`,
+            text: p.description || 'Offre et remises proposées à votre officine.',
+            status: statusLabel,
+            tone: pr.status === 'interested' ? 'green' : pr.status === 'ignored' ? 'red' : 'gold',
+            side: 'theirs'
+          });
+        }
+      });
+
+      const { data: visits } = await supabase
+        .from('visit_requests')
+        .select('*')
+        .eq('pharmacy_id', currentPharmacy.id)
+        .eq('delegate_id', delegateId);
+
+      (visits || []).forEach(v => {
+        const st = v.status === 'confirmed' ? 'Confirmée' : v.status === 'rescheduled' ? 'Date proposée' : v.status === 'cancelled' ? 'Rejetée' : 'En attente';
+        events.push({
+          at: v.proposed_date || v.created_at,
+          icon: '🤝',
+          title: 'Demande de visite médicale',
+          text: `Motif : ${v.purpose || 'Présentation de gamme'}. Date : ${new Date(v.proposed_date).toLocaleString('fr-FR')}`,
+          status: st,
+          tone: v.status === 'confirmed' ? 'green' : v.status === 'cancelled' ? 'red' : 'gold',
+          side: 'theirs'
+        });
+      });
+    } catch (e) {
+      console.warn('History fetch error:', e);
+    }
+
+    PGConnect.openConversation({
+      myRole: 'pharmacy',
+      pharmacyId: currentPharmacy.id,
+      delegateId: delegateId || 'demo_delegate',
+      contact: {
+        name: delegateName || 'Délégué Médical',
+        subtitle: `Laboratoire : ${labName || 'Partenaire Officine'} • N° ${cardNum || 'DP-2023'}`,
+        avatarUrl: avatarUrl || '',
+        variant: 'delegate',
+        chips: [labName || 'Laboratoire Partenaire', 'Délégué Accrédité'],
+        phone: phone || '',
+        whatsapp: whatsapp || phone || '',
+        details: [
+          { label: 'Nom', value: delegateName },
+          { label: 'Laboratoire', value: labName },
+          { label: 'Carte Pro', value: cardNum },
+          { label: 'Téléphone', value: phone },
+          { label: 'WhatsApp', value: whatsapp || phone }
+        ]
+      },
+      events: events,
+      stats: [
+        { label: 'Promos reçues', value: events.filter(e => e.icon === '🎁').length },
+        { label: 'Visites', value: events.filter(e => e.icon === '🤝').length },
+        { label: 'Statut', value: 'Partenaire' }
+      ]
+    });
   }
 
   // ═══════════════════════════════════════════════════════
@@ -2249,6 +2364,9 @@
   //  SETTINGS PANEL
   // ═══════════════════════════════════════════════════════
   function initSettings() {
+    if (typeof PGConnect !== 'undefined') {
+      PGConnect.mountSupport('pharmacy-support-container', 'Espace Pharmacie');
+    }
     const btnOpen = document.getElementById('settings-open');
     const btnClose = document.getElementById('settings-close');
     const panel = document.getElementById('settings-panel');

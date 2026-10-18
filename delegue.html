@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="css/pro.css?v=6.1">
   <link rel="stylesheet" href="css/pharma-auth.css?v=3.1">
   <link rel="stylesheet" href="css/delegue-theme.css?v=4.0">
+  <link rel="stylesheet" href="css/pg-connect.css?v=1.0">
 </head>
 <body>
   <div class="app-container">
@@ -203,6 +204,12 @@
             <span id="city-name-display">Douala</span>
           </span>
 
+                    <!-- Profil Widget dans le Header -->
+          <button type="button" class="pg-head-me" id="header-profile-btn" title="Mon profil délégué">
+            <span id="header-avatar-slot"></span>
+            <span class="pg-head-me__name" id="header-delegate-name">Profil</span>
+          </button>
+
           <!-- Settings -->
           <button class="btn btn--icon" id="settings-open" title="Paramètres">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -229,7 +236,23 @@
       <!-- Bottom Sheet / Left Sidebar -->
       <div id="bottom-sheet" class="delegate-sidebar">
         <div class="bottom-sheet__handle delegate-sidebar__handle"></div>
-        <div class="delegate-sidebar__content">
+                <div class="delegate-sidebar__content">
+
+          <!-- Profil Délégué WhatsApp-Style (Capture photo caméra/galerie + Nom + Laboratoires) -->
+          <div id="delegate-profile-card" class="pg-me">
+            <button type="button" class="pg-me__photo" id="btn-delegate-avatar" title="Changer ma photo de profil (Caméra / Galerie)">
+              <span id="delegate-avatar-slot"></span>
+              <span class="pg-me__cam">📷</span>
+            </button>
+            <div class="pg-me__info">
+              <div class="pg-me__hello">Délégué Médical</div>
+              <div class="pg-me__name" id="delegate-card-name">Mon Profil</div>
+              <div class="pg-me__meta" id="delegate-card-meta">Matricule &amp; Contact</div>
+              <div class="pg-me__labs" id="delegate-card-labs"></div>
+            </div>
+            <button type="button" class="pg-icon-btn pg-me__edit" id="btn-edit-delegate-profile" title="Modifier mon profil">✏️</button>
+          </div>
+
 
           <!-- 4 Onglets Principaux (Pharmacies, Promotions, Stats, Alertes) avec style harmonieux -->
           <div class="delegate-nav-tabs">
@@ -284,13 +307,7 @@
             </div>
 
             <!-- Filtres de période (Aujourd'hui, Semaine, Mois, Année) -->
-            <div class="period-filter-bar" id="promo-period-filters">
-              <button type="button" class="period-pill active" data-period="all">Tout</button>
-              <button type="button" class="period-pill" data-period="today">Aujourd'hui</button>
-              <button type="button" class="period-pill" data-period="week">Cette semaine</button>
-              <button type="button" class="period-pill" data-period="month">Ce mois</button>
-              <button type="button" class="period-pill" data-period="year">Cette année</button>
-            </div>
+            <div id="promo-period-filters"></div>
 
             <div id="promotions-list"></div>
           </div>
@@ -643,9 +660,21 @@
 
     <!-- Settings Panel -->
     <div id="settings-panel" style="display: none; position: fixed; top: 0; right: 0; bottom: 0; width: 100%; max-width: 400px; background: var(--bg-card); border-left: 1px solid var(--border-default); z-index: 2000; box-shadow: -8px 0 40px rgba(0,0,0,0.4); overflow-y: auto; padding: 24px; animation: modalSlideIn 0.3s ease;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
         <h3 style="font-size: 18px; font-weight: 700;">⚙️ <span data-i18n="del_settings">Paramètres</span></h3>
         <button class="btn btn--icon" id="settings-close"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+
+      <!-- Photo de profil Délégué (style WhatsApp) -->
+      <div class="pg-pedit" style="margin-bottom: 20px;">
+        <div class="pg-pedit__photo">
+          <span id="settings-avatar-slot"></span>
+        </div>
+        <div class="pg-pedit__actions">
+          <button type="button" class="pg-btn pg-btn--primary" id="btn-cam-avatar" style="font-size: 12px; padding: 8px 10px;">📷 Prendre photo</button>
+          <button type="button" class="pg-btn pg-btn--ghost" id="btn-gallery-avatar" style="font-size: 12px; padding: 8px 10px;">🖼️ Galerie</button>
+        </div>
+        <button type="button" class="pg-pedit__remove" id="btn-remove-avatar" style="display:none;">Supprimer la photo</button>
       </div>
       <div class="form-group"><label class="form-label" data-i18n="del_lastname">Nom</label><input type="text" id="settings-lastname" class="form-input"></div>
       <div class="form-group"><label class="form-label" data-i18n="del_firstname">Prénom</label><input type="text" id="settings-firstname" class="form-input"></div>
@@ -654,6 +683,8 @@
       <div class="form-group"><label class="form-label" data-i18n="del_labs">Laboratoires</label><div id="settings-labs" style="font-size: 14px; color: var(--text-secondary);"></div></div>
       <button id="settings-save" class="btn btn--primary btn--block" style="margin-top: 16px;" data-i18n="save">Enregistrer</button>
       <hr style="border-color: var(--border-default); margin: 24px 0;">
+      <!-- Support Développeur Pharma-Garde -->
+      <div id="delegate-support-container" style="margin-top: 16px; margin-bottom: 16px;"></div>
       <button id="btn-logout" class="btn btn--secondary btn--block" data-i18n="del_logout">Déconnexion</button>
       <button id="btn-delete-account" class="btn btn--ghost btn--block" style="margin-top: 8px; color: var(--red-400);" data-i18n="delete_title">Supprimer mon compte</button>
     </div>
@@ -670,6 +701,7 @@
   <script src="js/core.js?v=2.2"></script>
   <script src="js/i18n.js?v=2.2"></script>
   <script src="js/geolocation.js?v=2.2"></script>
-  <script src="js/delegue.js?v=4.1"></script>
+  <script src="js/pg-connect.js?v=1.0"></script>
+  <script src="js/delegue.js?v=4.2"></script>
 </body>
 </html>

@@ -101,7 +101,7 @@
   top: var(--header-height, 60px);
   bottom: 0;
   width: 100%;
-  max-width: 440px;
+  max-width: 540px;
   background: rgba(10, 15, 28, 0.95);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -134,11 +134,11 @@
   }
 }
 
-/* En mode paysage ou écran large (tablette, desktop) : largeur augmentée à 440px */
+/* En mode paysage ou écran large (tablette, desktop) : largeur élargie à 540px */
 @media (min-width: 768px), (orientation: landscape) {
   .delegate-sidebar {
-    width: 440px !important;
-    max-width: 44vw !important;
+    width: 540px !important;
+    max-width: 50vw !important;
     height: calc(100vh - var(--header-height, 60px)) !important;
     height: calc(100dvh - var(--header-height, 60px)) !important;
   }
