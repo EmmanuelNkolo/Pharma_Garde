@@ -3,8 +3,22 @@
  * afin que chaque mise à jour soit visible immédiatement. Le cache ne sert
  * qu'en mode hors-ligne. Les anciennes versions de cache sont supprimées.
  */
-const CACHE_NAME = 'pharma-garde-v21-2026-10-04';
-const CORE = ['/', '/index.html', '/pharmacien.html', '/delegue.html', '/css/design-system.css', '/css/pro.css', '/js/core.js', '/icon.svg'];
+const CACHE_NAME = 'pharma-garde-v25-branding-emerald-gold-2026-10-19';
+const CORE = [
+  '/',
+  '/index.html',
+  '/pharmacien.html',
+  '/delegue.html',
+  '/manifest.json',
+  '/css/design-system.css',
+  '/css/pro.css',
+  '/js/core.js',
+  '/icon.svg',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/apple-touch-icon.png',
+  '/favicon.png'
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((c) => c.addAll(CORE).catch(() => {})).then(() => self.skipWaiting()));

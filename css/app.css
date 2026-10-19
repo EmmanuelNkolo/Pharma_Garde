@@ -96,10 +96,11 @@
 .splash-title {
   font-size: var(--font-3xl);
   font-weight: 800;
-  background: linear-gradient(135deg, var(--green-300), var(--green-500));
+  background: linear-gradient(135deg, #fef08a 0%, #fbbf24 45%, #f59e0b 80%, #d97706 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  filter: drop-shadow(0 2px 8px rgba(251, 191, 36, 0.3));
   margin-bottom: var(--space-2);
 }
 

@@ -86,7 +86,9 @@
 
     container.innerHTML = `
       <img src="${qrImgUrl}" alt="QR Code Pharma-Garde" id="pg-qr-img" crossorigin="anonymous" style="width:220px;height:220px;display:block;">
-      <div class="pg-qr-logo-overlay">💊</div>
+      <div class="pg-qr-logo-overlay" style="background:#0a0f1c;padding:3px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.5);">
+        <img src="icon-192.png" alt="Pharma-Garde" style="width:34px;height:34px;border-radius:6px;display:block;">
+      </div>
     `;
   }
 
@@ -314,14 +316,11 @@
           <!-- ── ONGLET 3 : INSTALLATION PWA ── -->
           <div id="pg-pane-install" style="display:none;">
             <div class="pg-install-card">
-              <div class="pg-install-app-preview">
-                <span style="font-size:26px;">💊</span>
-                <span style="font-size:9px;font-weight:900;color:#fff;margin-top:2px;">PHARMA</span>
-              </div>
+              <img src="icon-192.png" alt="Pharma-Garde" style="width:56px;height:56px;border-radius:14px;box-shadow:0 4px 16px rgba(16,185,129,0.35);border:1px solid rgba(251,191,36,0.3);flex-shrink:0;">
               <div>
-                <div style="font-weight:800;font-size:15px;color:#fff;">Pharma-Garde</div>
-                <div style="font-size:12px;color:var(--emerald-400);font-weight:600;">Application web & mobile</div>
-                <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">Affichez le logo et le nom directement sur votre écran</div>
+                <div style="font-weight:900;font-size:16px;color:#fbbf24;letter-spacing:0.3px;">Pharma-Garde</div>
+                <div style="font-size:12px;color:var(--emerald-400);font-weight:700;">Croix émeraude &amp; lettres d'or</div>
+                <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">Icône officielle pour votre écran d'accueil</div>
               </div>
             </div>
 
