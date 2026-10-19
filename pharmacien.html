@@ -28,6 +28,7 @@
   <link rel="stylesheet" href="css/pharma-auth.css?v=3.0">
   <link rel="stylesheet" href="css/pg-connect.css?v=1.0">
   <link rel="stylesheet" href="css/pg-share.css?v=1.0">
+  <link rel="stylesheet" href="css/espace-pharmacie-v2.css?v=2.0">
 </head>
 <body>
   <div class="app-container">
@@ -310,6 +311,25 @@
 
         <!-- Droite : Sélecteur Langue FR/EN + Plein Écran + Paramètres -->
         <div style="display: flex; align-items: center; gap: 8px;">
+          <!-- Cloche d'Alerte Intelligente & Centre de Notifications -->
+          <div class="pharm-notif-bell-wrap" id="pharm-notif-wrap">
+            <button type="button" class="pharm-notif-bell" id="pharm-notif-bell-btn" onclick="PharmDash.toggleNotifications()" title="Alertes &amp; Notifications">
+              <span>🔔</span>
+              <span class="pharm-notif-badge" id="pharm-notif-badge" style="display: none;">0</span>
+            </button>
+            <div class="pharm-notif-dropdown" id="pharm-notif-dropdown">
+              <div class="pharm-notif-head">
+                <div class="pharm-notif-title">
+                  <span>🔔</span> <span>Centre d'Alertes Pharmacie</span>
+                </div>
+                <button type="button" class="btn btn--sm" style="font-size:11px; padding:3px 8px; background:rgba(255,255,255,0.06); color:#fff; border:1px solid rgba(255,255,255,0.15);" onclick="PharmDash.markAllNotificationsRead()">Tout marquer lu</button>
+              </div>
+              <div class="pharm-notif-body" id="pharm-notif-list">
+                <!-- Notifications insérées dynamiquement -->
+              </div>
+            </div>
+          </div>
+
           <div class="lang-switch">
             <button type="button" class="lang-switch__btn active" data-lang="fr">FR</button>
             <button type="button" class="lang-switch__btn" data-lang="en">EN</button>
@@ -326,201 +346,407 @@
         </div>
       </header>
 
-      <!-- ═══════════════ ACTIONS RAPIDES SPÉCIALES ═══════════════ -->
-      <div class="special-actions-bar">
-        <button id="btn-special-stock-alert" class="special-btn special-btn--rupture" onclick="PharmDash.openStockHub()">
-          <span>⚠️</span> <span>Alerte Rupture &amp; Gestion Stock</span>
+      <!-- ═══════════════ NAVIGATION MAÎTRE : LES 3 GRANDS ESPACES ═══════════════ -->
+      <nav class="pharm-spaces-nav" aria-label="Espaces Métier Pharmacie">
+        <!-- 1. Espace Patients & Clients -->
+        <button type="button" class="pharm-space-tab active" id="tab-space-clients" onclick="PharmDash.switchSpace('clients')">
+          <span class="pharm-space-tab__icon">👥</span>
+          <div style="text-align:left; line-height:1.2;">
+            <div>Espace Patients &amp; Clients</div>
+            <div style="font-size:11px; font-weight:600; opacity:0.8;">Demandes, Réponses &amp; Retraits</div>
+          </div>
+          <span class="pharm-space-tab__badge" id="space-badge-clients">0</span>
         </button>
-        <button id="btn-special-verify" class="special-btn special-btn--verify" onclick="PharmDash.openUniversalVerification()">
-          <span>🔍</span> <span>Vérifier un Code (Patient / Délégué)</span>
-        </button>
-      </div>
 
-      <!-- ═══════════════ 4 ONGLETS PRINCIPAUX ═══════════════ -->
-      <div class="main-nav-tabs">
-        <button class="main-nav-tab active" id="tab-requests" onclick="PharmDash.switchMainTab('requests')">
-          <span style="font-size: 16px;">📥</span>
-          <span data-i18n="pharm_requests">Demandes</span>
+        <!-- 2. Espace Délégués Médicaux -->
+        <button type="button" class="pharm-space-tab" id="tab-space-delegates" onclick="PharmDash.switchSpace('delegates')">
+          <span class="pharm-space-tab__icon">💼</span>
+          <div style="text-align:left; line-height:1.2;">
+            <div>Espace Délégués Médicaux</div>
+            <div style="font-size:11px; font-weight:600; opacity:0.8;">Visites, Promos &amp; Ruptures</div>
+          </div>
+          <span class="pharm-space-tab__badge" id="space-badge-delegates">0</span>
         </button>
-        <button class="main-nav-tab" id="tab-history" onclick="PharmDash.switchMainTab('history')">
-          <span style="font-size: 16px;">📜</span>
-          <span data-i18n="pharm_history">Historique</span>
-        </button>
-        <button class="main-nav-tab" id="tab-delegates" onclick="PharmDash.switchMainTab('delegates')">
-          <span style="font-size: 16px;">💼</span>
-          <span data-i18n="pharm_delegates">Délégués</span>
-        </button>
-        <button class="main-nav-tab" id="tab-stats" onclick="PharmDash.switchMainTab('stats')">
-          <span style="font-size: 16px;">📊</span>
-          <span data-i18n="pharm_stats">Statistiques</span>
-        </button>
-      </div>
 
-      <!-- ═══════════════ CONTENU DES PANNEAUX ═══════════════ -->
-      <div style="padding: 16px 16px 100px;">
+        <!-- 3. Espace Gestion & Pilotage Pharmacie -->
+        <button type="button" class="pharm-space-tab" id="tab-space-management" onclick="PharmDash.switchSpace('management')">
+          <span class="pharm-space-tab__icon">⚙️</span>
+          <div style="text-align:left; line-height:1.2;">
+            <div>Espace Gestion &amp; Pilotage</div>
+            <div style="font-size:11px; font-weight:600; opacity:0.8;">Stats, Stocks &amp; Automatisation</div>
+          </div>
+          <span class="pharm-space-tab__badge" id="space-badge-management" style="background:rgba(251,191,36,0.2); color:#fbbf24; border-color:rgba(251,191,36,0.4);">Auto ON</span>
+        </button>
+      </nav>
 
-        <!-- 1. PANNEAU DEMANDES PATIENTS -->
-        <div id="panel-requests">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-            <h3 style="font-size: 15px; font-weight: 800; color: #fbbf24; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
-              <span>📥</span> Demandes Patients Actives
-            </h3>
-            <span id="requests-count-badge" style="font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 999px; background: rgba(16,185,129,0.15); color: var(--emerald-400); border: 1px solid rgba(16,185,129,0.3);">0 en attente</span>
+      <!-- ═══════════════ CONTENU DES 3 GRANDS ESPACES ═══════════════ -->
+      <div style="padding: 16px 16px 100px; max-width: 1400px; margin: 0 auto;">
+
+        <!-- ════════════════════════════════════════════════════════════════
+             ESPACE 1 : ESPACE PATIENTS & CLIENTS
+             ════════════════════════════════════════════════════════════════ -->
+        <div id="space-clients" class="pharm-space-content">
+          <!-- Entête de Pôle Patients -->
+          <div class="pharm-pole-header">
+            <div>
+              <h2 class="pharm-pole-title">
+                <span>👥</span> Relation Patients &amp; Ordonnances
+              </h2>
+              <p class="pharm-pole-desc">
+                Traitement des demandes en direct, réservations 60 min, et vérification des codes de retrait patient.
+              </p>
+            </div>
+            <button type="button" class="btn btn--secondary" onclick="PharmDash.openUniversalVerification('patient')" style="border-color:rgba(16,185,129,0.5); color:#34d399; font-weight:800; gap:8px;">
+              <span>🔍</span> <span>Vérifier Code Patient (PG-XXXX)</span>
+            </button>
           </div>
 
-          <!-- Liste des cartes de demandes avec 3 boutons par produit -->
-          <div id="active-requests"></div>
+          <!-- Barre de Sélection : Mode Manuel vs Réponse Automatisée (Connecteur Officine) -->
+          <div class="pharm-mode-card">
+            <div class="pharm-mode-info">
+              <div class="pharm-mode-indicator" id="pharm-mode-indicator-dot"></div>
+              <div>
+                <div class="pharm-mode-text-title" id="pharm-mode-title">Mode Réponse Automatisée (Connecteur Officine Actif)</div>
+                <div class="pharm-mode-text-subtitle" id="pharm-mode-desc">
+                  Le programme interroge le stock local et applique les conventions d'assurances pour répondre instantanément au patient (0s).
+                </div>
+              </div>
+            </div>
+            <div class="pharm-mode-switch-group">
+              <button type="button" class="pharm-mode-switch-btn active" id="btn-mode-auto" onclick="PharmDash.setResponseMode('auto')">
+                ⚡ Automatique (Connecteur)
+              </button>
+              <button type="button" class="pharm-mode-switch-btn" id="btn-mode-manual" onclick="PharmDash.setResponseMode('manual')">
+                ✍️ Manuel (Validation)
+              </button>
+            </div>
+          </div>
 
-          <!-- Section Réservations Actives (60 min) -->
-          <div style="margin-top: 28px; border-top: 1px solid var(--border-default); padding-top: 20px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-              <h3 style="font-size: 14.5px; font-weight: 800; color: #34d399; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
-                <span>🔒</span> Réservations Patients en Cours (Durée max 60 min)
+          <!-- Sous-onglets internes de l'Espace Patients -->
+          <div class="pharm-subtabs">
+            <button type="button" class="pharm-subtab-btn active" id="subtab-client-requests" onclick="PharmDash.switchClientSubtab('requests')">
+              <span>📥</span> Demandes Actives (Délai 24h)
+              <span id="requests-count-badge" style="margin-left:4px; font-size:11px; font-weight:800; padding:2px 7px; border-radius:999px; background:rgba(16,185,129,0.25); color:#34d399;">0 en attente</span>
+            </button>
+            <button type="button" class="pharm-subtab-btn" id="subtab-client-reservations" onclick="PharmDash.switchClientSubtab('reservations')">
+              <span>🔒</span> Réservations en Cours (60 min)
+              <span id="active-reservations-count" style="margin-left:4px; font-size:11px; font-weight:800; padding:2px 7px; border-radius:999px; background:rgba(251,191,36,0.2); color:#fbbf24;">0 active(s)</span>
+            </button>
+            <button type="button" class="pharm-subtab-btn" id="subtab-client-history" onclick="PharmDash.switchClientSubtab('history')">
+              <span>📜</span> Historique &amp; Demandes Archivées
+            </button>
+          </div>
+
+          <!-- Sous-panneau 1A : Demandes Patients Actives (Délai 24h) -->
+          <div id="subpanel-client-requests">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; background:rgba(251,191,36,0.06); padding:10px 14px; border-radius:10px; border:1px solid rgba(251,191,36,0.2);">
+              <div style="font-size:12.5px; color:#fbbf24; font-weight:700; display:flex; align-items:center; gap:6px;">
+                <span>⏳</span> Règle des 24h : Toute demande validée est archivée avec date/heure. Les demandes sans réponse après 24h sont automatiquement clôturées.
+              </div>
+            </div>
+
+            <!-- Liste des cartes de demandes avec 3 options par médicament -->
+            <div id="active-requests"></div>
+          </div>
+
+          <!-- Sous-panneau 1B : Réservations Actives (60 min) -->
+          <div id="subpanel-client-reservations" style="display:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+              <h3 style="font-size:15px; font-weight:800; color:#34d399; text-transform:uppercase; display:flex; align-items:center; gap:6px;">
+                <span>🔒</span> Réservations Patients Actives (Retrait sous 60 minutes)
               </h3>
-              <span id="active-reservations-count" style="font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 999px; background: rgba(251,191,36,0.12); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3);">0 active(s)</span>
             </div>
             <div id="reservations-active-container"></div>
           </div>
-        </div>
 
-        <!-- 2. PANNEAU HISTORIQUE -->
-        <div id="panel-history" style="display: none;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-            <h3 style="font-size: 15px; font-weight: 800; color: #fbbf24; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
-              <span>📜</span> Historique des Requêtes
-            </h3>
-          </div>
-
-          <!-- Boutons filtres temporels : Aujourd'hui, Semaine, Mois, Année -->
-          <div class="time-filter-pills">
-            <button class="time-pill-btn active" id="hist-filter-today" onclick="PharmDash.loadHistory('today')">📅 Aujourd'hui</button>
-            <button class="time-pill-btn" id="hist-filter-week" onclick="PharmDash.loadHistory('week')">🗓️ Cette Semaine</button>
-            <button class="time-pill-btn" id="hist-filter-month" onclick="PharmDash.loadHistory('month')">📆 Ce Mois</button>
-            <button class="time-pill-btn" id="hist-filter-year" onclick="PharmDash.loadHistory('year')">📈 Cette Année</button>
-          </div>
-
-          <div id="history-list"></div>
-        </div>
-
-        <!-- 3. PANNEAU DÉLÉGUÉS MÉDICAUX -->
-        <div id="panel-delegates" style="display: none;">
-          <!-- Section 1 : Promotions reçues des délégués -->
-          <div style="margin-bottom: 24px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-              <h3 style="font-size: 15px; font-weight: 800; color: #fbbf24; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
-                <span>🎁</span> Promotions &amp; Offres des Délégués
+          <!-- Sous-panneau 1C : Historique & Archivage -->
+          <div id="subpanel-client-history" style="display:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
+              <h3 style="font-size:15px; font-weight:800; color:#fbbf24; text-transform:uppercase; display:flex; align-items:center; gap:6px;">
+                <span>📜</span> Historique des Requêtes Archivées
               </h3>
+              <!-- Filtres temporels -->
+              <div class="time-filter-pills">
+                <button class="time-pill-btn active" id="hist-filter-today" onclick="PharmDash.loadHistory('today')">📅 Aujourd'hui</button>
+                <button class="time-pill-btn" id="hist-filter-week" onclick="PharmDash.loadHistory('week')">🗓️ Cette Semaine</button>
+                <button class="time-pill-btn" id="hist-filter-month" onclick="PharmDash.loadHistory('month')">📆 Ce Mois</button>
+                <button class="time-pill-btn" id="hist-filter-year" onclick="PharmDash.loadHistory('year')">📈 Cette Année</button>
+              </div>
             </div>
+            <div id="history-list"></div>
+          </div>
+        </div>
+
+        <!-- ════════════════════════════════════════════════════════════════
+             ESPACE 2 : ESPACE DÉLÉGUÉS MÉDICAUX
+             ════════════════════════════════════════════════════════════════ -->
+        <div id="space-delegates" class="pharm-space-content" style="display:none;">
+          <!-- Entête de Pôle Délégués -->
+          <div class="pharm-pole-header">
+            <div>
+              <h2 class="pharm-pole-title">
+                <span>💼</span> Relations Laboratoires &amp; Délégués Médicaux
+              </h2>
+              <p class="pharm-pole-desc">
+                Gestion des rendez-vous de visite médicale, consultations des offres promotionnelles et réapprovisionnements en urgence.
+              </p>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <button type="button" class="btn btn--primary" id="btn-space2-stock-alert" onclick="PharmDash.openStockHub('broadcast')" style="background:linear-gradient(135deg, #fbbf24, #d97706); color:#000; font-weight:800; border:none; gap:6px;">
+                <span>📢</span> <span>Lancer Alerte Rupture vers Délégués</span>
+              </button>
+              <button type="button" class="btn btn--secondary" onclick="PharmDash.openUniversalVerification('delegate')" style="border-color:rgba(96,165,250,0.5); color:#60a5fa; font-weight:800; gap:6px;">
+                <span>🪪</span> <span>Vérifier Matricule Délégué (DM-XXXX)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Sous-onglets internes de l'Espace Délégués -->
+          <div class="pharm-subtabs">
+            <button type="button" class="pharm-subtab-btn active" id="subtab-del-visits" onclick="PharmDash.switchDelegateSubtab('visits')">
+              <span>🤝</span> Demandes de Rendez-vous &amp; Visites
+            </button>
+            <button type="button" class="pharm-subtab-btn" id="subtab-del-promos" onclick="PharmDash.switchDelegateSubtab('promos')">
+              <span>🎁</span> Promotions &amp; Offres des Laboratoires
+            </button>
+            <button type="button" class="pharm-subtab-btn" id="subtab-del-alerts" onclick="PharmDash.switchDelegateSubtab('alerts')">
+              <span>📢</span> Alertes Ruptures Diffusées
+            </button>
+          </div>
+
+          <!-- Sous-panneau 2A : Demandes de Visites -->
+          <div id="subpanel-del-visits">
+            <div id="delegate-visits-list"></div>
+          </div>
+
+          <!-- Sous-panneau 2B : Promotions des Laboratoires -->
+          <div id="subpanel-del-promos" style="display:none;">
             <div id="delegate-promos-list"></div>
           </div>
 
-          <!-- Section 2 : Sollicitations de Visites des délégués -->
-          <div style="border-top: 1px solid var(--border-default); padding-top: 20px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-              <h3 style="font-size: 15px; font-weight: 800; color: #34d399; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
-                <span>🤝</span> Demandes de Rendez-vous &amp; Visites Médicales
-              </h3>
+          <!-- Sous-panneau 2C : Alertes Ruptures Diffusées -->
+          <div id="subpanel-del-alerts" style="display:none;">
+            <div class="pharm-card" style="border-color:rgba(251,191,36,0.3);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h4 style="font-size:14px; font-weight:800; color:#fbbf24; text-transform:uppercase;">
+                  📢 Ruptures Signalées aux Délégués Médicaux du Secteur
+                </h4>
+                <button type="button" class="btn btn--sm" style="background:rgba(251,191,36,0.15); color:#fbbf24; border:1px solid rgba(251,191,36,0.4);" onclick="PharmDash.openStockHub('broadcast')">
+                  + Nouvelle Alerte
+                </button>
+              </div>
+              <p style="font-size:12.5px; color:var(--text-muted); margin-bottom:14px;">
+                Suivi des notifications transmises aux laboratoires et délégués médicaux pour réapprovisionnement.
+              </p>
+              <div id="delegate-alerts-tracking-list"></div>
             </div>
-            <div id="delegate-visits-list"></div>
           </div>
         </div>
 
-        <!-- 4. PANNEAU STATISTIQUES (4 BOUTONS SPÉCIFIQUES) -->
-        <div id="panel-stats-pharm" style="display: none;">
-          <!-- Switcher des 4 sous-sections de stats -->
-          <div class="stats-nav-grid">
-            <button class="stats-nav-btn active" id="btn-stat-requests" onclick="PharmDash.showStatSubSection('requests')">
-              <span style="font-size: 16px;">📥</span>
-              <span>Total Demandes</span>
+        <!-- ════════════════════════════════════════════════════════════════
+             ESPACE 3 : ESPACE GESTION & PILOTAGE OFFICINE
+             ════════════════════════════════════════════════════════════════ -->
+        <div id="space-management" class="pharm-space-content" style="display:none;">
+          <!-- Entête de Pôle Gestion & Pilotage -->
+          <div class="pharm-pole-header">
+            <div>
+              <h2 class="pharm-pole-title">
+                <span>⚙️</span> Gestion Officine, Stocks &amp; Automatisation
+              </h2>
+              <p class="pharm-pole-desc">
+                Statistiques réelles cohérentes, gestion des stocks, conventions d'assurances et configuration du connecteur local.
+              </p>
+            </div>
+            <div id="connector-quick-badge" style="display:inline-flex; align-items:center; gap:8px; padding:6px 12px; border-radius:999px; background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.35); color:#34d399; font-size:12px; font-weight:800;">
+              <span class="pharm-mode-indicator" style="width:10px; height:10px;"></span>
+              <span>Connecteur Synchronisé (1h)</span>
+            </div>
+          </div>
+
+          <!-- Sous-onglets internes de l'Espace Gestion -->
+          <div class="pharm-subtabs">
+            <button type="button" class="pharm-subtab-btn active" id="subtab-mgmt-stats" onclick="PharmDash.switchManagementSubtab('stats')">
+              <span>📊</span> Statistiques &amp; Produits Vedettes
             </button>
-            <button class="stats-nav-btn" id="btn-stat-accepted" onclick="PharmDash.showStatSubSection('accepted')">
-              <span style="font-size: 16px;">✅</span>
-              <span>Acceptations</span>
+            <button type="button" class="pharm-subtab-btn" id="subtab-mgmt-stock" onclick="PharmDash.switchManagementSubtab('stock')">
+              <span>📋</span> Gestion Inventaire &amp; Stocks
             </button>
-            <button class="stats-nav-btn" id="btn-stat-promos" onclick="PharmDash.showStatSubSection('promos')">
-              <span style="font-size: 16px;">🎁</span>
-              <span>Promos</span>
+            <button type="button" class="pharm-subtab-btn" id="subtab-mgmt-insurance" onclick="PharmDash.switchManagementSubtab('insurance')">
+              <span>🛡️</span> Conventions d'Assurances
             </button>
-            <button class="stats-nav-btn" id="btn-stat-visits" onclick="PharmDash.showStatSubSection('visits')">
-              <span style="font-size: 16px;">🤝</span>
-              <span>Visites</span>
+            <button type="button" class="pharm-subtab-btn" id="subtab-mgmt-connector" onclick="PharmDash.switchManagementSubtab('connector')">
+              <span>⚡</span> Connecteur Automatique (Daemon)
             </button>
           </div>
 
-          <!-- Sous-section 1 : Total Demandes & Médicaments -->
-          <div id="stat-sub-requests">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
-              <div class="pharm-card" style="padding: 16px; text-align: center; border-color: rgba(16,185,129,0.3);">
-                <div style="font-size: 32px; font-weight: 900; color: #34d399;" id="stat-total-received">0</div>
-                <div style="font-size: 12px; font-weight: 800; color: var(--text-secondary); text-transform: uppercase;">Total Demandes Reçues</div>
+          <!-- Sous-panneau 3A : Statistiques & Produits Vedettes -->
+          <div id="subpanel-mgmt-stats">
+            <!-- 4 KPI Principaux Cohérents -->
+            <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin-bottom:18px;">
+              <div class="pharm-card" style="padding:14px; text-align:center; border-color:rgba(16,185,129,0.35);">
+                <div style="font-size:30px; font-weight:900; color:#34d399;" id="stat-total-received">0</div>
+                <div style="font-size:11px; font-weight:800; color:var(--text-secondary); text-transform:uppercase;">Demandes Reçues</div>
               </div>
-              <div class="pharm-card" style="padding: 16px; text-align: center; border-color: rgba(251,191,36,0.3);">
-                <div style="font-size: 32px; font-weight: 900; color: #fbbf24;" id="stat-total-arrived">0</div>
-                <div style="font-size: 12px; font-weight: 800; color: var(--text-secondary); text-transform: uppercase;">Patients Arrivés en Pharmacie</div>
+              <div class="pharm-card" style="padding:14px; text-align:center; border-color:rgba(59,130,246,0.35);">
+                <div style="font-size:30px; font-weight:900; color:#60a5fa;" id="stat-positive-responses">0</div>
+                <div style="font-size:11px; font-weight:800; color:var(--text-secondary); text-transform:uppercase;">Réponses Positives</div>
+              </div>
+              <div class="pharm-card" style="padding:14px; text-align:center; border-color:rgba(251,191,36,0.35);">
+                <div style="font-size:30px; font-weight:900; color:#fbbf24;" id="stat-total-arrived">0</div>
+                <div style="font-size:11px; font-weight:800; color:var(--text-secondary); text-transform:uppercase;">Achats Concrêts / Honorés</div>
+              </div>
+              <div class="pharm-card" style="padding:14px; text-align:center; border-color:rgba(168,85,247,0.35);">
+                <div style="font-size:30px; font-weight:900; color:#c084fc;" id="stat-conversion-rate">0%</div>
+                <div style="font-size:11px; font-weight:800; color:var(--text-secondary); text-transform:uppercase;">Taux de Succès</div>
               </div>
             </div>
 
-            <!-- Top 10 Médicaments les plus sollicités -->
-            <div class="pharm-card">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
-                <h4 style="font-size: 13.5px; font-weight: 800; color: #fbbf24; text-transform: uppercase;">
+            <!-- Produits Vedettes : Jour, Semaine, Mois, Année -->
+            <h4 style="font-size:13.5px; font-weight:800; color:#fbbf24; text-transform:uppercase; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
+              <span>🌟</span> Produits Vedettes les Plus Sollicités
+            </h4>
+            <div class="pharm-star-products-grid" id="star-products-container">
+              <!-- Rempli dynamiquement -->
+            </div>
+
+            <!-- Top 10 Médicaments -->
+            <div class="pharm-card" style="margin-bottom:18px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+                <h4 style="font-size:13.5px; font-weight:800; color:#fbbf24; text-transform:uppercase;">
                   🏆 Top 10 des Médicaments les Plus Sollicités
                 </h4>
-                <div style="display: flex; gap: 6px;">
-                  <button class="time-pill-btn active" id="btn-top-today" style="padding: 4px 10px; font-size: 11px;" onclick="PharmDash.renderTopMeds('today')">Jour</button>
-                  <button class="time-pill-btn" id="btn-top-week" style="padding: 4px 10px; font-size: 11px;" onclick="PharmDash.renderTopMeds('week')">Semaine</button>
-                  <button class="time-pill-btn" id="btn-top-month" style="padding: 4px 10px; font-size: 11px;" onclick="PharmDash.renderTopMeds('month')">Mois</button>
-                  <button class="time-pill-btn" id="btn-top-year" style="padding: 4px 10px; font-size: 11px;" onclick="PharmDash.renderTopMeds('year')">Année</button>
+                <div style="display:flex; gap:6px;">
+                  <button class="time-pill-btn active" id="btn-top-today" style="padding:4px 10px; font-size:11px;" onclick="PharmDash.renderTopMeds('today')">Jour</button>
+                  <button class="time-pill-btn" id="btn-top-week" style="padding:4px 10px; font-size:11px;" onclick="PharmDash.renderTopMeds('week')">Semaine</button>
+                  <button class="time-pill-btn" id="btn-top-month" style="padding:4px 10px; font-size:11px;" onclick="PharmDash.renderTopMeds('month')">Mois</button>
+                  <button class="time-pill-btn" id="btn-top-year" style="padding:4px 10px; font-size:11px;" onclick="PharmDash.renderTopMeds('year')">Année</button>
                 </div>
               </div>
               <div id="stat-top-meds-container"></div>
             </div>
 
             <!-- Médicaments recherchés hors stock -->
-            <div class="pharm-card" style="border-color: rgba(239,68,68,0.35);">
-              <h4 style="font-size: 13.5px; font-weight: 800; color: #f87171; text-transform: uppercase; margin-bottom: 10px;">
+            <div class="pharm-card" style="border-color:rgba(239,68,68,0.35);">
+              <h4 style="font-size:13.5px; font-weight:800; color:#f87171; text-transform:uppercase; margin-bottom:8px;">
                 ⚠️ Médicaments Recherchés qui ne figurent pas dans votre stock
               </h4>
-              <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">Ces produits ont été demandés par des patients de votre zone mais n'étaient pas disponibles dans votre officine.</p>
+              <p style="font-size:12px; color:var(--text-muted); margin-bottom:10px;">
+                Produits demandés par les patients de votre secteur mais en rupture ou absents de votre inventaire.
+              </p>
               <div id="stat-missing-stock-container"></div>
             </div>
           </div>
 
-          <!-- Sous-section 2 : Acceptations -->
-          <div id="stat-sub-accepted" style="display: none;">
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px;">
-              <div class="pharm-card" style="padding: 14px; text-align: center;">
-                <div style="font-size: 26px; font-weight: 900; color: #34d399;" id="stat-acc-requests">0</div>
-                <div style="font-size: 11px; font-weight: 700; color: var(--text-secondary);">Demandes Acceptées</div>
-              </div>
-              <div class="pharm-card" style="padding: 14px; text-align: center;">
-                <div style="font-size: 26px; font-weight: 900; color: #fbbf24;" id="stat-acc-promos">0</div>
-                <div style="font-size: 11px; font-weight: 700; color: var(--text-secondary);">Promos Intéressées</div>
-              </div>
-              <div class="pharm-card" style="padding: 14px; text-align: center;">
-                <div style="font-size: 26px; font-weight: 900; color: #60a5fa;" id="stat-acc-reserved">0</div>
-                <div style="font-size: 11px; font-weight: 700; color: var(--text-secondary);">Réservations Achetées</div>
-              </div>
-            </div>
+          <!-- Sous-panneau 3B : Gestion d'Inventaire & Stocks Officine -->
+          <div id="subpanel-mgmt-stock" style="display:none;">
             <div class="pharm-card">
-              <h4 style="font-size: 13.5px; font-weight: 800; color: #fbbf24; text-transform: uppercase; margin-bottom: 12px;">Détails des Acceptations &amp; Conversions</h4>
-              <div id="stat-accepted-details"></div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
+                <div style="display:flex; gap:10px; flex:1; min-width:260px;">
+                  <input type="text" id="stock-search-mgmt" class="form-input" placeholder="🔍 Rechercher un médicament dans l'inventaire..." oninput="PharmDash.filterStockProducts(this.value)">
+                </div>
+                <button class="btn btn--primary" onclick="PharmDash.quickAddStockProduct()" style="white-space:nowrap; background:linear-gradient(135deg, #10b981, #059669); font-weight:800;">
+                  + Ajouter un Médicament
+                </button>
+              </div>
+
+              <div class="pharm-table-wrap">
+                <table class="pharm-table">
+                  <thead>
+                    <tr>
+                      <th>Médicament</th>
+                      <th>Statut Stock</th>
+                      <th>Action Rapide</th>
+                      <th>Alerte Réappro</th>
+                    </tr>
+                  </thead>
+                  <tbody id="stock-table-body"></tbody>
+                </table>
+              </div>
             </div>
           </div>
 
-          <!-- Sous-section 3 : Promos -->
-          <div id="stat-sub-promos" style="display: none;">
+          <!-- Sous-panneau 3C : Conventions d'Assurances de l'Officine -->
+          <div id="subpanel-mgmt-insurance" style="display:none;">
             <div class="pharm-card">
-              <h4 style="font-size: 13.5px; font-weight: 800; color: #fbbf24; text-transform: uppercase; margin-bottom: 12px;">Récapitulatif des Promotions par Délégué</h4>
-              <div id="stat-promos-summary"></div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h4 style="font-size:14px; font-weight:800; color:#fbbf24; text-transform:uppercase;">
+                  🛡️ Conventions d'Assurances Agréées par l'Officine
+                </h4>
+                <button type="button" class="btn btn--sm" style="background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.4);" onclick="PharmDash.saveInsuranceConventions()">
+                  💾 Sauvegarder les Conventions
+                </button>
+              </div>
+              <p style="font-size:12.5px; color:var(--text-muted); margin-bottom:16px;">
+                Cochez les assurances avec lesquelles votre officine dispose d'une convention tiers payant. Le connecteur d'automatisation s'appuie sur cette liste pour attribuer automatiquement le statut <strong>« En stock &amp; assuré »</strong> aux patients éligibles.
+              </p>
+
+              <div id="insurance-conventions-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:12px;">
+                <!-- Rempli dynamiquement -->
+              </div>
             </div>
           </div>
 
-          <!-- Sous-section 4 : Visites -->
-          <div id="stat-sub-visits" style="display: none;">
-            <div class="pharm-card">
-              <h4 style="font-size: 13.5px; font-weight: 800; color: #fbbf24; text-transform: uppercase; margin-bottom: 12px;">Toutes les Visites Médicales &amp; Leurs Statuts</h4>
-              <div id="stat-visits-summary"></div>
+          <!-- Sous-panneau 3D : Connecteur Automatique Officine (Daemon) -->
+          <div id="subpanel-mgmt-connector" style="display:none;">
+            <div class="pharm-connector-dashboard">
+              <!-- Console & Paramètres Connecteur -->
+              <div class="pharm-card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
+                  <div>
+                    <h4 style="font-size:15px; font-weight:800; color:#34d399; margin:0; display:flex; align-items:center; gap:6px;">
+                      <span>⚡</span> Moniteur du Connecteur Officine
+                    </h4>
+                    <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+                      Synchronisation périodique toutes les 1h avec la base locale &amp; réponses automatisées.
+                    </p>
+                  </div>
+                  <button type="button" class="btn btn--sm" style="background:linear-gradient(135deg, #10b981, #059669); color:#fff; font-weight:800;" onclick="PharmDash.triggerImmediateSync()">
+                    🔄 Synchroniser Maintenant
+                  </button>
+                </div>
+
+                <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:14px;">
+                  <div style="background:rgba(0,0,0,0.3); padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
+                    <div style="font-size:11px; color:var(--text-muted);">Fréquence Synchro</div>
+                    <div style="font-size:14px; font-weight:800; color:#fff;">Toutes les 1h</div>
+                  </div>
+                  <div style="background:rgba(0,0,0,0.3); padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
+                    <div style="font-size:11px; color:var(--text-muted);">Prochaine Synchro</div>
+                    <div style="font-size:14px; font-weight:800; color:#fbbf24;" id="connector-countdown-text">59 min 40s</div>
+                  </div>
+                  <div style="background:rgba(0,0,0,0.3); padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
+                    <div style="font-size:11px; color:var(--text-muted);">Réponses Automatisées</div>
+                    <div style="font-size:14px; font-weight:800; color:#34d399;" id="connector-auto-replies-count">0 transmise(s)</div>
+                  </div>
+                </div>
+
+                <!-- Console d'activité temps réel -->
+                <label style="font-size:11px; font-weight:800; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:6px;">
+                  Journal d'activité en direct (Daemon Connecteur)
+                </label>
+                <div class="pharm-console-log" id="connector-console-log">
+                  <div><span class="time">[10:00:00]</span> <span class="info">Démarrage du Daemon Connecteur Officine v2.0...</span></div>
+                  <div><span class="time">[10:00:01]</span> Connexion établie avec la base d'inventaire locale (15 médicaments indexés).</div>
+                  <div><span class="time">[10:00:02]</span> Analyse des conventions d'assurances : 8 organismes agréés.</div>
+                  <div><span class="time">[10:00:03]</span> <span class="info">Mode réponse automatique actif : délai de réponse garanti &lt; 0.5s.</span></div>
+                </div>
+              </div>
+
+              <!-- Bloc Installation sur Serveur Pharmacie -->
+              <div class="pharm-card" style="border-color:rgba(251,191,36,0.35);">
+                <h4 style="font-size:13.5px; font-weight:800; color:#fbbf24; text-transform:uppercase; margin-bottom:10px;">
+                  🖥️ Installation sur PC Comptoir / Serveur
+                </h4>
+                <p style="font-size:12px; color:var(--text-secondary); line-height:1.4; margin-bottom:12px;">
+                  Pour relier directement Pharma-Garde à votre logiciel de pharmacie (WinPharma, LGPI, Pharmagest, MySQL), lancez le script daemon autonome sur votre poste :
+                </p>
+                <div style="background:#050811; padding:10px; border-radius:8px; font-family:monospace; font-size:11px; color:#34d399; margin-bottom:12px; overflow-x:auto;">
+                  node pharmagarde-connector-daemon.js
+                </div>
+                <a href="pharmagarde-connector-daemon.js" download="pharmagarde-connector-daemon.js" class="btn btn--primary btn--block" style="background:linear-gradient(135deg, #fbbf24, #d97706); color:#000; font-weight:800; font-size:13px; text-decoration:none; text-align:center; padding:10px;">
+                  📥 Télécharger le Daemon Local (.js)
+                </a>
+              </div>
             </div>
           </div>
         </div>
@@ -702,5 +928,6 @@
   <script src="js/pg-connect.js?v=1.0"></script>
   <script src="js/pg-share.js?v=1.0"></script>
   <script src="js/pharmacien.js?v=4.0"></script>
+  <script src="js/pharmacie-spaces-controller.js?v=2.0"></script>
 </body>
 </html>

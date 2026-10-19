@@ -838,8 +838,10 @@
     // Initialize Header Status
     updateHeaderStatusDisplay();
 
-    // Initialize Inventory Database
+    // Initialize Inventory Database & Insurance Conventions
     initStockDatabase();
+    initInsuranceConventions();
+    initResponseMode();
 
     // Load initial data
     loadActiveRequests();
@@ -848,16 +850,20 @@
     loadDelegateInteractions();
     loadAllStatistics();
 
-    // Realtime Subscriptions
+    // Realtime Subscriptions & Daemon Timers
     subscribeToRealTimeRequests();
     subscribeToReservations();
     subscribeToDelegateVisitsAndPromos();
     subscribeToStockAlerts();
     startExpirationChecker();
+    start24hCountdownTimer();
+    initConnectorDaemon();
+    initNotifications();
 
-    // Bind Controls
+    // Bind Controls & Set Default Space
     initDashboardControls();
     initSettings();
+    switchSpace('clients');
   }
 
   function handleLogout() {
