@@ -14,6 +14,7 @@
   let userMarker = null;
   let radiusCircle = null;
   let mapMask = null;
+  let routeLayer = null;
   let userLat = null, userLng = null;
   let currentRadius = 5;
   let pharmaciesInRadius = [];
@@ -2126,13 +2127,145 @@
     }
   }
 
-  function getRoute(lat, lng) {
+  async function getRoute(lat, lng, pharmName) {
     if (!userLat || !userLng) {
-      return showToast('Veuillez d\'abord détecter votre position.', 'error');
+      const pos = (typeof Geolocation !== 'undefined') ? Geolocation.getPosition() : null;
+      if (pos && pos.lat && pos.lng) {
+        userLat = pos.lat;
+        userLng = pos.lng;
+      } else {
+        return showToast('Veuillez d\'abord détecter votre position.', 'error');
+      }
     }
-    // Use native navigation intent on mobile
-    const url = 'https://www.google.com/maps/dir/?api=1&origin=' + userLat + ',' + userLng + '&destination=' + lat + ',' + lng + '&travelmode=driving';
-    try { window.location.href = 'geo:' + lat + ',' + lng + '?q=' + lat + ',' + lng; } catch(e) { window.open(url, '_blank'); }
+
+    if (!delegateMap) {
+      const url = 'https://www.google.com/maps/dir/?api=1&origin=' + userLat + ',' + userLng + '&destination=' + lat + ',' + lng + '&travelmode=driving';
+      window.open(url, '_blank');
+      return;
+    }
+
+    // Identify pharmacy name if not provided
+    if (!pharmName) {
+      const found = (allPharmacies && allPharmacies.length > 0)
+        ? allPharmacies.find(p => Math.abs(p.lat - lat) < 0.0001 && Math.abs(p.lng - lng) < 0.0001)
+        : null;
+      pharmName = found ? found.name : 'Pharmacie';
+    }
+
+    clearRoute();
+    showToast('Calcul de l\'itinéraire...', 'info');
+
+    // On mobile, collapse bottom sheet so map path is clearly visible
+    const bottomSheet = $('bottom-sheet');
+    if (bottomSheet && window.innerWidth <= 768) {
+      bottomSheet.classList.add('collapsed');
+    }
+
+    let routeCoords = null;
+    let distKm = null;
+    let durationMin = null;
+
+    try {
+      const osrmUrl = 'https://router.project-osrm.org/route/v1/driving/' + userLng + ',' + userLat + ';' + lng + ',' + lat + '?overview=full&geometries=geojson';
+      const resp = await fetch(osrmUrl);
+      const data = await resp.json();
+
+      if (data && data.routes && data.routes.length > 0) {
+        const route = data.routes[0];
+        routeCoords = route.geometry.coordinates.map(c => [c[1], c[0]]);
+        distKm = (route.distance / 1000).toFixed(1);
+        durationMin = Math.round(route.duration / 60) || 1;
+      }
+    } catch (e) {
+      console.warn('OSRM routing fetch failed, falling back to direct line', e);
+    }
+
+    // Fallback direct path if OSRM is offline or no route returned
+    if (!routeCoords || routeCoords.length === 0) {
+      routeCoords = [[userLat, userLng], [lat, lng]];
+      distKm = haversine(userLat, userLng, lat, lng).toFixed(1);
+      durationMin = Math.max(1, Math.round((parseFloat(distKm) / 30) * 60)); // ~30 km/h avg city speed
+    }
+
+    // Outer glow for premium aesthetics
+    const routeOutline = L.polyline(routeCoords, {
+      color: '#1e3a8a',
+      weight: 9,
+      opacity: 0.55,
+      lineCap: 'round',
+      lineJoin: 'round'
+    });
+
+    // Main vibrant road polyline
+    const routeLine = L.polyline(routeCoords, {
+      color: '#3b82f6',
+      weight: 5,
+      opacity: 0.95,
+      lineCap: 'round',
+      lineJoin: 'round',
+      dashArray: (routeCoords.length === 2) ? '8, 8' : undefined
+    });
+
+    // Destination target marker
+    const destIcon = L.divIcon({
+      className: 'dest-marker-pulse',
+      html: '<div style="width:32px;height:32px;background:#10b981;border:3px solid #ffffff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 0 16px rgba(16,185,129,0.85);">🎯</div>',
+      iconSize: [32, 32],
+      iconAnchor: [16, 16]
+    });
+    const destMarker = L.marker([lat, lng], { icon: destIcon });
+
+    routeLayer = L.featureGroup([routeOutline, routeLine, destMarker]).addTo(delegateMap);
+    delegateMap.fitBounds(routeLayer.getBounds(), { padding: [60, 60], maxZoom: 16 });
+
+    // Show floating route banner on top of the map
+    showRouteBanner(pharmName, distKm, durationMin, lat, lng);
+    showToast('🗺️ Itinéraire tracé : ' + distKm + ' km (~' + durationMin + ' min)', 'success');
+  }
+
+  function clearRoute() {
+    if (routeLayer && delegateMap) {
+      try { delegateMap.removeLayer(routeLayer); } catch (e) {}
+      routeLayer = null;
+    }
+    const banner = $('delegate-route-banner');
+    if (banner) banner.remove();
+  }
+
+  function showRouteBanner(pharmName, distKm, durationMin, lat, lng) {
+    let banner = $('delegate-route-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'delegate-route-banner';
+      banner.className = 'delegate-route-card';
+      document.body.appendChild(banner);
+    }
+
+    const gmapsUrl = 'https://www.google.com/maps/dir/?api=1&origin=' + userLat + ',' + userLng + '&destination=' + lat + ',' + lng + '&travelmode=driving';
+
+    banner.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+          <span style="font-size: 22px; flex-shrink: 0;">🗺️</span>
+          <div style="min-width: 0;">
+            <div style="font-weight: 800; font-size: 14px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(pharmName)}</div>
+            <div style="font-size: 12px; color: var(--emerald-400); font-weight: 700;">
+              <span>📍 ${distKm} km</span> • <span>⏱️ ~${durationMin} min</span>
+            </div>
+          </div>
+        </div>
+        <button type="button" class="btn btn--icon" onclick="DelegateApp.clearRoute()" title="Fermer l'itinéraire" style="width: 28px; height: 28px; padding: 0; flex-shrink: 0;">✕</button>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <a href="${gmapsUrl}" target="_blank" rel="noopener" class="btn btn--primary btn--sm" style="flex: 1; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; padding: 8px 12px; font-weight: 700;">
+          <span>🧭</span> <span>Guidage GPS (Google Maps)</span>
+        </a>
+        <button type="button" class="btn btn--secondary btn--sm" onclick="DelegateApp.clearRoute()" style="font-size: 12px; padding: 8px 12px;">
+          Effacer
+        </button>
+      </div>
+    `;
+    banner.style.display = 'block';
   }
 
 
@@ -2261,6 +2394,7 @@
     openSendPromo,
     openVisitRequest,
     getRoute,
+    clearRoute,
     openDetail: openPharmacyDetail,
     updateProfile: updateDelegateProfileUI,
     pickAvatarCamera: handleAvatarCamera,
