@@ -1,0 +1,411 @@
+/**
+ * Pharma-Garde — Styles Partage, QR Code & Installation PWA
+ */
+
+/* ── Boutons d'action rapide sur l'écran d'accueil ────────── */
+.welcome-screen__quick-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 18px 0 10px;
+  width: 100%;
+}
+
+.welcome-quick-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.05);
+  color: #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.25s ease;
+  user-select: none;
+}
+
+.welcome-quick-btn svg {
+  color: var(--emerald-400, #34d399);
+  transition: transform 0.2s ease;
+}
+
+.welcome-quick-btn:hover {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(52, 211, 153, 0.6);
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.25);
+}
+
+.welcome-quick-btn:hover svg {
+  transform: scale(1.15);
+}
+
+.welcome-quick-btn--qr {
+  border-color: rgba(251, 191, 36, 0.35);
+  color: var(--amber-400, #fbbf24);
+}
+
+.welcome-quick-btn--qr svg {
+  color: var(--amber-400, #fbbf24);
+}
+
+.welcome-quick-btn--qr:hover {
+  background: rgba(251, 191, 36, 0.15);
+  border-color: rgba(251, 191, 36, 0.7);
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(251, 191, 36, 0.25);
+}
+
+.welcome-quick-btn--install {
+  border-color: rgba(59, 130, 246, 0.35);
+  color: #60a5fa;
+}
+
+.welcome-quick-btn--install svg {
+  color: #60a5fa;
+}
+
+.welcome-quick-btn--install:hover {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.7);
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.25);
+}
+
+/* ── Modal Partage & QR Code ─────────────────────────────── */
+.pg-share-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 15000;
+  background: rgba(2, 6, 23, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: pgFade 0.2s ease;
+}
+
+.pg-share-modal {
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #0b1329;
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  border-radius: 24px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7), 0 0 30px rgba(16, 185, 129, 0.15);
+  display: flex;
+  flex-direction: column;
+  animation: modalSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pg-share-header {
+  padding: 18px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.pg-share-header__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 17px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.pg-share-close {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-muted);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s;
+}
+
+.pg-share-close:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #ef4444;
+}
+
+/* ── Onglets dans la modal ────────────────────────────────── */
+.pg-share-tabs {
+  display: flex;
+  padding: 10px 16px 0;
+  gap: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.pg-share-tab {
+  flex: 1;
+  padding: 10px 8px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.pg-share-tab:hover {
+  color: #fff;
+}
+
+.pg-share-tab.active {
+  color: var(--emerald-400);
+  border-bottom-color: var(--emerald-400);
+  background: rgba(16, 185, 129, 0.08);
+  border-radius: 8px 8px 0 0;
+}
+
+.pg-share-body {
+  padding: 22px;
+}
+
+/* ── Panneau Partage Réseaux ──────────────────────────────── */
+.pg-share-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.pg-share-network-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pg-share-network-btn:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.pg-share-network-btn--wa {
+  background: rgba(37, 211, 102, 0.12);
+  border-color: rgba(37, 211, 102, 0.35);
+  color: #25d366;
+}
+.pg-share-network-btn--wa:hover {
+  background: rgba(37, 211, 102, 0.22);
+  border-color: #25d366;
+  color: #fff;
+}
+
+.pg-share-network-btn--tg {
+  background: rgba(0, 136, 204, 0.12);
+  border-color: rgba(0, 136, 204, 0.35);
+  color: #29b6f6;
+}
+.pg-share-network-btn--tg:hover {
+  background: rgba(0, 136, 204, 0.22);
+  border-color: #0088cc;
+  color: #fff;
+}
+
+.pg-share-network-btn--fb {
+  background: rgba(24, 119, 242, 0.12);
+  border-color: rgba(24, 119, 242, 0.35);
+  color: #60a5fa;
+}
+.pg-share-network-btn--fb:hover {
+  background: rgba(24, 119, 242, 0.22);
+  border-color: #1877f2;
+  color: #fff;
+}
+
+.pg-share-network-btn--tw {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+.pg-share-network-btn--tw:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: #ffffff;
+}
+
+/* Champ de copie directe */
+.pg-share-copylink {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 6px 8px 6px 14px;
+  margin-top: 14px;
+}
+
+.pg-share-copylink__input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #e2e8f0;
+  font-size: 13px;
+  font-family: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pg-share-copylink__btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--emerald-600, #059669);
+  color: #fff;
+  border: none;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.pg-share-copylink__btn:hover {
+  background: var(--emerald-500, #10b981);
+}
+
+/* ── Panneau QR Code ─────────────────────────────────────── */
+.pg-qr-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.pg-qr-box {
+  background: #ffffff;
+  padding: 16px;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(16, 185, 129, 0.35);
+  margin-bottom: 16px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pg-qr-box img,
+.pg-qr-box canvas {
+  display: block;
+  width: 220px;
+  height: 220px;
+  border-radius: 8px;
+}
+
+.pg-qr-logo-overlay {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  background: #059669;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.pg-qr-desc {
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 16px;
+  max-width: 340px;
+}
+
+/* ── Panneau Installation PWA ────────────────────────────── */
+.pg-install-card {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 16px;
+  padding: 18px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.pg-install-app-preview {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #059669, #10b981);
+  box-shadow: 0 8px 24px rgba(5, 150, 105, 0.4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.pg-install-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 13px;
+  color: #cbd5e1;
+  line-height: 1.5;
+}
+.pg-install-step:last-child {
+  border-bottom: none;
+}
+
+.pg-install-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(52, 211, 153, 0.2);
+  color: var(--emerald-400);
+  font-weight: 800;
+  font-size: 12px;
+  flex-shrink: 0;
+}

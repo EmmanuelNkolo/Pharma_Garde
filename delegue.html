@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="css/pharma-auth.css?v=3.1">
   <link rel="stylesheet" href="css/delegue-theme.css?v=4.0">
   <link rel="stylesheet" href="css/pg-connect.css?v=1.0">
+  <link rel="stylesheet" href="css/pg-share.css?v=1.0">
 </head>
 <body>
   <div class="app-container">
@@ -668,6 +669,9 @@
       <hr style="border-color: var(--border-default); margin: 24px 0;">
       <!-- Support Développeur Pharma-Garde -->
       <div id="delegate-support-container" style="margin-top: 16px; margin-bottom: 16px;"></div>
+      <button type="button" class="btn btn--secondary btn--block" onclick="PharmaShare.openModal('share')" style="margin-bottom: 10px;">
+        <span>🔗</span> <span>Partager l'application &amp; QR Code</span>
+      </button>
       <button id="btn-logout" class="btn btn--secondary btn--block" data-i18n="del_logout">Déconnexion</button>
       <button id="btn-delete-account" class="btn btn--ghost btn--block" style="margin-top: 8px; color: var(--red-400);" data-i18n="delete_title">Supprimer mon compte</button>
     </div>
@@ -685,6 +689,7 @@
   <script src="js/i18n.js?v=2.2"></script>
   <script src="js/geolocation.js?v=2.2"></script>
   <script src="js/pg-connect.js?v=1.0"></script>
+  <script src="js/pg-share.js?v=1.0"></script>
   <script src="js/delegue.js?v=4.2"></script>
 </body>
 </html>
