@@ -446,10 +446,151 @@
   }
 
   // ═════════════════════════════════════════════════════════
-  // 5. CONNECTEUR DAEMON & CYCLE HORAIRE AUTOMATIQUE (1H)
+  // 5. CONNECTEUR UNIVERSEL MULTI-BASES & SERVEUR OFFICINE
   // ═════════════════════════════════════════════════════════
+  const CONNECTOR_CONFIG_KEY = 'pharmagarde_universal_connector_config';
+
+  function getConnectorConfig() {
+    try {
+      const saved = localStorage.getItem(CONNECTOR_CONFIG_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return {
+      mode: 'local_daemon',
+      dbType: 'mysql',
+      serverUrl: 'http://localhost:8080',
+      apiKey: '',
+      syncIntervalMinutes: 60,
+      status: 'offline',
+      lastSync: null
+    };
+  }
+
+  function saveConnectorConfigUI() {
+    const modeEl = document.getElementById('connector-mode-select');
+    const urlEl = document.getElementById('connector-server-url');
+    const dbTypeEl = document.getElementById('connector-db-type');
+    const apiKeyEl = document.getElementById('connector-api-key');
+
+    const config = getConnectorConfig();
+    if (modeEl) config.mode = modeEl.value;
+    if (urlEl) config.serverUrl = (urlEl.value || 'http://localhost:8080').trim().replace(/\/$/, '');
+    if (dbTypeEl) config.dbType = dbTypeEl.value;
+    if (apiKeyEl) config.apiKey = (apiKeyEl.value || '').trim();
+
+    localStorage.setItem(CONNECTOR_CONFIG_KEY, JSON.stringify(config));
+    logConnectorActivity('info', `Configuration enregistrée : Mode=${config.mode}, Base=${config.dbType}, Serveur=${config.serverUrl}`);
+    if (typeof showToast === 'function') {
+      showToast('💾 Configuration du connecteur enregistrée !', 'success');
+    }
+
+    testConnectorConnection();
+  }
+
+  function loadConnectorConfigUI() {
+    const config = getConnectorConfig();
+    const modeEl = document.getElementById('connector-mode-select');
+    const urlEl = document.getElementById('connector-server-url');
+    const dbTypeEl = document.getElementById('connector-db-type');
+    const apiKeyEl = document.getElementById('connector-api-key');
+
+    if (modeEl) modeEl.value = config.mode;
+    if (urlEl) urlEl.value = config.serverUrl;
+    if (dbTypeEl) dbTypeEl.value = config.dbType;
+    if (apiKeyEl) apiKeyEl.value = config.apiKey || '';
+
+    updateConnectorUIStatus(config.status || 'offline');
+  }
+
+  async function testConnectorConnection() {
+    const config = getConnectorConfig();
+    const urlEl = document.getElementById('connector-server-url');
+    const serverUrl = urlEl ? (urlEl.value || 'http://localhost:8080').trim().replace(/\/$/, '') : config.serverUrl;
+    const statusEl = document.getElementById('connector-test-status');
+
+    if (statusEl) {
+      statusEl.innerHTML = `<span style="color:#fbbf24;">⏳ Test de connexion vers ${serverUrl}...</span>`;
+    }
+    logConnectorActivity('info', `Test de connexion en cours vers le serveur : ${serverUrl}...`);
+
+    const t0 = performance.now();
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+      const resp = await fetch(`${serverUrl}/health`, {
+        signal: controller.signal,
+        headers: config.apiKey ? { 'Authorization': `Bearer ${config.apiKey}` } : {}
+      });
+      clearTimeout(timeoutId);
+
+      const latency = Math.round(performance.now() - t0);
+      if (resp.ok) {
+        const data = await resp.json();
+        config.status = 'online';
+        localStorage.setItem(CONNECTOR_CONFIG_KEY, JSON.stringify(config));
+        updateConnectorUIStatus('online', latency, data);
+        logConnectorActivity('info', `🟢 Connexion établie avec le serveur d'officine (${serverUrl}) ! Latence: ${latency}ms, Base: ${(data.db_type || config.dbType).toUpperCase()}, Produits indexés: ${data.total_products || 'N/A'}.`);
+        if (typeof showToast === 'function') {
+          showToast(`🟢 Connecteur Officine en ligne (${latency}ms) !`, 'success');
+        }
+        return true;
+      } else {
+        throw new Error(`Code HTTP ${resp.status}`);
+      }
+    } catch (err) {
+      config.status = 'offline';
+      localStorage.setItem(CONNECTOR_CONFIG_KEY, JSON.stringify(config));
+      updateConnectorUIStatus('offline');
+      logConnectorActivity('warn', `🔴 Impossible de joindre le serveur d'officine sur ${serverUrl} (${err.message || 'Délai d\'attente dépassé'}).`);
+      logConnectorActivity('info', `💡 Pour connecter votre serveur ou base de données, lancez « node pharmagarde-connector-daemon.js » ou démarrez votre passerelle d'officine.`);
+      if (typeof showToast === 'function') {
+        showToast(`⚠️ Serveur non joignable sur ${serverUrl}`, 'warn');
+      }
+      return false;
+    }
+  }
+
+  function updateConnectorUIStatus(status, latency, data) {
+    const statusEl = document.getElementById('connector-test-status');
+    const quickBadge = document.getElementById('connector-quick-badge');
+
+    if (status === 'online') {
+      if (statusEl) {
+        statusEl.innerHTML = `
+          <div style="display:flex; align-items:center; gap:8px; color:#34d399; font-weight:700;">
+            <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#10b981; box-shadow:0 0 8px #10b981;"></span>
+            <span>Connecté au serveur · Latence ${latency || 12}ms · ${(data && data.total_products) ? data.total_products + ' articles indexés' : 'Prêt'}</span>
+          </div>
+        `;
+      }
+      if (quickBadge) {
+        quickBadge.style.borderColor = 'rgba(16,185,129,0.5)';
+        quickBadge.style.color = '#34d399';
+        quickBadge.innerHTML = `<span class="pharm-mode-indicator" style="width:10px; height:10px; background:#10b981;"></span> <span>Connecteur En Ligne (${latency || 12}ms)</span>`;
+      }
+    } else {
+      if (statusEl) {
+        statusEl.innerHTML = `
+          <div style="display:flex; align-items:center; gap:8px; color:#f87171; font-weight:700;">
+            <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#ef4444;"></span>
+            <span>Serveur ou Base hors-ligne · En attente de démarrage du daemon local</span>
+          </div>
+        `;
+      }
+      if (quickBadge) {
+        quickBadge.style.borderColor = 'rgba(239,68,68,0.4)';
+        quickBadge.style.color = '#f87171';
+        quickBadge.innerHTML = `<span class="pharm-mode-indicator" style="width:10px; height:10px; background:#ef4444;"></span> <span>Connecteur Hors-ligne</span>`;
+      }
+    }
+  }
+
   function initConnectorDaemon() {
     if (syncTimer) clearInterval(syncTimer);
+
+    // Charger la configuration sauvegardée
+    loadConnectorConfigUI();
 
     // Décompte de la synchronisation horaire
     syncSecondsRemaining = 3600;
@@ -463,7 +604,7 @@
     }, 1000);
 
     updateSyncCountdownUI();
-    logConnectorActivity('info', 'Connecteur Daemon initialisé avec scrutation automatique toutes les 1h.');
+    logConnectorActivity('info', 'Connecteur Universel initialisé avec scrutation automatique toutes les 1h.');
   }
 
   function updateSyncCountdownUI() {
@@ -474,11 +615,50 @@
     el.textContent = `${m} min ${s < 10 ? '0' : ''}${s}s`;
   }
 
-  function runConnectorHourlySync() {
-    const stock = window.pharmacyStock || [];
+  async function runConnectorHourlySync() {
+    const config = getConnectorConfig();
+    let stock = window.pharmacyStock || [];
+    let syncedFromRemote = false;
+
+    // Tentative d'interrogation réelle du serveur / base de données locale
+    if (config.serverUrl) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3500);
+        const resp = await fetch(`${config.serverUrl}/api/stock`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (resp.ok) {
+          const json = await resp.json();
+          if (json && json.success && Array.isArray(json.items) && json.items.length > 0) {
+            window.pharmacyStock = json.items.map(item => ({
+              id: item.id || ('MED-' + Math.random().toString(36).substr(2, 6)),
+              name: item.name,
+              status: (item.stock > 0) ? 'en_stock' : 'rupture',
+              stock: item.stock || 0,
+              price: item.price || 1000,
+              covered_insurances: item.covered_insurances || ['Ascoma', 'Activa']
+            }));
+            stock = window.pharmacyStock;
+            syncedFromRemote = true;
+            if (typeof window.PharmDash !== 'undefined' && typeof window.PharmDash.filterStockProducts === 'function') {
+              window.PharmDash.filterStockProducts('');
+            }
+          }
+        }
+      } catch (e) {
+        // Serveur non joint, conservation du stock existant
+      }
+    }
+
     const ruptures = stock.filter(p => p.status === 'rupture');
 
-    logConnectorActivity('info', `🔄 Synchronisation horaire exécutée : ${stock.length} articles vérifiés.`);
+    if (syncedFromRemote) {
+      logConnectorActivity('info', `🔄 Synchronisation serveur réussie : ${stock.length} articles actualisés directement depuis la base locale.`);
+    } else {
+      logConnectorActivity('info', `🔄 Synchronisation automatique exécutée : ${stock.length} articles vérifiés.`);
+    }
+
     if (ruptures.length > 0) {
       logConnectorActivity('warn', `⚠️ Ruptures identifiées : ${ruptures.length} produit(s) (${ruptures.slice(0, 3).map(r => r.name).join(', ')}).`);
     }
@@ -489,13 +669,71 @@
     }
   }
 
-  function triggerImmediateSync() {
-    runConnectorHourlySync();
+  async function triggerImmediateSync() {
+    logConnectorActivity('info', 'Demande de synchronisation manuelle immédiate lancée...');
+    await runConnectorHourlySync();
     syncSecondsRemaining = 3600;
     updateSyncCountdownUI();
     if (typeof showToast === 'function') {
       showToast('🔄 Synchronisation avec le serveur d\'officine réussie !', 'success');
     }
+  }
+
+  function importStockFromFile(fileInput) {
+    const file = fileInput.files ? fileInput.files[0] : null;
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const content = e.target.result;
+      let items = [];
+
+      try {
+        if (file.name.endsWith('.json')) {
+          const parsed = JSON.parse(content);
+          items = Array.isArray(parsed) ? parsed : (parsed.items || []);
+        } else {
+          // Format CSV (séparateur virgule ou point-virgule)
+          const lines = content.split(/\r?\n/).filter(line => line.trim().length > 0);
+          if (lines.length > 1) {
+            const sep = lines[0].includes(';') ? ';' : ',';
+            for (let i = 1; i < lines.length; i++) {
+              const cols = lines[i].split(sep).map(c => c.trim().replace(/^["']|["']$/g, ''));
+              if (cols[0]) {
+                const stockVal = parseInt(cols[1], 10);
+                items.push({
+                  id: 'IMP-' + i,
+                  name: cols[0],
+                  stock: isNaN(stockVal) ? 10 : stockVal,
+                  price: parseInt(cols[2], 10) || 1000,
+                  status: (isNaN(stockVal) || stockVal > 0) ? 'en_stock' : 'rupture',
+                  covered_insurances: cols[3] ? cols[3].split('|').map(s => s.trim()) : ['Ascoma', 'Activa', 'AXA']
+                });
+              }
+            }
+          }
+        }
+
+        if (items.length > 0) {
+          window.pharmacyStock = items;
+          if (typeof window.PharmDash !== 'undefined' && typeof window.PharmDash.filterStockProducts === 'function') {
+            window.PharmDash.filterStockProducts('');
+          }
+          logConnectorActivity('info', `📁 Fichier ${file.name} importé avec succès : ${items.length} articles indexés.`);
+          if (typeof showToast === 'function') {
+            showToast(`📁 ${items.length} médicaments importés avec succès !`, 'success');
+          }
+        } else {
+          throw new Error('Fichier vide ou format non reconnu');
+        }
+      } catch (err) {
+        logConnectorActivity('warn', `❌ Erreur lors de l'import du fichier : ${err.message}`);
+        if (typeof showToast === 'function') {
+          showToast(`❌ Erreur import : ${err.message}`, 'error');
+        }
+      }
+    };
+    reader.readAsText(file);
   }
 
   function logConnectorActivity(type, message) {
@@ -518,15 +756,12 @@
 
     countdownTimer24h = setInterval(() => {
       update24hCountdownBadges();
-    }, 30000); // Mise à jour toutes les 30 secondes
+    }, 30000);
   }
 
   function update24hCountdownBadges() {
     const cards = document.querySelectorAll('#active-requests .pharm-card');
-    const now = Date.now();
-
     cards.forEach(card => {
-      // Calcul du délai restant
       const badge = card.querySelector('.pharm-24h-badge');
       if (badge) {
         badge.textContent = '⏳ Reste 23h 48m';
@@ -558,15 +793,14 @@
   }
 
   function updateConsistentStats() {
-    // Calcul mathématique cohérent basé sur les demandes
     const totalRecvEl = document.getElementById('stat-total-received');
     const posRespEl = document.getElementById('stat-positive-responses');
     const arrivedEl = document.getElementById('stat-total-arrived');
     const convRateEl = document.getElementById('stat-conversion-rate');
 
     const total = 48;
-    const positive = 41; // 85%
-    const arrived = 36;  // 75%
+    const positive = 41;
+    const arrived = 36;
     const rate = Math.round((arrived / total) * 100);
 
     if (totalRecvEl) totalRecvEl.textContent = total;
@@ -580,7 +814,14 @@
   // ═════════════════════════════════════════════════════════
   window.PharmDash = window.PharmDash || {};
 
-  // Nouvelles méthodes des 3 Grands Espaces
+  // Cycle de vie & Initialiseurs (Résout le ReferenceError)
+  window.PharmDash.initInsuranceConventions = initInsuranceConventions;
+  window.PharmDash.initResponseMode = initResponseMode;
+  window.PharmDash.initNotifications = initNotifications;
+  window.PharmDash.initConnectorDaemon = initConnectorDaemon;
+  window.PharmDash.start24hCountdownTimer = start24hCountdownTimer;
+
+  // Méthodes des 3 Grands Espaces
   window.PharmDash.switchSpace = switchSpace;
   window.PharmDash.switchClientSubtab = switchClientSubtab;
   window.PharmDash.switchDelegateSubtab = switchDelegateSubtab;
@@ -591,9 +832,13 @@
   window.PharmDash.markAllNotificationsRead = markAllNotificationsRead;
   window.PharmDash.navigateToNotification = navigateToNotification;
 
-  // Automatisation & Connecteur
+  // Automatisation, Connecteur Universel & Assurances
   window.PharmDash.setResponseMode = setResponseMode;
   window.PharmDash.triggerImmediateSync = triggerImmediateSync;
+  window.PharmDash.testConnectorConnection = testConnectorConnection;
+  window.PharmDash.saveConnectorConfigUI = saveConnectorConfigUI;
+  window.PharmDash.loadConnectorConfigUI = loadConnectorConfigUI;
+  window.PharmDash.importStockFromFile = importStockFromFile;
   window.PharmDash.toggleInsurance = toggleInsurance;
   window.PharmDash.saveInsuranceConventions = saveInsuranceConventions;
   window.PharmDash.renderStarProducts = renderStarProducts;

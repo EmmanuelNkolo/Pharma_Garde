@@ -840,8 +840,10 @@
 
     // Initialize Inventory Database & Insurance Conventions
     initStockDatabase();
-    initInsuranceConventions();
-    initResponseMode();
+    if (window.PharmDash) {
+      if (typeof window.PharmDash.initInsuranceConventions === 'function') window.PharmDash.initInsuranceConventions();
+      if (typeof window.PharmDash.initResponseMode === 'function') window.PharmDash.initResponseMode();
+    }
 
     // Load initial data
     loadActiveRequests();
@@ -856,14 +858,18 @@
     subscribeToDelegateVisitsAndPromos();
     subscribeToStockAlerts();
     startExpirationChecker();
-    start24hCountdownTimer();
-    initConnectorDaemon();
-    initNotifications();
+    if (window.PharmDash) {
+      if (typeof window.PharmDash.start24hCountdownTimer === 'function') window.PharmDash.start24hCountdownTimer();
+      if (typeof window.PharmDash.initConnectorDaemon === 'function') window.PharmDash.initConnectorDaemon();
+      if (typeof window.PharmDash.initNotifications === 'function') window.PharmDash.initNotifications();
+    }
 
     // Bind Controls & Set Default Space
     initDashboardControls();
     initSettings();
-    switchSpace('clients');
+    if (window.PharmDash && typeof window.PharmDash.switchSpace === 'function') {
+      window.PharmDash.switchSpace('clients');
+    }
   }
 
   function handleLogout() {

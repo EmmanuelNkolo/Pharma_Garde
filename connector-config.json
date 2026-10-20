@@ -1,0 +1,12 @@
+{
+  "comment": "Configuration du Connecteur Universel Pharma-Garde",
+  "db_type": "mysql",
+  "db_host": "localhost",
+  "db_port": 3306,
+  "db_name": "officine_db",
+  "db_user": "root",
+  "db_password": "",
+  "stock_table": "medicaments",
+  "auto_sync_interval_minutes": 60,
+  "secret_token": ""
+}

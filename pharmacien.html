@@ -686,67 +686,162 @@
             </div>
           </div>
 
-          <!-- Sous-panneau 3D : Connecteur Automatique Officine (Daemon) -->
+          <!-- Sous-panneau 3D : Connecteur Automatique Officine (Daemon & Multi-Bases Universel) -->
           <div id="subpanel-mgmt-connector" style="display:none;">
-            <div class="pharm-connector-dashboard">
-              <!-- Console & Paramètres Connecteur -->
-              <div class="pharm-card">
+            <div class="pharm-connector-dashboard" style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+              
+              <!-- 1. Configuration de la Liaison Serveur / Base de Données -->
+              <div class="pharm-card" style="grid-column:1 / -1;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
                   <div>
-                    <h4 style="font-size:15px; font-weight:800; color:#34d399; margin:0; display:flex; align-items:center; gap:6px;">
-                      <span>⚡</span> Moniteur du Connecteur Officine
+                    <h4 style="font-size:16px; font-weight:800; color:#34d399; margin:0; display:flex; align-items:center; gap:8px;">
+                      <span>🔌</span> Liaison Universelle avec le Serveur &amp; Base de Données d'Officine
                     </h4>
                     <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">
-                      Synchronisation périodique toutes les 1h avec la base locale &amp; réponses automatisées.
+                      Connectez Pharma-Garde à n'importe quel ordinateur ou serveur hébergeant votre logiciel de gestion ou votre base de données.
                     </p>
                   </div>
-                  <button type="button" class="btn btn--sm" style="background:linear-gradient(135deg, #10b981, #059669); color:#fff; font-weight:800;" onclick="PharmDash.triggerImmediateSync()">
-                    🔄 Synchroniser Maintenant
+                  <div style="display:flex; gap:8px;">
+                    <button type="button" class="btn btn--sm" style="background:rgba(59,130,246,0.15); color:#60a5fa; border:1px solid rgba(59,130,246,0.4); font-weight:700;" onclick="PharmDash.testConnectorConnection()">
+                      🔌 Tester la Connexion
+                    </button>
+                    <button type="button" class="btn btn--sm" style="background:linear-gradient(135deg, #10b981, #059669); color:#fff; font-weight:800;" onclick="PharmDash.saveConnectorConfigUI()">
+                      💾 Enregistrer la Liaison
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Formulaire de Liaison Universelle -->
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:12px; margin-bottom:14px;">
+                  <div>
+                    <label style="font-size:11.5px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">
+                      Mode de Connexion
+                    </label>
+                    <select id="connector-mode-select" class="form-input" style="background:#0f172a; border-color:rgba(255,255,255,0.12); color:#fff; font-size:12.5px;">
+                      <option value="local_daemon" selected>🚀 Agent Connecteur Local (Machine / Réseau Officine)</option>
+                      <option value="rest_api">🌐 Serveur API REST d'Officine (URL Dédiée)</option>
+                      <option value="file_import">📁 Import Direct Fichier Stock (CSV / Excel / JSON)</option>
+                      <option value="cloud_supabase">☁️ Base Cloud Supabase (Temps Réel)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style="font-size:11.5px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">
+                      Adresse IP / URL de la Machine ou du Serveur
+                    </label>
+                    <input type="text" id="connector-server-url" class="form-input" placeholder="http://localhost:8080 ou http://192.168.1.100:8080" value="http://localhost:8080" style="background:#0f172a; border-color:rgba(255,255,255,0.12); color:#fff; font-size:12.5px;">
+                  </div>
+
+                  <div>
+                    <label style="font-size:11.5px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">
+                      Moteur de Base de Données / Logiciel Cible
+                    </label>
+                    <select id="connector-db-type" class="form-input" style="background:#0f172a; border-color:rgba(255,255,255,0.12); color:#fff; font-size:12.5px;">
+                      <option value="mysql" selected>🐬 MySQL / MariaDB (ex: WinPharma, GesPharma, etc.)</option>
+                      <option value="postgres">🐘 PostgreSQL (ex: LGPI, SmartPharma, etc.)</option>
+                      <option value="mssql">🏢 Microsoft SQL Server (ex: Pharmagest, Caduciel, etc.)</option>
+                      <option value="sqlite">📄 SQLite / Fichier Local d'Officine</option>
+                      <option value="rest_api">🔌 API Webhook / Serveur Interne</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style="font-size:11.5px; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:4px;">
+                      Clé d'Authentification / Token (Optionnel)
+                    </label>
+                    <input type="password" id="connector-api-key" class="form-input" placeholder="Laisser vide si aucun mot de passe" style="background:#0f172a; border-color:rgba(255,255,255,0.12); color:#fff; font-size:12.5px;">
+                  </div>
+                </div>
+
+                <!-- Témoin d'état dynamique de la connexion -->
+                <div id="connector-test-status" style="background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:10px 14px; font-size:12.5px;">
+                  <div style="display:flex; align-items:center; gap:8px; color:var(--text-muted);">
+                    <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#94a3b8;"></span>
+                    <span>Cliquez sur « Tester la Connexion » pour vérifier l'accès au serveur ou à la base de données de cette machine.</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 2. Console & Journal d'Activité en Direct -->
+              <div class="pharm-card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                  <h4 style="font-size:14px; font-weight:800; color:#34d399; margin:0; display:flex; align-items:center; gap:6px;">
+                    <span>⚡</span> Journal d'Activité en Direct (Daemon)
+                  </h4>
+                  <button type="button" class="btn btn--sm" style="background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.35); font-weight:700;" onclick="PharmDash.triggerImmediateSync()">
+                    🔄 Synchroniser Stock
                   </button>
                 </div>
 
-                <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:14px;">
-                  <div style="background:rgba(0,0,0,0.3); padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
-                    <div style="font-size:11px; color:var(--text-muted);">Fréquence Synchro</div>
-                    <div style="font-size:14px; font-weight:800; color:#fff;">Toutes les 1h</div>
+                <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-bottom:12px;">
+                  <div style="background:rgba(0,0,0,0.3); padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
+                    <div style="font-size:10.5px; color:var(--text-muted);">Fréquence</div>
+                    <div style="font-size:13px; font-weight:800; color:#fff;">Toutes les 1h</div>
                   </div>
-                  <div style="background:rgba(0,0,0,0.3); padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
-                    <div style="font-size:11px; color:var(--text-muted);">Prochaine Synchro</div>
-                    <div style="font-size:14px; font-weight:800; color:#fbbf24;" id="connector-countdown-text">59 min 40s</div>
+                  <div style="background:rgba(0,0,0,0.3); padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
+                    <div style="font-size:10.5px; color:var(--text-muted);">Prochaine Synchro</div>
+                    <div style="font-size:13px; font-weight:800; color:#fbbf24;" id="connector-countdown-text">59 min 40s</div>
                   </div>
-                  <div style="background:rgba(0,0,0,0.3); padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
-                    <div style="font-size:11px; color:var(--text-muted);">Réponses Automatisées</div>
-                    <div style="font-size:14px; font-weight:800; color:#34d399;" id="connector-auto-replies-count">0 transmise(s)</div>
+                  <div style="background:rgba(0,0,0,0.3); padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
+                    <div style="font-size:10.5px; color:var(--text-muted);">Réponses Auto</div>
+                    <div style="font-size:13px; font-weight:800; color:#34d399;" id="connector-auto-replies-count">0 transmise(s)</div>
                   </div>
                 </div>
 
-                <!-- Console d'activité temps réel -->
-                <label style="font-size:11px; font-weight:800; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:6px;">
-                  Journal d'activité en direct (Daemon Connecteur)
-                </label>
-                <div class="pharm-console-log" id="connector-console-log">
-                  <div><span class="time">[10:00:00]</span> <span class="info">Démarrage du Daemon Connecteur Officine v2.0...</span></div>
-                  <div><span class="time">[10:00:01]</span> Connexion établie avec la base d'inventaire locale (15 médicaments indexés).</div>
-                  <div><span class="time">[10:00:02]</span> Analyse des conventions d'assurances : 8 organismes agréés.</div>
-                  <div><span class="time">[10:00:03]</span> <span class="info">Mode réponse automatique actif : délai de réponse garanti &lt; 0.5s.</span></div>
+                <div class="pharm-console-log" id="connector-console-log" style="height:200px;">
+                  <div><span class="time">[10:00:00]</span> <span class="info">Connecteur Universel Pharma-Garde initialisé.</span></div>
+                  <div><span class="time">[10:00:01]</span> Liaison configurée pour interrogation directe de base ou serveur local.</div>
+                  <div><span class="time">[10:00:02]</span> Scrutation horaire et détection des ruptures actives.</div>
                 </div>
               </div>
 
-              <!-- Bloc Installation sur Serveur Pharmacie -->
-              <div class="pharm-card" style="border-color:rgba(251,191,36,0.35);">
-                <h4 style="font-size:13.5px; font-weight:800; color:#fbbf24; text-transform:uppercase; margin-bottom:10px;">
-                  🖥️ Installation sur PC Comptoir / Serveur
-                </h4>
-                <p style="font-size:12px; color:var(--text-secondary); line-height:1.4; margin-bottom:12px;">
-                  Pour relier directement Pharma-Garde à votre logiciel de pharmacie (WinPharma, LGPI, Pharmagest, MySQL), lancez le script daemon autonome sur votre poste :
-                </p>
-                <div style="background:#050811; padding:10px; border-radius:8px; font-family:monospace; font-size:11px; color:#34d399; margin-bottom:12px; overflow-x:auto;">
-                  node pharmagarde-connector-daemon.js
+              <!-- 3. Import Fichier Direct & Déploiement Machine / Serveur -->
+              <div style="display:flex; flex-direction:column; gap:16px;">
+                
+                <!-- Import Fichier Rapide -->
+                <div class="pharm-card" style="border-color:rgba(59,130,246,0.35);">
+                  <h4 style="font-size:13.5px; font-weight:800; color:#60a5fa; text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                    <span>📁</span> Import Direct Fichier Stock (CSV / Excel / JSON)
+                  </h4>
+                  <p style="font-size:12px; color:var(--text-secondary); line-height:1.4; margin-bottom:12px;">
+                    Vous pouvez aussi synchroniser tout le stock de l'officine en 1 clic sans installer de serveur en chargeant un fichier d'export de votre logiciel de caisse :
+                  </p>
+                  <div style="display:flex; gap:8px; align-items:center;">
+                    <input type="file" id="connector-file-input" accept=".csv,.json" style="display:none;" onchange="PharmDash.importStockFromFile(this)">
+                    <button type="button" class="btn btn--primary btn--sm" style="background:linear-gradient(135deg, #3b82f6, #1d4ed8); flex:1; font-weight:700;" onclick="document.getElementById('connector-file-input').click()">
+                      📂 Sélectionner Fichier Stock (.CSV ou .JSON)
+                    </button>
+                    <a href="data:text/csv;charset=utf-8,Medicament%3BQuantite%3BPrix%3BAssurances%0AParacetamol%20500mg%3B120%3B500%3BAscoma%7CActiva%0ADoliprane%201000mg%3B80%3B1200%3BAscoma%7CAXA%0AAzithromycine%20500mg%3B0%3B4200%3BAscoma" download="modele_stock_officine.csv" class="btn btn--secondary btn--sm" title="Télécharger un modèle CSV">
+                      📄 Modèle CSV
+                    </a>
+                  </div>
                 </div>
-                <a href="pharmagarde-connector-daemon.js" download="pharmagarde-connector-daemon.js" class="btn btn--primary btn--block" style="background:linear-gradient(135deg, #fbbf24, #d97706); color:#000; font-weight:800; font-size:13px; text-decoration:none; text-align:center; padding:10px;">
-                  📥 Télécharger le Daemon Local (.js)
-                </a>
+
+                <!-- Pack Installation Serveur Local -->
+                <div class="pharm-card" style="border-color:rgba(251,191,36,0.35);">
+                  <h4 style="font-size:13.5px; font-weight:800; color:#fbbf24; text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                    <span>🖥️</span> Pack Serveur &amp; Machine Locale
+                  </h4>
+                  <p style="font-size:12px; color:var(--text-secondary); line-height:1.4; margin-bottom:10px;">
+                    Pour connecter automatiquement n'importe quelle machine ou base SQL de l'officine :
+                  </p>
+                  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <a href="pharmagarde-connector-daemon.js" download="pharmagarde-connector-daemon.js" class="btn btn--sm" style="background:rgba(251,191,36,0.15); color:#fbbf24; border:1px solid rgba(251,191,36,0.4); text-decoration:none; flex:1; text-align:center; font-weight:700;">
+                      📥 Daemon (.js)
+                    </a>
+                    <a href="demarrer-connecteur.bat" download="demarrer-connecteur.bat" class="btn btn--sm" style="background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.4); text-decoration:none; flex:1; text-align:center; font-weight:700;">
+                      ⚡ Lanceur Windows (.bat)
+                    </a>
+                  </div>
+                  <div style="margin-top:10px; font-size:11px; color:var(--text-muted); line-height:1.4;">
+                    1. Placez les fichiers sur votre PC ou serveur.<br>
+                    2. Double-cliquez sur <strong>demarrer-connecteur.bat</strong>.<br>
+                    3. Cliquez sur <strong>« Tester la Connexion »</strong> ci-dessus !
+                  </div>
+                </div>
+
               </div>
+
             </div>
           </div>
         </div>
