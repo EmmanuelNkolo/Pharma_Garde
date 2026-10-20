@@ -178,9 +178,12 @@ const App = (() => {
 
     bindEvents();
     initDemoSlides();
+    updateSessionUI();
+    setInterval(updateSessionUI, 30000); // Synchronisation automatique du compte à rebours 24h
     
     document.addEventListener('languageChanged', () => {
       updatePharmacies();
+      updateSessionUI();
     });
     
     // Load active requests for patient
@@ -318,9 +321,13 @@ const App = (() => {
     const btnBackSearch = $('#btn-back-search');
     if (btnBackSearch) btnBackSearch.addEventListener('click', () => showSearchStep(1));
 
-    // New search
+    // New search button on live response banner
     const btnNewSearch = $('#btn-new-search');
-    if (btnNewSearch) btnNewSearch.addEventListener('click', resetSearch);
+    if (btnNewSearch) {
+      btnNewSearch.addEventListener('click', () => {
+        openNewSearchWithoutCancel();
+      });
+    }
 
     // Cancel / Quitter search
     const btnCancelSearch = $('#btn-cancel-search');
@@ -332,9 +339,12 @@ const App = (() => {
         responseChannels = [];
         realResponses = [];
         
-        $('#responses-banner').style.display = 'none';
-        $('#main-actions').style.display = 'flex';
-        $('#pharmacy-list').innerHTML = '';
+        const banner = $('#responses-banner');
+        if (banner) banner.style.display = 'none';
+        const actions = $('#main-actions');
+        if (actions) actions.style.display = 'flex';
+        const list = $('#pharmacy-list');
+        if (list) list.innerHTML = '';
         
         updatePharmacies();
       });
@@ -741,7 +751,7 @@ const App = (() => {
     showSearchStep(1);
     selectedMedicines = [];
     renderMedicineTags();
-  
+    updateSessionUI();
   }
 
   function closeSearchModal() {
@@ -822,6 +832,7 @@ const App = (() => {
 
     selectedMedicines.push(name);
     renderMedicineTags();
+    updateSessionUI();
     
     const input = $('#medicine-input');
     if (input) input.value = '';
@@ -841,6 +852,7 @@ const App = (() => {
   function removeMedicine(index) {
     selectedMedicines.splice(index, 1);
     renderMedicineTags();
+    updateSessionUI();
     
     const btn = $('#proceed-search-btn');
     if (btn) btn.disabled = selectedMedicines.length === 0;
@@ -923,16 +935,104 @@ const App = (() => {
     if (modal) modal.style.display = 'none';
   }
 
-  function proceedToPayment() {
-    const cost = Payment.getSearchCost();
-    
-    if (cost === 0) {
-      // Session active, skip payment
+  // ── Session UI Synchronization ─────────────────────────
+  function updateSessionUI() {
+    if (typeof Payment === 'undefined') return;
+
+    const hasSession = Payment.hasActiveSession();
+    const sessionInfo = Payment.getSessionInfo();
+    const costVal = $('#cost-value');
+    const costSubtitle = $('#cost-subtitle');
+    const proceedBtn = $('#proceed-search-btn');
+    const sessionTimer = $('#session-timer');
+    const phoneInput = $('#phone-input');
+
+    // 1. Floating Session Timer Badge
+    if (sessionTimer) {
+      if (hasSession) {
+        sessionTimer.classList.remove('hidden');
+        sessionTimer.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #34d399; box-shadow: 0 0 10px #34d399; animation: pulse 2s infinite;"></span>
+            <span>Pass 24h Actif · Recherches illimitées (${sessionInfo.formatted})</span>
+          </div>
+        `;
+        sessionTimer.onclick = () => {
+          showToast(`🟢 Pass 24h actif (${sessionInfo.formatted} restantes) : Toutes vos recherches de médicaments sont gratuites et illimitées.`, 'info');
+        };
+      } else {
+        sessionTimer.classList.add('hidden');
+        sessionTimer.innerHTML = '';
+        sessionTimer.onclick = null;
+      }
+    }
+
+    // 2. Pre-fill phone in payment step if available
+    if (phoneInput && !phoneInput.value && sessionInfo.phone) {
+      phoneInput.value = sessionInfo.phone;
+    }
+
+    // 3. Search Modal Cost & Button
+    if (costVal) {
+      if (hasSession) {
+        costVal.innerHTML = `<span style="color: var(--emerald-400);">0 FCFA</span> <span style="display: inline-block; font-size: 11px; background: rgba(16,185,129,0.2); color: #6ee7b7; padding: 2px 8px; border-radius: 12px; margin-left: 6px; font-weight: 700; vertical-align: middle;">PASS 24H ACTIF</span>`;
+        if (costSubtitle) {
+          costSubtitle.innerHTML = `Inclus dans votre session active (${sessionInfo.formatted} restantes)`;
+          costSubtitle.style.color = '#34d399';
+        }
+      } else {
+        costVal.textContent = `${Payment.SEARCH_COST} FCFA`;
+        if (costSubtitle) {
+          costSubtitle.textContent = `Valable pour 24h de recherches illimitées`;
+          costSubtitle.style.color = 'var(--text-secondary)';
+        }
+      }
+    }
+
+    if (proceedBtn) {
+      const btnText = proceedBtn.querySelector('span[data-i18n]') || proceedBtn;
+      if (hasSession) {
+        btnText.innerHTML = `🚀 Lancer la recherche <small style="font-weight: 500; opacity: 0.9;">(Gratuit · Pass 24h)</small>`;
+      } else {
+        btnText.textContent = `Suivant`;
+      }
+    }
+  }
+
+  async function proceedToPayment() {
+    const hasSession = Payment.hasActiveSession();
+
+    if (hasSession) {
+      // Session active, skip payment completely!
+      const sessionInfo = Payment.getSessionInfo();
+      showToast(`✅ Pass 24h actif (${sessionInfo.formatted} restantes) ! Recherche lancée sans frais.`, 'success');
+      
+      const phoneInput = $('#phone-input');
+      if (phoneInput && !phoneInput.value && sessionInfo.phone) {
+        phoneInput.value = sessionInfo.phone;
+      }
+      
       handleSearchRequest();
       return;
     }
 
-    // Show payment step
+    // Attempt remote auto-restore if phone was previously entered/saved
+    const phoneInput = $('#phone-input');
+    const savedPhone = (phoneInput && phoneInput.value.trim()) || localStorage.getItem('pharmagarde_client_phone') || '';
+    if (savedPhone) {
+      const restored = await Payment.verifyRemoteSession(savedPhone);
+      if (restored) {
+        updateSessionUI();
+        const sessionInfo = Payment.getSessionInfo();
+        showToast(`✅ Pass 24h restauré (${sessionInfo.formatted} restantes) ! Recherche lancée sans frais.`, 'success');
+        if (phoneInput && !phoneInput.value) phoneInput.value = savedPhone;
+        handleSearchRequest();
+        return;
+      }
+    }
+
+    // Show payment step (100 FCFA)
+    const cost = Payment.getSearchCost();
     const amountEl = $('#payment-amount-val');
     if (amountEl) amountEl.textContent = cost;
     showSearchStep(2);
@@ -958,7 +1058,10 @@ const App = (() => {
       const result = await Payment.processPayment(phone, selectedPaymentMethod, Payment.SEARCH_COST);
       
       if (result.success) {
-        showToast(`✅ ${result.message}`, 'success');
+        // Explicitly create/refresh session and persist phone
+        Payment.createSession(result.transactionId, phone);
+        updateSessionUI();
+        showToast(`🎉 ${result.message || 'Paiement confirmé ! Votre Pass 24h est activé.'}`, 'success');
         handleSearchRequest();
       } else {
         if (result.redirect) {
@@ -1041,6 +1144,10 @@ const App = (() => {
         sessionStorage.setItem('pharma_session_id', sessionId);
       }
       
+      // Robust client phone retrieval (from input OR session OR localStorage)
+      const sessionInfo = (typeof Payment !== 'undefined' && Payment.getSessionInfo) ? Payment.getSessionInfo() : {};
+      const clientPhone = (phoneInput && phoneInput.value.trim()) || sessionInfo.phone || localStorage.getItem('pharmagarde_client_phone') || null;
+
       const { data, error } = await supabase
         .from('requests')
         .insert([{
@@ -1050,7 +1157,7 @@ const App = (() => {
           radius: currentRadius,
           status: 'pending',
           session_id: sessionId,
-          user_phone: (phoneInput && phoneInput.value) ? phoneInput.value : null,
+          user_phone: clientPhone,
           insurance_name: insuranceName,
           expires_at: expiresAt,
           created_at: new Date().toISOString(),
@@ -1215,6 +1322,15 @@ const App = (() => {
       return new Date(b.created_at) - new Date(a.created_at); // Newer responses first if same request
     });
 
+    // Multi-request header bar if more than 1 search request active
+    let multiReqBar = '';
+    if (activeRequestIds.length > 1) {
+      multiReqBar = `<div style="padding: 10px 14px; background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.25); border-radius: 10px; margin-bottom: 14px; font-size: 12px; color: #93c5fd; display: flex; justify-content: space-between; align-items: center;">
+        <span>📋 <strong>${activeRequestIds.length}</strong> recherches actives</span>
+        <button class="btn btn--sm btn--secondary" onclick="App.openNewSearchWithoutCancel()" style="padding: 4px 8px; font-size: 11px;">+ Autre produit</button>
+      </div>`;
+    }
+
     listEl.innerHTML = multiReqBar + confirmBtnHtml + sortedResponses.map(resp => {
       const pos = Geolocation.getPosition();
       let distance = '—';
@@ -1301,6 +1417,7 @@ const App = (() => {
     insuranceName = null;
     renderMedicineTags();
     showSearchStep(1);
+    updateSessionUI();
     
     const btn = $('#proceed-search-btn');
     if (btn) btn.disabled = true;
@@ -1428,6 +1545,7 @@ const App = (() => {
     insuranceName = null;
     renderMedicineTags();
     showSearchStep(1);
+    updateSessionUI();
     
     const btn = $('#proceed-search-btn');
     if (btn) btn.disabled = true;
@@ -1876,6 +1994,8 @@ const App = (() => {
     toggleReserveMedicine,
     confirmAllReservations,
     resetAfterReservation,
+    openNewSearchWithoutCancel,
+    updateSessionUI,
   };
 
   // ── Start ──────────────────────────────────────────────

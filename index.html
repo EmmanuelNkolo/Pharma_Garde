@@ -204,7 +204,7 @@
     <!-- ════════════════════════════════════════════════════════
          SESSION TIMER
          ════════════════════════════════════════════════════════ -->
-    <div id="session-timer" class="hidden" style="position: fixed; top: calc(var(--header-height) + 8px); left: 50%; transform: translateX(-50%); z-index: 300; background: linear-gradient(135deg, rgba(5,150,105,0.9), rgba(16,185,129,0.85)); backdrop-filter: blur(8px); padding: 6px 16px; border-radius: var(--radius-full); font-size: 12px; font-weight: 700; color: white; box-shadow: var(--shadow-md);"></div>
+    <div id="session-timer" class="hidden" style="position: fixed; top: calc(var(--header-height) + 10px); left: 50%; transform: translateX(-50%); z-index: 300; background: linear-gradient(135deg, rgba(5,150,105,0.95), rgba(16,185,129,0.92)); backdrop-filter: blur(10px); padding: 8px 18px; border-radius: var(--radius-full); font-size: 12px; font-weight: 700; color: white; box-shadow: 0 4px 16px rgba(16,185,129,0.35); border: 1px solid rgba(255,255,255,0.25); cursor: pointer; transition: all 0.25s ease;" title="Votre session de 24h est active"></div>
 
     <!-- ════════════════════════════════════════════════════════
          BOTTOM SHEET
@@ -232,6 +232,21 @@
             <span>🌙</span>
             <span data-i18n="guard_pharmacies">Garde</span>
           </button>
+        </div>
+
+        <!-- Banner for active patient searches -->
+        <div id="responses-banner" style="display: none; align-items: center; justify-content: space-between; background: linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.08)); border: 1px solid rgba(16,185,129,0.3); border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; gap: 8px;">
+          <div>
+            <div style="font-size: 13px; font-weight: 700; color: #34d399; display: flex; align-items: center; gap: 6px;">
+              <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981;"></span>
+              Recherche active en direct
+            </div>
+            <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Pass 24h actif · Réponses des officines</div>
+          </div>
+          <div style="display: flex; gap: 6px; flex-shrink: 0;">
+            <button id="btn-new-search" class="btn btn--sm btn--primary" style="padding: 6px 10px; font-size: 12px; font-weight: 600;">+ Autre produit</button>
+            <button id="btn-cancel-search" class="btn btn--sm btn--secondary" style="padding: 6px 10px; font-size: 12px; border-color: rgba(239,68,68,0.35); color: #f87171;">Fermer</button>
+          </div>
         </div>
 
         <!-- Pharmacy Count -->
@@ -296,9 +311,10 @@
               </select>
               <input type="text" id="custom-insurance-input" class="form-input hidden" placeholder="Veuillez préciser votre assurance..." style="margin-top: 8px;">
             </div>
-            <div id="search-cost" style="text-align: center; margin-top: 16px; padding: 12px; background: var(--bg-secondary); border-radius: var(--radius-md);">
+            <div id="search-cost" style="text-align: center; margin-top: 16px; padding: 12px; background: var(--bg-secondary); border-radius: var(--radius-md); transition: all 0.3s ease;">
               <span style="font-size: 12px; color: var(--text-muted);" data-i18n="payment_amount">Montant</span>
               <div id="cost-value" style="font-size: 24px; font-weight: 800; color: var(--emerald-400);">100 FCFA</div>
+              <div id="cost-subtitle" style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Valable pour 24h de recherches illimitées</div>
             </div>
             <button id="proceed-search-btn" class="btn btn--primary btn--block" style="margin-top: 16px;">
               <span data-i18n="next">Suivant</span>
