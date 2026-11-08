@@ -107,10 +107,18 @@
     } catch (e) {}
   }
 
+  function normalizeUserAndRole(arg1, arg2) {
+    if (typeof arg1 === 'string' && (!arg2 || typeof arg2 === 'object')) {
+      return { role: arg1, user: arg2 || { id: 'demo_user' } };
+    }
+    return { user: arg1 || { id: 'demo_user' }, role: typeof arg2 === 'string' ? arg2 : 'delegate' };
+  }
+
   /**
    * Calcule l'état détaillé de l'abonnement
    */
-  function getStatusInfo(user, role) {
+  function getStatusInfo(userOrRole, roleOrUser) {
+    const { user, role } = normalizeUserAndRole(userOrRole, roleOrUser);
     const sub = getLocalSubscription(user, role);
     const now = Date.now();
     const expMs = Number(sub.expiresAt) || now;
@@ -182,7 +190,8 @@
   /**
    * Affiche le badge d'abonnement dans le header ou conteneur dédié
    */
-  function renderHeaderBadge(containerOrId, user, role) {
+  function renderHeaderBadge(containerOrId, userOrRole, roleOrUser) {
+    const { user, role } = normalizeUserAndRole(userOrRole, roleOrUser);
     const container = typeof containerOrId === 'string'
       ? document.getElementById(containerOrId)
       : containerOrId;
@@ -231,7 +240,8 @@
   /**
    * Vérifie les rappels J-7, J-3, J-1 et affiche une bannière non-intrusive
    */
-  function checkAndShowReminders(user, role, targetBannerContainerId) {
+  function checkAndShowReminders(userOrRole, roleOrUser, targetBannerContainerId) {
+    const { user, role } = normalizeUserAndRole(userOrRole, roleOrUser);
     const info = getStatusInfo(user, role);
     if (!info.reminderLevel) return info;
 
@@ -272,7 +282,8 @@
   /**
    * Gatekeeper Paywall : exécute `onAllowed()` si l'abonnement est actif, sinon ouvre la modale Paywall
    */
-  function enforcePaywall(user, role, featureName, onAllowed) {
+  function enforcePaywall(userOrRole, roleOrUser, featureName, onAllowed) {
+    const { user, role } = normalizeUserAndRole(userOrRole, roleOrUser);
     const info = getStatusInfo(user, role);
     if (info.isActive) {
       if (typeof onAllowed === 'function') onAllowed(info);
@@ -288,7 +299,8 @@
   /**
    * Ouvre la modale d'abonnement / Paywall avec paiement Mobile Money (Orange Money & MTN MoMo)
    */
-  function openPaywallModal(user, role, options) {
+  function openPaywallModal(userOrRole, roleOrUser, options) {
+    const { user, role } = normalizeUserAndRole(userOrRole, roleOrUser);
     const opts = options || {};
     const effectiveRole = role || 'delegate';
     const roleConfig = PLANS_BY_ROLE[effectiveRole] || PLANS_BY_ROLE.delegate;
@@ -589,3 +601,4 @@
     downloadSubscriptionReceipt
   };
 })(window);
+

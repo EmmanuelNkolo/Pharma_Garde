@@ -266,3 +266,4 @@
     getCurrentWholesaler: () => currentWholesaler
   };
 })(window);
+

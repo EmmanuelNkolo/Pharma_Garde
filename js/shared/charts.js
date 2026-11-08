@@ -40,13 +40,16 @@
 
   /**
    * Courbe ou Histogramme d'évolution (Commandes, Visites, Demandes, Chiffre d'affaires)
+   * Accepte soit (canvasId, configObj) soit (canvasId, labelsArray, datasetsArray, typeStr)
    */
-  function renderTrendChart(canvasId, config) {
+  function renderTrendChart(canvasId, configOrLabels, maybeDatasets, maybeType) {
     const canvas = ensureCanvas(canvasId);
     if (!canvas || typeof Chart === 'undefined') return null;
 
     destroyChart(canvasId);
-    const cfg = config || {};
+    const cfg = Array.isArray(configOrLabels)
+      ? { labels: configOrLabels, datasets: maybeDatasets || [], type: maybeType || 'line' }
+      : (configOrLabels || {});
     const labels = cfg.labels || ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
     const datasets = (cfg.datasets || []).map((ds, idx) => {
       const colors = [
@@ -109,13 +112,16 @@
 
   /**
    * Camembert / Anneau de répartition (Statuts de commandes, Taux de réponse, Assurances)
+   * Accepte soit (canvasId, configObj) soit (canvasId, labelsArray, dataArray, colorsArray)
    */
-  function renderDistributionChart(canvasId, config) {
+  function renderDistributionChart(canvasId, configOrLabels, maybeData, maybeColors) {
     const canvas = ensureCanvas(canvasId);
     if (!canvas || typeof Chart === 'undefined') return null;
 
     destroyChart(canvasId);
-    const cfg = config || {};
+    const cfg = Array.isArray(configOrLabels)
+      ? { labels: configOrLabels, data: maybeData || [], colors: maybeColors }
+      : (configOrLabels || {});
     const labels = cfg.labels || ['Confirmé', 'En attente', 'Rupture / Refusé'];
     const data = cfg.data || [65, 25, 10];
     const colors = cfg.colors || [
@@ -164,13 +170,16 @@
 
   /**
    * Barres horizontales (Top médicaments commandés / sollicités, Top laboratoires)
+   * Accepte soit (canvasId, configObj) soit (canvasId, labelsArray, dataArray, labelStr)
    */
-  function renderHorizontalBarChart(canvasId, config) {
+  function renderHorizontalBarChart(canvasId, configOrLabels, maybeData, maybeLabel) {
     const canvas = ensureCanvas(canvasId);
     if (!canvas || typeof Chart === 'undefined') return null;
 
     destroyChart(canvasId);
-    const cfg = config || {};
+    const cfg = Array.isArray(configOrLabels)
+      ? { labels: configOrLabels, data: maybeData || [], label: maybeLabel || 'Volume' }
+      : (configOrLabels || {});
     const labels = cfg.labels || [];
     const data = cfg.data || [];
 
@@ -224,3 +233,4 @@
     renderHorizontalBarChart
   };
 })(window);
+

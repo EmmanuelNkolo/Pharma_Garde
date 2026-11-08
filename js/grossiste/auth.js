@@ -282,6 +282,7 @@
   window.GrossisteAuth = {
     DEFAULT_WHOLESALERS,
     getDirectory,
+    fetchAllWholesalers: async () => getDirectory(),
     saveToDirectory,
     loadSession,
     saveSession,
@@ -290,3 +291,4 @@
     register
   };
 })(window);
+

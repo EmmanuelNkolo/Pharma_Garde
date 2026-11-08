@@ -246,6 +246,9 @@
               <button type="button" class="btn btn--secondary btn--sm" onclick="GrossisteOrders.exportDeliveryNotePDF('${esc(ord.id)}')">
                 📄 Bon de Livraison PDF
               </button>
+              <button type="button" class="btn btn--secondary btn--sm" style="color:#60a5fa;border-color:rgba(96,165,250,0.38);" onclick="GrossisteOrders.openPharmacyIdentity('${esc(ord.id)}')">
+                🪪 Identité &amp; Position GPS Officine
+              </button>
             </div>
             <div style="display:flex;gap:6px;">
               ${cleanPhone ? `
@@ -317,7 +320,8 @@
       pharmacy_phone: p.pharmacy_phone || '',
       pharmacy_city: p.pharmacy_city || 'Douala',
       urgency: p.urgency || 'urgent',
-      status: 'pending',
+      status: isAutoConfirmEnabled() ? 'confirmed' : 'pending',
+      confirmed_at: isAutoConfirmEnabled() ? new Date().toISOString() : undefined,
       items,
       total_amount: total,
       delivery_address: p.delivery_address || 'Officine',
@@ -385,6 +389,86 @@
     });
   }
 
+  function isAutoConfirmEnabled() {
+    try {
+      const v = localStorage.getItem('pg_grossiste_auto_confirm_v95');
+      return v === null ? true : v === '1';
+    } catch (e) {
+      return true;
+    }
+  }
+
+  function toggleAutoConfirm(enabled) {
+    try {
+      localStorage.setItem('pg_grossiste_auto_confirm_v95', enabled ? '1' : '0');
+    } catch (e) {}
+    if (window.GrossisteApp) {
+      window.GrossisteApp.toast(
+        enabled
+          ? '🤖 Validation automatique des commandes entrantes activée.'
+          : '⏸️ Validation automatique désactivée (mode manuel).',
+        'success'
+      );
+    }
+  }
+
+  function autoConfirmAllPending() {
+    loadOrders();
+    const pendingList = orders.filter(o => o.status === 'pending');
+    if (pendingList.length === 0) {
+      if (window.GrossisteApp) window.GrossisteApp.toast('✅ Aucune commande en attente — Tout est déjà traité !', 'success');
+      return 0;
+    }
+    const nowIso = new Date().toISOString();
+    pendingList.forEach(o => {
+      o.status = 'confirmed';
+      o.confirmed_at = nowIso;
+      o.updated_at = nowIso;
+    });
+    saveOrders();
+    renderOrdersList();
+    if (window.GrossisteApp) {
+      window.GrossisteApp.refreshAllKpis();
+      window.GrossisteApp.toast(`⚡ ${pendingList.length} commande(s) B2B confirmée(s) automatiquement en 1 clic !`, 'success');
+    }
+    return pendingList.length;
+  }
+
+  function autoAdvanceConfirmedToShipped() {
+    loadOrders();
+    const confList = orders.filter(o => o.status === 'confirmed' || o.status === 'preparing');
+    if (confList.length === 0) {
+      if (window.GrossisteApp) window.GrossisteApp.toast('ℹ️ Aucune commande confirmée en attente d\'expédition.', 'success');
+      return 0;
+    }
+    const nowIso = new Date().toISOString();
+    confList.forEach(o => {
+      o.status = 'shipped';
+      o.shipped_at = nowIso;
+      o.updated_at = nowIso;
+    });
+    saveOrders();
+    renderOrdersList();
+    if (window.GrossisteApp) {
+      window.GrossisteApp.refreshAllKpis();
+      window.GrossisteApp.toast(`🚚 ${confList.length} commande(s) passée(s) en statut « En livraison » !`, 'success');
+    }
+    return confList.length;
+  }
+
+  function openPharmacyIdentity(orderId) {
+    loadOrders();
+    const ord = orders.find(o => o.id === orderId);
+    if (!ord || !window.PGProGeo) return;
+    window.PGProGeo.openActorModal('pharmacy', {
+      id: ord.pharmacy_id,
+      name: ord.pharmacy_name,
+      city: ord.pharmacy_city || 'Douala',
+      phone: ord.pharmacy_phone || '',
+      address: ord.delivery_address || ord.pharmacy_city || 'Douala'
+    });
+  }
+
   window.GrossisteOrders = {
     loadOrders,
     saveOrders,
@@ -394,6 +478,11 @@
     renderOrdersList,
     advanceOrderStatus,
     createOrderFromPharmacy,
-    exportDeliveryNotePDF
+    exportDeliveryNotePDF,
+    toggleAutoConfirm,
+    autoConfirmAllPending,
+    autoAdvanceConfirmedToShipped,
+    openPharmacyIdentity
   };
 })(window);
+

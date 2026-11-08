@@ -368,7 +368,7 @@
             <div>
               <h2 class="grossiste-pole-title">🛒 Commandes de Réapprovisionnement des Officines</h2>
               <p class="grossiste-pole-desc">
-                Traitez les commandes B2B émises par les pharmacies partenaires, éditez les Bons de Livraison PDF et suivez les expéditions.
+                Traitez les commandes B2B émises par les pharmacies partenaires, éditez les Bons de Livraison PDF et vérifiez l'identité &amp; la position GPS exacte de chaque officine.
               </p>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;" id="grossiste-order-filters">
@@ -377,6 +377,25 @@
               <button type="button" class="time-pill-btn" data-status="confirmed" onclick="GrossisteOrders.setStatusFilter('confirmed')">📋 Confirmées</button>
               <button type="button" class="time-pill-btn" data-status="shipped" onclick="GrossisteOrders.setStatusFilter('shipped')">🚚 En livraison</button>
               <button type="button" class="time-pill-btn" data-status="delivered" onclick="GrossisteOrders.setStatusFilter('delivered')">✅ Livrées</button>
+            </div>
+          </div>
+
+          <!-- Barre d'Automatisation Intelligente B2B -->
+          <div class="grossiste-card" style="padding:12px 16px;margin-bottom:14px;border-color:rgba(16,185,129,0.35);background:linear-gradient(135deg,rgba(16,185,129,0.10),rgba(15,23,42,0.85));display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <span style="background:rgba(16,185,129,0.2);color:#34d399;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:900;">🤖 AUTOMATISATION B2B</span>
+              <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#e2e8f0;font-weight:700;cursor:pointer;">
+                <input type="checkbox" id="g-auto-confirm-toggle" checked onchange="GrossisteOrders.toggleAutoConfirm(this.checked)" style="accent-color:#10b981;width:16px;height:16px;">
+                Validation automatique des commandes entrantes lorsque le stock catalogue est suffisant
+              </label>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button type="button" class="btn btn--primary btn--sm" style="background:linear-gradient(135deg,#10b981,#059669);font-weight:800;" onclick="GrossisteOrders.autoConfirmAllPending()">
+                ⚡ Confirmer Toutes les Commandes en Attente (1-Clic)
+              </button>
+              <button type="button" class="btn btn--secondary btn--sm" onclick="GrossisteOrders.autoAdvanceConfirmedToShipped()">
+                🚚 Expédier Toutes les Commandes Confirmées
+              </button>
             </div>
           </div>
 
@@ -391,18 +410,26 @@
             <div>
               <h2 class="grossiste-pole-title">📢 Diffusion d'Arrivages B2B &amp; Alertes Ruptures Officines</h2>
               <p class="grossiste-pole-desc">
-                Informez instantanément les Pharmacies et les Délégués Médicaux de vos nouveaux arrivages et répondez aux ruptures critiques.
+                Informez instantanément les Pharmacies et les Délégués Médicaux de vos nouveaux arrivages et répondez automatiquement aux ruptures critiques.
               </p>
             </div>
-            <button type="button" class="btn btn--primary" style="background:linear-gradient(135deg,#fbbf24,#d97706);color:#0f172a;font-weight:900;border:none;" onclick="GrossisteCampaigns.openNewCampaignModal(GrossisteApp.getCurrentWholesaler())">
-              📢 Publier un Arrivage / Offre B2B
-            </button>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button type="button" class="btn btn--secondary btn--sm" style="border-color:rgba(96,165,250,0.45);color:#60a5fa;font-weight:800;" onclick="GrossisteCampaigns.notifyDelegatesLowStock(GrossisteApp.getCurrentWholesaler())">
+                🤝 Alerter Délégués Médicaux (Stocks sous Seuil)
+              </button>
+              <button type="button" class="btn btn--secondary btn--sm" style="border-color:rgba(16,185,129,0.45);color:#34d399;font-weight:800;" onclick="GrossisteCampaigns.autoProposeAllRestocks(GrossisteApp.getCurrentWholesaler())">
+                ⚡ Répondre Auto à Toutes les Ruptures (1-Clic)
+              </button>
+              <button type="button" class="btn btn--primary btn--sm" style="background:linear-gradient(135deg,#fbbf24,#d97706);color:#0f172a;font-weight:900;border:none;" onclick="GrossisteCampaigns.openNewCampaignModal(GrossisteApp.getCurrentWholesaler())">
+                📢 Publier un Arrivage / Offre B2B
+              </button>
+            </div>
           </div>
 
           <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:18px;">
             <div>
               <h3 style="font-size:14px;font-weight:800;color:#34d399;text-transform:uppercase;margin-bottom:10px;">
-                🎁 Mes Campagnes &amp; Arrivages Diffusés
+                🎁 Mes Campagnes &amp; Arrivages Diffusés (Pharmacies &amp; Délégués)
               </h3>
               <div id="grossiste-campaigns-list"></div>
             </div>
@@ -416,30 +443,75 @@
         </section>
 
         <!-- ════════════════════════════════════════════════════════
-             PÔLE 4 : RÉSEAU B2B (CARTE PHARMACIES & DÉLÉGUÉS)
+             PÔLE 4 : RÉSEAU B2B (CARTE PHARMACIES PAR RAYON & DÉLÉGUÉS)
              ════════════════════════════════════════════════════════ -->
         <section id="gpanel-network" style="display:none;">
           <div class="grossiste-pole-header">
             <div>
-              <h2 class="grossiste-pole-title">🤝 Cartographie Logistique &amp; Réseau B2B (Pharmacies &amp; Délégués)</h2>
+              <h2 class="grossiste-pole-title">🤝 Radar Géolocalisé des Pharmacies par Rayon &amp; Réseau Délégués</h2>
               <p class="grossiste-pole-desc">
-                Visualisez les officines clientes et les délégués médicaux partenaires pour coordonner la distribution des produits.
+                Géolocalisez les pharmacies dans un rayon précis (2 km à 50 km ou National), consultez leur identité certifiée ONPC et lancez l'itinéraire de livraison en 1 clic.
               </p>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <button type="button" class="btn btn--secondary btn--sm" style="border-color:rgba(16,185,129,0.45);color:#34d399;font-weight:800;" onclick="GrossisteStats.centerOnMyGPS()">
+                📡 Centrer sur ma Position GPS
+              </button>
+              <span id="grossiste-radius-summary-badge" style="background:rgba(251,191,36,0.16);border:1px solid rgba(251,191,36,0.4);color:#fbbf24;padding:5px 12px;border-radius:999px;font-size:12px;font-weight:800;">
+                🎯 Rayon actif : 15 km
+              </span>
+            </div>
+          </div>
+
+          <!-- Barre de Contrôle du Rayon Géographique & Filtres -->
+          <div class="grossiste-card" style="padding:14px 16px;margin-bottom:16px;border-color:rgba(59,130,246,0.35);">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <span style="font-size:12px;font-weight:900;color:#93c5fd;text-transform:uppercase;">📏 Rayon de Couverture :</span>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;" id="grossiste-radius-pills">
+                  <button type="button" class="time-pill-btn" data-radius="2" onclick="GrossisteStats.setRadiusKm(2)">2 km</button>
+                  <button type="button" class="time-pill-btn" data-radius="5" onclick="GrossisteStats.setRadiusKm(5)">5 km</button>
+                  <button type="button" class="time-pill-btn" data-radius="10" onclick="GrossisteStats.setRadiusKm(10)">10 km</button>
+                  <button type="button" class="time-pill-btn active" data-radius="15" onclick="GrossisteStats.setRadiusKm(15)">15 km</button>
+                  <button type="button" class="time-pill-btn" data-radius="25" onclick="GrossisteStats.setRadiusKm(25)">25 km</button>
+                  <button type="button" class="time-pill-btn" data-radius="50" onclick="GrossisteStats.setRadiusKm(50)">50 km</button>
+                  <button type="button" class="time-pill-btn" data-radius="0" onclick="GrossisteStats.setRadiusKm(0)">🌍 National (Toutes)</button>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <select id="grossiste-net-city-hub" class="form-input form-select" style="width:auto;min-width:155px;padding:6px 10px;font-size:12px;" onchange="GrossisteStats.setHubCity(this.value)">
+                  <option value="auto">📍 Hub : Siège / GPS Actuel</option>
+                  <option value="Douala">📍 Hub : Douala (Akwa)</option>
+                  <option value="Yaoundé">📍 Hub : Yaoundé (Centre)</option>
+                  <option value="Bafoussam">📍 Hub : Bafoussam</option>
+                  <option value="Garoua">📍 Hub : Garoua</option>
+                  <option value="Bamenda">📍 Hub : Bamenda</option>
+                </select>
+                <select id="grossiste-net-status-filter" class="form-input form-select" style="width:auto;min-width:145px;padding:6px 10px;font-size:12px;" onchange="GrossisteStats.setStatusFilter(this.value)">
+                  <option value="all">🏥 Tous statuts</option>
+                  <option value="open">🟢 Ouvertes</option>
+                  <option value="guard">🌙 De Garde</option>
+                </select>
+                <input type="text" id="grossiste-net-search" class="form-input" style="max-width:210px;padding:6px 10px;font-size:12px;" placeholder="🔍 Nom, quartier, titulaire..." oninput="GrossisteStats.setSearchQuery(this.value)">
+              </div>
             </div>
           </div>
 
           <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:16px;">
             <div class="grossiste-card">
-              <h4 style="font-size:14px;font-weight:800;color:#34d399;margin:0 0 10px;">🗺️ Carte Logistique des Officines Desservies</h4>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+                <h4 style="font-size:14px;font-weight:800;color:#34d399;margin:0;">🗺️ Carte Logistique Interactive &amp; Cercle de Rayon</h4>
+                <span id="grossiste-map-counter" style="font-size:11.5px;color:#cbd5e1;font-weight:700;"></span>
+              </div>
               <div id="grossiste-network-map"></div>
             </div>
             <div style="display:flex;flex-direction:column;gap:16px;">
-              <div class="grossiste-card" style="margin-bottom:0;">
-                <h4 style="font-size:14px;font-weight:800;color:#34d399;margin:0 0 8px;">🏥 Pharmacies d'Officine Partenaires</h4>
+              <div class="grossiste-card" style="margin-bottom:0;max-height:340px;overflow-y:auto;">
+                <h4 style="font-size:14px;font-weight:800;color:#34d399;margin:0 0 8px;">🏥 Pharmacies dans le Rayon Sélectionné</h4>
                 <div id="grossiste-partner-pharmacies-list"></div>
               </div>
-              <div class="grossiste-card" style="margin-bottom:0;">
-                <h4 style="font-size:14px;font-weight:800;color:#fbbf24;margin:0 0 8px;">💼 Délégués Médicaux &amp; Laboratoires</h4>
+              <div class="grossiste-card" style="margin-bottom:0;max-height:280px;overflow-y:auto;">
+                <h4 style="font-size:14px;font-weight:800;color:#fbbf24;margin:0 0 8px;">💼 Délégués Médicaux &amp; Laboratoires Partenaires</h4>
                 <div id="grossiste-partner-delegates-list"></div>
               </div>
             </div>
@@ -706,8 +778,9 @@
   <script src="js/i18n.js?v=9.0"></script>
   <script src="js/shared/network.js?v=9.0"></script>
   <script src="js/shared/subscription.js?v=9.0"></script>
-  <script src="js/shared/charts.js?v=9.0"></script>
-  <script src="js/shared/reports.js?v=9.0"></script>
+  <script src="js/shared/charts.js?v=9.5"></script>
+  <script src="js/shared/reports.js?v=9.5"></script>
+  <script src="js/shared/pro-geolocation.js?v=9.5"></script>
   <script src="js/pg-connect.js?v=9.0"></script>
   <script src="js/pg-share.js?v=9.0"></script>
   <script src="js/grossiste/auth.js?v=9.0"></script>
@@ -718,3 +791,4 @@
   <script src="js/grossiste/app.js?v=9.0"></script>
 </body>
 </html>
+

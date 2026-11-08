@@ -860,6 +860,19 @@
         [inStockCount, ruptureCount, activeInsCount],
         ['#10b981', '#ef4444', '#fbbf24']
       );
+
+      window.PGCharts.renderHorizontalBarChart('pharm-stats-top-canvas', {
+        label: 'Demandes & Achats Cumulés',
+        labels: [
+          'Doliprane 1000mg',
+          'Amoxicilline 1g',
+          'Coartem 80/480mg',
+          'Efferalgan 1g',
+          'Ventoline 100µg',
+          'Augmentin 1g'
+        ],
+        data: [94, 76, 62, 51, 39, 35]
+      });
     }
   }
 
@@ -1051,7 +1064,12 @@
                   </td>
                   <td>
                     <div style="font-weight:700; color:#34d399;">🏭 ${esc(wh.company_name)}</div>
-                    <div style="font-size:11px; color:var(--text-muted);">📍 ${esc(wh.city || 'Douala')}</div>
+                    <div style="font-size:11px; color:var(--text-muted); display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                      <span>📍 ${esc(wh.city || 'Douala')}</span>
+                      <button type="button" class="btn btn--ghost btn--sm" style="font-size:10.5px; color:#60a5fa; padding:1px 6px;" onclick="PGProGeo && PGProGeo.openActorModal('wholesaler', { id: '${esc(wh.id || item.wholesaler_id || '')}', name: '${esc(wh.company_name)}' })">
+                        🪪 Identité &amp; GPS
+                      </button>
+                    </div>
                   </td>
                   <td style="font-weight:600; color:#e2e8f0;">${esc(item.lab_name || '—')}</td>
                   <td style="font-weight:800; color:#fbbf24;">${Number(item.wholesale_price || 0).toLocaleString('fr-FR')} FCFA</td>
@@ -1220,7 +1238,12 @@
                 Passée le ${esc(dateStr)} • Total HT : <strong style="color:#fbbf24;">${Number(ord.total_amount || 0).toLocaleString('fr-FR')} FCFA</strong>
               </div>
             </div>
-            <span class="chip ${st.cls}" style="font-size:11.5px;">${st.label}</span>
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <button type="button" class="btn btn--sm" style="background:rgba(59,130,246,0.15); color:#60a5fa; border:1px solid rgba(59,130,246,0.4); font-weight:800; font-size:11px;" onclick="PGProGeo && PGProGeo.openActorModal('wholesaler', { id: '${esc(ord.wholesaler_id || wh.id || '')}', name: '${esc(ord.wholesaler_name || wh.company_name)}' })">
+                🪪 Identité &amp; Position GPS Grossiste
+              </button>
+              <span class="chip ${st.cls}" style="font-size:11.5px;">${st.label}</span>
+            </div>
           </div>
           <div style="background:rgba(0,0,0,0.25); border-radius:8px; padding:10px; margin-bottom:8px;">
             ${items.map(it => `
@@ -1261,21 +1284,87 @@
           <p style="font-size:12.5px; color:var(--text-secondary); line-height:1.5; margin-bottom:10px;">
             ${esc(c.description || '')}
           </p>
-          <div style="display:flex; justify-content:space-between; align-items:center; font-size:11.5px; color:var(--text-muted);">
-            <span>📍 Zone : ${esc((c.target_cities || ['National']).join(', '))}</span>
-            <button type="button" class="btn btn--sm" style="background:rgba(16,185,129,0.15); color:#34d399; border:1px solid rgba(16,185,129,0.4); font-weight:700;" onclick="PharmDash.switchWholesalerSubtab('catalog')">
-              📦 Voir les produits au catalogue →
-            </button>
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:11.5px; color:var(--text-muted); flex-wrap:wrap; gap:8px;">
+            <span>🏭 <strong>${esc(c.wholesaler_name || 'UBIPHARM CAMEROUN SA')}</strong> · 📍 Zone : ${esc((c.target_cities || ['National']).join(', '))}</span>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <button type="button" class="btn btn--sm" style="background:rgba(59,130,246,0.15); color:#60a5fa; border:1px solid rgba(59,130,246,0.4); font-weight:700;" onclick="PGProGeo && PGProGeo.openActorModal('wholesaler', { id: '${esc(c.wholesaler_id || '')}', name: '${esc(c.wholesaler_name || 'UBIPHARM CAMEROUN SA')}' })">
+                🪪 Identité &amp; GPS Grossiste
+              </button>
+              <button type="button" class="btn btn--sm" style="background:rgba(16,185,129,0.15); color:#34d399; border:1px solid rgba(16,185,129,0.4); font-weight:700;" onclick="PharmDash.switchWholesalerSubtab('catalog')">
+                📦 Voir les produits au catalogue →
+              </button>
+            </div>
           </div>
         </div>
       `;
     }).join('');
   }
 
+  async function autoOrderAllRupturesB2B() {
+    if (!window.GrossisteOrders) return;
+    await loadWholesalersHub();
+    const pharm = getActivePharmacyProfile();
+    const stock = window.pharmacyStock || [];
+    const ruptures = stock.filter(p => p.status === 'rupture');
+
+    if (ruptures.length === 0) {
+      if (typeof showToast === 'function') {
+        showToast('✅ Aucun médicament en rupture dans votre inventaire !', 'success');
+      }
+      return;
+    }
+
+    const wh = cachedWholesalers[0] || {
+      id: 'ws_ubipharm_dla',
+      company_name: 'UBIPHARM CAMEROUN SA'
+    };
+
+    const items = ruptures.map(r => {
+      const clean = (r.name || '').toLowerCase();
+      const matched = cachedB2BCatalog.find(c =>
+        (c.product_name || '').toLowerCase().includes(clean) ||
+        clean.includes((c.product_name || '').toLowerCase().split(' ')[0])
+      );
+      const unitPrice = matched ? Number(matched.wholesale_price || 2500) : 2500;
+      const qty = 15;
+      return {
+        product_name: r.name,
+        cip_code: (matched && matched.cip_code) || 'CIP-AUTO',
+        qty,
+        unit_price: unitPrice,
+        subtotal: qty * unitPrice
+      };
+    });
+
+    const order = await window.GrossisteOrders.createOrderFromPharmacy({
+      wholesaler_id: wh.id,
+      wholesaler_name: wh.company_name,
+      pharmacy_id: pharm.id,
+      pharmacy_name: pharm.name || 'Pharmacie Officine',
+      pharmacy_city: pharm.city || 'Douala',
+      pharmacy_phone: pharm.phone || pharm.whatsapp || '699112233',
+      delivery_address: pharm.address || pharm.city || 'Douala',
+      urgency: 'critical',
+      notes: `🤖 Commande groupée automatique des ${items.length} produit(s) en rupture détecté(s) dans l'inventaire officine.`,
+      items
+    });
+
+    logConnectorActivity('info', `🤖 Commande B2B groupée ${order.order_code} générée automatiquement pour ${items.length} rupture(s) vers ${wh.company_name}.`);
+
+    switchSpace('wholesalers');
+    await loadPharmacyB2BOrders();
+    switchWholesalerSubtab('orders');
+
+    if (typeof showToast === 'function') {
+      showToast(`⚡ Commande B2B ${order.order_code} (${items.length} références en rupture) transmise à ${wh.company_name} !`, 'success');
+    }
+  }
+
   // ═════════════════════════════════════════════════════════
   // EXPORTATION & ENRICHISSEMENT DE WINDOW.PHARMDASH
   // ═════════════════════════════════════════════════════════
   window.PharmDash = window.PharmDash || {};
+  window.PharmDash.autoOrderAllRupturesB2B = autoOrderAllRupturesB2B;
 
   // Cycle de vie & Initialiseurs (Résout le ReferenceError)
   window.PharmDash.initInsuranceConventions = initInsuranceConventions;

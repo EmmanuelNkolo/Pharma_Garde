@@ -34,18 +34,30 @@
     return window.PGNetwork ? window.PGNetwork.escapeHtml(v) : String(v || '');
   }
 
+  function normalizeCatalogItem(item) {
+    if (!item) return item;
+    const qty = Number(item.stock_quantity) || 0;
+    const threshold = Number(item.alert_threshold) || 20;
+    item.retail_price = Number(item.retail_price || item.pharmacy_price || Math.round((Number(item.wholesale_price) || 0) * 1.33));
+    item.pharmacy_price = Number(item.pharmacy_price || item.retail_price);
+    item.cip_code = item.cip_code || item.product_code || '';
+    item.product_code = item.product_code || item.cip_code || '';
+    item.stock_status = qty <= 0 ? 'out_of_stock' : (qty <= threshold ? 'low_stock' : 'in_stock');
+    return item;
+  }
+
   function loadCatalog() {
     try {
       const saved = localStorage.getItem(CATALOG_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          catalogItems = parsed;
+          catalogItems = parsed.map(normalizeCatalogItem);
           return catalogItems;
         }
       }
     } catch (e) {}
-    catalogItems = DEFAULT_CATALOG.slice();
+    catalogItems = DEFAULT_CATALOG.slice().map(normalizeCatalogItem);
     saveCatalog();
     return catalogItems;
   }
@@ -66,7 +78,7 @@
       }
       const { data, error } = await query.limit(300);
       if (!error && Array.isArray(data) && data.length > 0) {
-        catalogItems = data;
+        catalogItems = data.map(normalizeCatalogItem);
         saveCatalog();
       }
     } catch (e) {}
@@ -428,3 +440,4 @@
     exportCatalogPDF
   };
 })(window);
+

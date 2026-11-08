@@ -92,18 +92,27 @@
     return window.PGNetwork ? window.PGNetwork.escapeHtml(v) : String(v || '');
   }
 
+  function normalizeCampaign(c) {
+    if (!c) return c;
+    c.offer_type = c.offer_type || c.campaign_type || 'arrivage';
+    c.campaign_type = c.campaign_type || (c.offer_type === 'arrivage' ? 'arrival' : c.offer_type === 'remise' || c.offer_type === 'gratuites' ? 'promo' : 'tension');
+    c.offer_details = c.offer_details || c.description || '';
+    c.description = c.description || c.offer_details || '';
+    return c;
+  }
+
   function loadCampaigns() {
     try {
       const saved = localStorage.getItem(CAMPAIGNS_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          campaigns = parsed;
+          campaigns = parsed.map(normalizeCampaign);
           return campaigns;
         }
       }
     } catch (e) {}
-    campaigns = DEFAULT_CAMPAIGNS.slice();
+    campaigns = DEFAULT_CAMPAIGNS.slice().map(normalizeCampaign);
     saveCampaigns();
     return campaigns;
   }
@@ -212,9 +221,14 @@
                 </div>
                 <div style="font-size:12px;color:#cbd5e1;margin-top:4px;">${esc(a.message)}</div>
               </div>
-              <button type="button" class="btn btn--primary btn--sm" style="background:linear-gradient(135deg,#10b981,#059669);font-weight:800;white-space:nowrap;" onclick="GrossisteCampaigns.proposeRestock('${esc(a.id)}')">
-                ⚡ Proposer Réappro Immédiat
-              </button>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button type="button" class="btn btn--secondary btn--sm" style="color:#60a5fa;border-color:rgba(96,165,250,0.38);white-space:nowrap;" onclick="GrossisteCampaigns.openAlertPharmacyIdentity('${esc(a.id)}')">
+                  🪪 Identité &amp; GPS
+                </button>
+                <button type="button" class="btn btn--primary btn--sm" style="background:linear-gradient(135deg,#10b981,#059669);font-weight:800;white-space:nowrap;" onclick="GrossisteCampaigns.proposeRestock('${esc(a.id)}')">
+                  ⚡ Proposer Réappro Immédiat
+                </button>
+              </div>
             </div>
           </div>
         `;
@@ -294,6 +308,84 @@
     renderCampaignsAndAlerts();
   }
 
+  function openAlertPharmacyIdentity(alertId) {
+    const a = ruptureAlerts.find(item => item.id === alertId);
+    if (!a || !window.PGProGeo) return;
+    window.PGProGeo.openActorModal('pharmacy', {
+      name: a.pharmacy_name,
+      city: a.pharmacy_city || 'Douala',
+      phone: a.pharmacy_phone || ''
+    });
+  }
+
+  function autoProposeAllRestocks(currentWholesaler) {
+    if (!ruptureAlerts || ruptureAlerts.length === 0) {
+      if (window.GrossisteApp) window.GrossisteApp.toast('✅ Toutes les alertes ruptures ont déjà reçu une proposition de réapprovisionnement !', 'success');
+      return 0;
+    }
+    const count = ruptureAlerts.length;
+    const wsName = (currentWholesaler && currentWholesaler.company_name) || 'UBIPHARM CAMEROUN SA';
+    ruptureAlerts.forEach(a => {
+      // Crée une campagne ciblée ou notification pour les officines
+      try {
+        const logs = JSON.parse(localStorage.getItem('pg_b2b_restock_proposals_v95') || '[]');
+        logs.unshift({
+          id: 'prop_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+          wholesaler_name: wsName,
+          pharmacy_name: a.pharmacy_name,
+          product_name: a.product_name,
+          created_at: new Date().toISOString()
+        });
+        localStorage.setItem('pg_b2b_restock_proposals_v95', JSON.stringify(logs.slice(0, 50)));
+      } catch (e) {}
+    });
+    ruptureAlerts = [];
+    renderCampaignsAndAlerts();
+    if (window.GrossisteApp) {
+      window.GrossisteApp.toast(`⚡ ${count} proposition(s) de réapprovisionnement B2B envoyée(s) automatiquement aux officines !`, 'success');
+    }
+    return count;
+  }
+
+  function notifyDelegatesLowStock(currentWholesaler) {
+    const catalog = window.GrossisteCatalog ? window.GrossisteCatalog.getCatalog() : [];
+    const lowItems = catalog.filter(c => Number(c.stock_quantity || 0) <= Number(c.min_threshold || 30));
+    const wsName = (currentWholesaler && currentWholesaler.company_name) || 'UBIPHARM CAMEROUN SA';
+    const prodNames = lowItems.length > 0
+      ? lowItems.slice(0, 4).map(c => c.product_name).join(', ')
+      : 'Ventoline 100µg, Insuline Lantus, Augmentin 1g';
+
+    const newCamp = normalizeCampaign({
+      id: 'wcamp_del_' + Date.now(),
+      wholesaler_id: (currentWholesaler && currentWholesaler.id) || 'ws_ubipharm_dla',
+      wholesaler_name: wsName,
+      title: `🤝 Appel Approvisionnement Laboratoires & Délégués : ${prodNames}`,
+      product_name: prodNames,
+      lab_name: 'Multi-Laboratoires Partenaires',
+      offer_type: 'urgence',
+      campaign_type: 'tension',
+      unit_price: (lowItems[0] && lowItems[0].wholesale_price) || 2950,
+      min_quantity: 20,
+      target_audience: 'delegates',
+      offer_details: `Alerte automatique Grossiste -> Délégués Médicaux : flux tendu sur ${prodNames}. Merci de prioriser les dotations laboratoires et d'orienter les prescriptions.`,
+      target_cities: ['Douala', 'Yaoundé', 'Bafoussam'],
+      views_count: 5,
+      orders_count: 0,
+      is_active: true,
+      created_at: new Date().toISOString()
+    });
+
+    loadCampaigns();
+    campaigns.unshift(newCamp);
+    saveCampaigns();
+    renderCampaignsAndAlerts();
+
+    if (window.GrossisteApp) {
+      window.GrossisteApp.refreshAllKpis();
+      window.GrossisteApp.toast(`🤝 Alerte B2B transmise aux Délégués Médicaux pour ${lowItems.length || 3} référence(s) sous seuil !`, 'success');
+    }
+  }
+
   window.GrossisteCampaigns = {
     loadCampaigns,
     saveCampaigns,
@@ -303,6 +395,10 @@
     openNewCampaignModal,
     saveCampaignFromModal,
     deleteCampaign,
-    proposeRestock
+    proposeRestock,
+    openAlertPharmacyIdentity,
+    autoProposeAllRestocks,
+    notifyDelegatesLowStock
   };
 })(window);
+

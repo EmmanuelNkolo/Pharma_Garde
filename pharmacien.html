@@ -22,7 +22,10 @@
   <meta property="og:image" content="icon-512.png">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://unpkg.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="css/design-system.css">
   <link rel="stylesheet" href="css/pro.css">
   <link rel="stylesheet" href="css/pharma-auth.css?v=3.0">
@@ -629,7 +632,7 @@
             </div>
 
             <!-- Graphiques Chart.js Pro -->
-            <div style="display:grid; grid-template-columns:2fr 1fr; gap:14px; margin-bottom:18px;">
+            <div style="display:grid; grid-template-columns:2fr 1fr; gap:14px; margin-bottom:14px;">
               <div class="pharm-card" style="padding:14px;">
                 <div style="font-size:12.5px; font-weight:800; color:#34d399; text-transform:uppercase; margin-bottom:8px;">
                   📈 Évolution Demandes, Réponses &amp; Achats (7 jours)
@@ -645,6 +648,16 @@
                 <div style="height:220px; position:relative;">
                   <canvas id="pharm-stats-dist-canvas"></canvas>
                 </div>
+              </div>
+            </div>
+
+            <!-- 3ème Graphique Exécutif : Top Références Sollicitées (Style Grossiste Pro) -->
+            <div class="pharm-card" style="padding:14px; margin-bottom:18px;">
+              <div style="font-size:12.5px; font-weight:800; color:#60a5fa; text-transform:uppercase; margin-bottom:8px;">
+                🏆 Volume Comparatif des Médicaments les Plus Sollicités (Chart Exécutif)
+              </div>
+              <div style="height:210px; position:relative;">
+                <canvas id="pharm-stats-top-canvas"></canvas>
               </div>
             </div>
 
@@ -691,9 +704,14 @@
                 <div style="display:flex; gap:10px; flex:1; min-width:260px;">
                   <input type="text" id="stock-search-mgmt" class="form-input" placeholder="🔍 Rechercher un médicament dans l'inventaire..." oninput="PharmDash.filterStockProducts(this.value)">
                 </div>
-                <button class="btn btn--primary" onclick="PharmDash.quickAddStockProduct()" style="white-space:nowrap; background:linear-gradient(135deg, #10b981, #059669); font-weight:800;">
-                  + Ajouter un Médicament
-                </button>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                  <button type="button" class="btn btn--secondary" onclick="PharmDash.autoOrderAllRupturesB2B()" style="white-space:nowrap; border-color:rgba(251,191,36,0.45); color:#fbbf24; font-weight:800;">
+                    ⚡ Auto-Commander Toutes Mes Ruptures B2B (1-Clic)
+                  </button>
+                  <button class="btn btn--primary" onclick="PharmDash.quickAddStockProduct()" style="white-space:nowrap; background:linear-gradient(135deg, #10b981, #059669); font-weight:800;">
+                    + Ajouter un Médicament
+                  </button>
+                </div>
               </div>
 
               <div class="pharm-table-wrap">
@@ -907,6 +925,9 @@
               </p>
             </div>
             <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button type="button" class="btn btn--primary btn--sm" onclick="PharmDash.autoOrderAllRupturesB2B()" style="background:linear-gradient(135deg,#fbbf24,#d97706); color:#0f172a; font-weight:900; border:none;">
+                ⚡ Commander Toutes Mes Ruptures en 1 Clic (Auto B2B)
+              </button>
               <button type="button" class="btn btn--secondary btn--sm" onclick="PharmDash.loadWholesalersHub()" style="border-color:rgba(16,185,129,0.45); color:#34d399; font-weight:800;">
                 🔄 Actualiser Catalogues &amp; Commandes
               </button>
@@ -1151,10 +1172,12 @@
 
   </div>
 
-  <!-- Scripts (Versions CDN figées + Modules v9) -->
+  <!-- Scripts (Versions CDN figées + Modules v9.5) -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="js/data/pharmacies.js?v=9.5"></script>
   <script src="js/data/medicines.js"></script>
   <script src="js/supabaseClient.js?v=4.0"></script>
   <script src="js/core.js?v=4.0"></script>
@@ -1162,15 +1185,16 @@
   <script src="js/geolocation.js?v=4.0"></script>
   <script src="js/pg-connect.js?v=1.0"></script>
   <script src="js/pg-share.js?v=1.0"></script>
-  <script src="js/shared/network.js?v=9.0"></script>
-  <script src="js/shared/subscription.js?v=9.0"></script>
-  <script src="js/shared/charts.js?v=9.0"></script>
-  <script src="js/shared/reports.js?v=9.0"></script>
-  <script src="js/grossiste/auth.js?v=9.0"></script>
-  <script src="js/grossiste/catalog.js?v=9.0"></script>
-  <script src="js/grossiste/orders.js?v=9.0"></script>
-  <script src="js/grossiste/campaigns.js?v=9.0"></script>
-  <script src="js/pharmacien.js?v=9.0"></script>
-  <script src="js/pharmacie-spaces-controller.js?v=9.0"></script>
+  <script src="js/shared/network.js?v=9.5"></script>
+  <script src="js/shared/subscription.js?v=9.5"></script>
+  <script src="js/shared/charts.js?v=9.5"></script>
+  <script src="js/shared/reports.js?v=9.5"></script>
+  <script src="js/shared/pro-geolocation.js?v=9.5"></script>
+  <script src="js/grossiste/auth.js?v=9.5"></script>
+  <script src="js/grossiste/catalog.js?v=9.5"></script>
+  <script src="js/grossiste/orders.js?v=9.5"></script>
+  <script src="js/grossiste/campaigns.js?v=9.5"></script>
+  <script src="js/pharmacien.js?v=9.5"></script>
+  <script src="js/pharmacie-spaces-controller.js?v=9.5"></script>
 </body>
 </html>

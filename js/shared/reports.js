@@ -37,14 +37,17 @@
 
   /**
    * Exporte des données en fichier CSV sécurisé (avec BOM UTF-8 pour Excel)
-   * @param {Object} opts { filename, headers: string[], rows: any[][] }
+   * Accepte soit ({ filename, headers, rows }) soit (filename, headers, rows)
    */
-  function exportCSV(opts) {
-    const o = opts || {};
+  function exportCSV(optsOrFilename, maybeHeaders, maybeRows) {
+    const o = typeof optsOrFilename === 'string'
+      ? { filename: optsOrFilename, headers: maybeHeaders || [], rows: maybeRows || [] }
+      : (optsOrFilename || {});
     const headers = o.headers || [];
     const rows = o.rows || [];
-    const filename = (o.filename || `PharmaGarde_Export_${new Date().toISOString().slice(0, 10)}.csv`)
-      .replace(/[^a-zA-Z0-9_.\-]/g, '_');
+    let rawName = o.filename || `PharmaGarde_Export_${new Date().toISOString().slice(0, 10)}.csv`;
+    if (!rawName.toLowerCase().endsWith('.csv')) rawName += '.csv';
+    const filename = rawName.replace(/[^a-zA-Z0-9_.\-]/g, '_');
 
     const lines = [];
     if (headers.length > 0) {
@@ -186,3 +189,4 @@
     exportPDF
   };
 })(window);
+

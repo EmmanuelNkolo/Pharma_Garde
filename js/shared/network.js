@@ -239,3 +239,4 @@
     onStatusChange: (cb) => { if (typeof cb === 'function') listeners.push(cb); }
   };
 })(window);
+

@@ -414,3 +414,4 @@ BEGIN
   BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE subscriptions; EXCEPTION WHEN others THEN NULL; END;
   BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE subscription_reminders_log; EXCEPTION WHEN others THEN NULL; END;
 END $$;
+

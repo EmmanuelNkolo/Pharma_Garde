@@ -79,3 +79,38 @@
 - **Anti-CSV Injection** : Sanitisation systématique des préfixes dangereux (`=`, `+`, `-`, `@`, `\t`, `\r`) à l'import et à l'export CSV (navigateur + daemon).
 - **Versions CDN figées** : `@supabase/supabase-js@2.45.4`, `chart.js@4.4.4`, `html2pdf.js@0.10.1`, `leaflet@1.9.4`, `tesseract.js@5.1.1`.
 - **Authentification Daemon (`pharmagarde-connector-daemon.js`)** : Vérification du jeton `secret_token` / `PG_DAEMON_TOKEN` via `Authorization: Bearer <token>` ou `X-Connector-Token` sur toutes les routes `/api/*`.
+
+---
+
+## 9. Mise à Niveau Exécutive v9.5 — Harmonisation Pro des 4 Espaces, Géolocalisation par Rayon, Identité Certifiée & Automatisations 1-Clic
+
+### A. Géolocalisation Exacte & Identité Certifiée des Interlocuteurs (`js/shared/pro-geolocation.js` — `window.PGProGeo`)
+- **Transparence Professionnelle Totale (`Pharmacie`, `Délégué Médical`, `Grossiste-Répartiteur`)** :
+  - Chaque professionnel ou usager peut ouvrir la fiche **🪪 Identité & Position GPS Exacte** (`PGProGeo.openActorModal`) de son interlocuteur professionnel.
+  - Affiche : Nom / Raison sociale, Pharmacien Titulaire ou Responsable, N° Licence ONPC / Agrément DPML / Carte Pro Délégué, Téléphone direct, WhatsApp, Coordonnées GPS exactes (`Lat, Lng`), distance Haversine exacte (`km` ou `m`), carte interactive **Leaflet** avec tracé vectoriel, et bouton **🧭 Itinéraire Google Maps** en 1 clic.
+- **Protection Stricte de l'Anonymat Client (`role: 'client'`)** :
+  - Les patients restent strictement anonymes (`Patient Anonyme #PG-XXXX`). Leurs coordonnées GPS exactes et leur identité personnelle ne sont jamais exposées aux officines ni aux tiers (seul le rayon approximatif est indiqué).
+
+### B. Radar Géolocalisé des Pharmacies par Rayon Choisi (`grossiste.html`, `js/grossiste/stats.js`)
+- Dans le pôle **🤝 Réseau B2B & Carte** de l'Espace Grossiste :
+  - Sélection interactive du rayon de couverture : **`2 km`**, **`5 km`**, **`10 km`**, **`15 km`**, **`25 km`**, **`50 km`** ou **`🌍 National (Toutes)`**.
+  - Choix du Hub de référence (**Siège / Ma Position GPS Exacte**, **Douala**, **Yaoundé**, **Bafoussam**, **Garoua**, **Bamenda**), filtre par statut (`Toutes`, `Ouvertes`, `De Garde`) et recherche instantanée.
+  - Dessin dynamique du cercle de couverture (`L.circle`) sur la carte Leaflet et tri des officines par distance exacte croissante.
+
+### C. Automatisations 1-Clic & Vérification des 4 Interactions Bidirectionnelles
+1. **`Pharmacie <-> Clients`** :
+   - Connecteur de réponse automatique 0s (stock local + conventions d'assurances), réservation 60 min avec code `PG-XXXX`, et bouton `🪪 Identité & GPS` sur chaque pharmacie côté client.
+2. **`Pharmacie <-> Délégué Médical`** :
+   - Diffusion d'alertes ruptures géolocalisées, bouton **⚡ Tournée Auto (Officines de Garde)** (`DelegateApp.autoScheduleGuardVisits`), bouton **⚡ Répondre & Planifier Visites sur Ruptures (1-Clic)** (`DelegateApp.autoRespondAllStockAlerts`), et fiches `🪪 Identité & GPS` croisées.
+3. **`Pharmacie <-> Grossiste-Répartiteur`** :
+   - Bouton **⚡ Auto-Commander Toutes Mes Ruptures B2B (1-Clic)** (`PharmDash.autoOrderAllRupturesB2B`) côté Pharmacie qui regroupe automatiquement tous les produits en rupture de l'inventaire et émet une commande B2B vers le grossiste.
+   - Toggle **🤖 Validation automatique des commandes entrantes** + bouton **⚡ Confirmer Toutes les Commandes en Attente (1-Clic)** (`GrossisteOrders.autoConfirmAllPending`) + bouton **⚡ Répondre Auto à Toutes les Ruptures (1-Clic)** (`GrossisteCampaigns.autoProposeAllRestocks`) côté Grossiste.
+4. **`Grossiste-Répartiteur <-> Délégué Médical`** :
+   - Bouton **🤝 Alerter Délégués Médicaux (Stocks sous Seuil)** (`GrossisteCampaigns.notifyDelegatesLowStock`) côté Grossiste.
+   - Bouton **⚡ Signaler Dotation Labo aux Grossistes (1-Clic)** (`DelegateApp.notifyWholesalersLabArrival`) côté Délégué Médical.
+
+### D. Statistiques Exécutives (3 Graphiques Chart.js) & Réduction de la Latence
+- **3 Graphiques Chart.js Exécutifs** harmonisés dans `Espace Grossiste`, `Espace Pharmacie` (`#pharm-stats-trend-canvas`, `#pharm-stats-dist-canvas`, `#pharm-stats-top-canvas`) et `Espace Délégué` (`#delegate-chart-trend`, `#delegate-chart`, `#delegate-chart-top`).
+- **Réduction de la latence** : réduction du délai de splash screen de `1200ms` à `350ms` dans `js/app.js`, préconnexion DNS/TLS (`preconnect`), affichage synchrone des caches locaux et parallélisation des requêtes Supabase via `Promise.allSettled`.
+
+

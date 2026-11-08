@@ -174,7 +174,7 @@ const App = (() => {
 
   // ── Initialize ─────────────────────────────────────────
   function init() {
-    // Splash screen timer
+    // Splash screen timer (Low-Latency 350ms)
     setTimeout(() => {
       $('#splash-screen').classList.add('hidden');
       const welcomeScreen = $('#welcome-screen');
@@ -183,7 +183,7 @@ const App = (() => {
       } else {
         showLocationModal();
       }
-    }, 1200);
+    }, 350);
 
     bindEvents();
     initDemoSlides();
@@ -737,7 +737,7 @@ const App = (() => {
     </div>
   </div>
 
-  <div style="display:flex; gap:8px;">
+  <div style="display:flex; gap:8px; flex-wrap:wrap;">
     <button class="pharma-btn btn-call" onclick="event.stopPropagation(); App.callPharmacy('${p.phone || ''}')">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg> Appeler
     </button>
@@ -746,6 +746,9 @@ const App = (() => {
     </button>
     <button class="pharma-btn btn-route" onclick="event.stopPropagation(); App.getRoute(${p.lat}, ${p.lng}, '${escapeHtml(p.name).replace(/'/g, "\\'")}')">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg> Y aller
+    </button>
+    <button class="pharma-btn" style="background:rgba(59,130,246,0.14); border:1px solid rgba(59,130,246,0.4); color:#93c5fd;" onclick="event.stopPropagation(); PGProGeo && PGProGeo.openActorModal('pharmacy', { id: '${escapeHtml(p.id)}', name: '${escapeHtml(p.name).replace(/'/g, "\\'")}', lat: ${Number(p.lat) || 4.0511}, lng: ${Number(p.lng) || 9.7085}, phone: '${escapeHtml(p.phone || '')}', address: '${escapeHtml(p.address || '').replace(/'/g, "\\'")}' })">
+      🪪 Identité &amp; GPS
     </button>
   </div>
 </div>
@@ -1403,6 +1406,9 @@ const App = (() => {
             ` : ''}
             <button class="pharma-btn btn-route" onclick="App.getRouteToPharmacy('${resp.pharmacy_id}')">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg> Y aller
+            </button>
+            <button class="pharma-btn" style="background:rgba(59,130,246,0.14); border:1px solid rgba(59,130,246,0.4); color:#93c5fd;" onclick="PGProGeo && PGProGeo.openActorModal('pharmacy', { id: '${escapeHtml(resp.pharmacy_id || '')}', name: '${escapeHtml(resp.pharmacy_name || 'Pharmacie').replace(/'/g, "\\'")}', phone: '${escapeHtml(resp.pharmacy_phone || '')}', address: '${escapeHtml(resp.pharmacy_address || '').replace(/'/g, "\\'")}' })">
+              🪪 Identité &amp; GPS
             </button>
           </div>
         </div>
