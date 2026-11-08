@@ -835,6 +835,12 @@
       nameEl.textContent = currentPharmacy.name || 'PHARMACIE';
     }
 
+    // Badge & Rappels d'abonnement / Pack Pro Officine (v9)
+    if (window.PGSubscription && currentPharmacy) {
+      window.PGSubscription.renderHeaderBadge('pharmacy-sub-badge-slot', 'pharmacy', currentPharmacy);
+      window.PGSubscription.checkAndShowReminders('pharmacy', currentPharmacy, 'pharmacy-reminder-slot');
+    }
+
     // Initialize Header Status
     updateHeaderStatusDisplay();
 
@@ -1013,15 +1019,16 @@
   }
 
   function saveStockDatabase() {
+    window.pharmacyStock = pharmacyStock;
     if (!currentPharmacy) return;
     localStorage.setItem('pharmagarde_stock_' + currentPharmacy.id, JSON.stringify(pharmacyStock));
   }
 
-  function openStockHub() {
+  function openStockHub(initialTab) {
     const modal = document.getElementById('stock-hub-modal');
     if (modal) {
       modal.classList.add('active');
-      switchHubTab('inventory');
+      switchHubTab(initialTab === 'broadcast' ? 'broadcast' : 'inventory');
       renderStockTable(pharmacyStock);
     }
   }
@@ -1044,26 +1051,32 @@
   }
 
   function renderStockTable(products) {
-    const tbody = document.getElementById('stock-table-body');
-    if (!tbody) return;
+    window.pharmacyStock = pharmacyStock;
+    const tbodies = document.querySelectorAll('#stock-table-body');
+    if (!tbodies || tbodies.length === 0) return;
 
     if (!products || products.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:var(--text-muted);">Aucun produit trouvé dans la base.</td></tr>';
+      const emptyRow = '<tr><td colspan="4" style="text-align:center; padding:20px; color:var(--text-muted);">Aucun produit trouvé dans la base.</td></tr>';
+      tbodies.forEach(tb => { tb.innerHTML = emptyRow; });
       return;
     }
 
-    tbody.innerHTML = products.map(prod => {
+    const html = products.map(prod => {
       const isRupture = prod.status === 'rupture';
+      const safeAttrName = escapeHtml(prod.name).replace(/'/g, "\\'");
       const statusBadge = isRupture
         ? '<span class="chip chip--red" style="font-size:11px;">❌ En Rupture</span>'
         : '<span class="chip chip--green" style="font-size:11px;">✅ En Stock</span>';
 
       const toggleBtn = isRupture
-        ? `<button class="btn btn--sm" style="background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.4);" onclick="PharmDash.toggleProductStock('${prod.name}')">Passer En Stock</button>`
-        : `<button class="btn btn--sm" style="background:rgba(239,68,68,0.15); color:#f87171; border:1px solid rgba(239,68,68,0.4);" onclick="PharmDash.toggleProductStock('${prod.name}')">Marquer Rupture</button>`;
+        ? `<button class="btn btn--sm" style="background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.4);" onclick="PharmDash.toggleProductStock('${safeAttrName}')">Passer En Stock</button>`
+        : `<button class="btn btn--sm" style="background:rgba(239,68,68,0.15); color:#f87171; border:1px solid rgba(239,68,68,0.4);" onclick="PharmDash.toggleProductStock('${safeAttrName}')">Marquer Rupture</button>`;
 
       const alertDelegateBtn = isRupture
-        ? `<button class="btn btn--sm" style="background:linear-gradient(135deg, #fbbf24, #d97706); color:#000; font-weight:800; border:none;" onclick="PharmDash.prepareStockAlert('${prod.name}')">📢 Alerter Délégués</button>`
+        ? `<div style="display:flex; gap:6px; flex-wrap:wrap;">
+             <button class="btn btn--sm" style="background:linear-gradient(135deg, #fbbf24, #d97706); color:#000; font-weight:800; border:none;" onclick="PharmDash.prepareStockAlert('${safeAttrName}')">📢 Alerter Délégués</button>
+             <button class="btn btn--sm" style="background:rgba(16,185,129,0.15); color:#34d399; border:1px solid rgba(16,185,129,0.4); font-weight:700;" onclick="PharmDash.quickOrderFromWholesaler('${safeAttrName}')">🏭 Commander Grossiste</button>
+           </div>`
         : `<span style="color:var(--text-muted); font-size:12px;">—</span>`;
 
       return `
@@ -1075,6 +1088,8 @@
         </tr>
       `;
     }).join('');
+
+    tbodies.forEach(tb => { tb.innerHTML = html; });
   }
 
   function filterStockProducts(query) {
@@ -2486,6 +2501,8 @@
     loadHistory,
 
     // Delegate Interactions
+    loadDelegateInteractions,
+    openDelegateChat,
     respondPromo: respondToPromotion,
     respondVisit: respondToVisit,
     openRescheduleVisit,
@@ -2493,7 +2510,8 @@
 
     // Statistics 4 Subsections
     showStatSubSection,
-    renderTopMeds
+    renderTopMeds,
+    getCurrentPharmacy: () => currentPharmacy
   };
 
   // Auto-init on load

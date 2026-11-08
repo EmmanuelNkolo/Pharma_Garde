@@ -92,13 +92,19 @@ function reloadStockFromSource() {
 
   if (fs.existsSync(CSV_STOCK_FILE)) {
     try {
+      const cleanCsvCell = (val) => String(val || '')
+        .trim()
+        .replace(/^["']|["']$/g, '')
+        .replace(/^[=+\-@\t\r]+/, '')
+        .trim();
+
       const content = fs.readFileSync(CSV_STOCK_FILE, 'utf8');
       const lines = content.split(/\r?\n/).filter(l => l.trim().length > 0);
       if (lines.length > 1) {
         const sep = lines[0].includes(';') ? ';' : ',';
         const parsed = [];
         for (let i = 1; i < lines.length; i++) {
-          const cols = lines[i].split(sep).map(c => c.trim().replace(/^["']|["']$/g, ''));
+          const cols = lines[i].split(sep).map(cleanCsvCell);
           if (cols[0]) {
             const stockVal = parseInt(cols[1], 10);
             parsed.push({
@@ -106,13 +112,13 @@ function reloadStockFromSource() {
               name: cols[0],
               stock: isNaN(stockVal) ? 10 : stockVal,
               price: parseInt(cols[2], 10) || 1000,
-              covered_insurances: cols[3] ? cols[3].split('|').map(s => s.trim()) : ['Ascoma', 'Activa', 'AXA']
+              covered_insurances: cols[3] ? cols[3].split('|').map(cleanCsvCell) : ['Ascoma', 'Activa', 'AXA']
             });
           }
         }
         if (parsed.length > 0) {
           localInventory = parsed;
-          console.log(`[Stock] ${parsed.length} produits chargés depuis stock_officine.csv`);
+          console.log(`[Stock] ${parsed.length} produits chargés depuis stock_officine.csv (anti-CSV injection actif)`);
           return;
         }
       }
@@ -138,12 +144,25 @@ reloadStockFromSource();
 setInterval(runHourlySync, SYNC_INTERVAL_MS);
 runHourlySync();
 
+// Vérification du jeton d'authentification (Bearer ou X-Connector-Token)
+function isAuthorizedRequest(req) {
+  const expectedToken = String(process.env.PG_DAEMON_TOKEN || config.secret_token || '').trim();
+  if (!expectedToken) return true; // Si aucun token n'est configuré, mode réseau local ouvert
+  const authHeader = String(req.headers['authorization'] || '').trim();
+  const customHeader = String(req.headers['x-connector-token'] || '').trim();
+  const bearerToken = authHeader.toLowerCase().startsWith('bearer ')
+    ? authHeader.slice(7).trim()
+    : authHeader;
+  return bearerToken === expectedToken || customHeader === expectedToken;
+}
+
 // Création du serveur HTTP
 const server = http.createServer((req, res) => {
-  // En-têtes CORS universels pour autoriser toutes les machines et navigateurs
+  // En-têtes CORS & Sécurité
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Connector-Token');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -152,6 +171,16 @@ const server = http.createServer((req, res) => {
   }
 
   const url = new URL(req.url, `http://${req.headers.host}`);
+
+  // Vérification du token sur les routes /api/*
+  if (url.pathname.startsWith('/api/') && !isAuthorizedRequest(req)) {
+    res.writeHead(401, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      success: false,
+      error: 'Non autorisé : jeton secret_token invalide ou manquant (Authorization: Bearer <token> ou X-Connector-Token).'
+    }));
+    return;
+  }
 
   // 1. Health & Détection
   if (url.pathname === '/health' && req.method === 'GET') {

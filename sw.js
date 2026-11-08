@@ -3,15 +3,17 @@
  * afin que chaque mise à jour soit visible immédiatement. Le cache ne sert
  * qu'en mode hors-ligne. Les anciennes versions de cache sont supprimées.
  */
-const CACHE_NAME = 'pharma-garde-v25-branding-emerald-gold-2026-10-19';
+const CACHE_NAME = 'pharma-garde-v9-grossistes-abonnements';
 const CORE = [
   '/',
   '/index.html',
   '/pharmacien.html',
   '/delegue.html',
+  '/grossiste.html',
   '/manifest.json',
   '/css/design-system.css',
   '/css/pro.css',
+  '/css/grossiste.css',
   '/js/core.js',
   '/icon.svg',
   '/icon-192.png',

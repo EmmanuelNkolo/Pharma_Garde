@@ -167,8 +167,18 @@
     // Bottom sheet action buttons
     bindClick('btn-promotions', () => switchPanel('promotions'));
     bindClick('btn-pharmacies', () => switchPanel('pharmacies'));
+    bindClick('btn-wholesalers', () => switchPanel('wholesalers'));
     bindClick('btn-stats', () => switchPanel('stats'));
     bindClick('btn-alerts', () => switchPanel('alerts'));
+
+    // Reports & Subscription buttons
+    bindClick('btn-download-report', exportDelegateStatsPDF);
+    bindClick('btn-download-csv', exportDelegateStatsCSV);
+    bindClick('btn-open-delegate-sub', () => {
+      if (window.PGSubscription) {
+        window.PGSubscription.openPaywallModal(currentDelegate, 'delegate');
+      }
+    });
 
     // Recenter
     bindClick('btn-recenter', () => {
@@ -192,14 +202,21 @@
       }
     });
 
-    // Promotions
+    // Promotions (avec vérification Paywall / Abonnement Pro)
     const openNewPromoModal = () => {
-      populateLabSelect('promo-lab');
-      const sc = $('promo-specific-container');
-      const bc = $('promo-buttons-container');
-      if (sc) sc.style.display = 'none';
-      if (bc) bc.style.display = 'flex';
-      $('new-promo-modal').classList.add('active');
+      const doOpen = () => {
+        populateLabSelect('promo-lab');
+        const sc = $('promo-specific-container');
+        const bc = $('promo-buttons-container');
+        if (sc) sc.style.display = 'none';
+        if (bc) bc.style.display = 'flex';
+        $('new-promo-modal').classList.add('active');
+      };
+      if (window.PGSubscription) {
+        window.PGSubscription.enforcePaywall(currentDelegate, 'delegate', 'la diffusion de promotions médicales aux officines', doOpen);
+      } else {
+        doOpen();
+      }
     };
     bindClick('btn-new-promo', openNewPromoModal);
     bindClick('btn-new-promo-tab', openNewPromoModal);
@@ -725,6 +742,13 @@
       if (labsDiv) labsDiv.textContent = sessionLabs.join(', ') || 'Aucun';
     }
 
+    // Abonnement Pro : badge Header & rappels J-7 / J-3 / J-1
+    if (window.PGSubscription) {
+      window.PGSubscription.renderHeaderBadge('delegate-sub-badge-slot', currentDelegate, 'delegate');
+      window.PGSubscription.checkAndShowReminders(currentDelegate, 'delegate', 'delegate-reminder-banner');
+    }
+
+    renderDelegateWholesalers();
     subscribeToDelegateUpdates();
 
     // Default to Douala coordinates if not yet set
@@ -979,7 +1003,10 @@
 
     container.innerHTML = pharmaciesInRadius.map(p => {
       const dist = haversine(userLat, userLng, p.lat, p.lng).toFixed(1);
-      const statusLabel = p.status === 'open' ? '✅ Ouverte' : p.status === 'guard' ? '🌙 Garde' : '❌ Fermée';
+      const safeId = escapeHtml(p.id);
+      const safeNameJs = escapeHtml(String(p.name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
+      const safePhoneDigits = String(p.phone || '').replace(/\D/g, '').replace(/^237/, '');
+      const safeWaDigits = String(p.whatsapp || p.phone || '').replace(/\D/g, '').replace(/^237/, '');
       const statusBadge = p.status === 'open' ? 
         '<div style="background:rgba(16,185,129,0.15); border:1px solid #10b981; border-radius:12px; padding:4px 10px; font-size:11px; font-weight:700; color:#10b981; display:flex; align-items:center; gap:4px;">OUVERT</div>' : 
         (p.status === 'guard' ? 
@@ -988,7 +1015,7 @@
         );
 
       return `
-        <div class="pharma-card ${p.status === 'guard' ? 'pharma-card--guard' : ''}" data-id="${p.id}" onclick="DelegateApp.openDetail('${p.id}')">
+        <div class="pharma-card ${p.status === 'guard' ? 'pharma-card--guard' : ''}" data-id="${safeId}" onclick="DelegateApp.openDetail('${safeId}')">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
             <div>
               <div style="font-weight:700; font-size:16px; color:#fff; margin-bottom:4px;">${escapeHtml(p.name)}</div>
@@ -1013,25 +1040,25 @@
 
           <div style="display:flex; flex-direction: column; gap: 8px;">
             <div style="display:flex; gap:8px;">
-              <button class="pharma-btn" style="flex: 1; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); color: #60a5fa;" onclick="event.stopPropagation(); DelegateApp.openSendPromo('${p.id}', '${escapeHtml(p.name)}')">
+              <button class="pharma-btn" style="flex: 1; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); color: #60a5fa;" onclick="event.stopPropagation(); DelegateApp.openSendPromo('${safeId}', '${safeNameJs}')">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Promo
               </button>
-              <button class="pharma-btn" style="flex: 1; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); color: #c084fc;" onclick="event.stopPropagation(); DelegateApp.openVisitRequest('${p.id}', '${escapeHtml(p.name)}')">
+              <button class="pharma-btn" style="flex: 1; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); color: #c084fc;" onclick="event.stopPropagation(); DelegateApp.openVisitRequest('${safeId}', '${safeNameJs}')">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Visite
               </button>
             </div>
             
             <div style="display:flex; gap:8px;">
-              ${p.phone ? `<button class="pharma-btn btn-call" onclick="event.stopPropagation(); window.location.href='tel:${p.phone}'">
+              ${safePhoneDigits ? `<button class="pharma-btn btn-call" onclick="event.stopPropagation(); window.location.href='tel:+237${safePhoneDigits}'">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg> Appeler
               </button>` : ''}
               
-              ${p.whatsapp || p.phone ? `<button class="pharma-btn btn-whatsapp" onclick="event.stopPropagation(); window.open('https://wa.me/237${p.whatsapp || p.phone}', '_blank')">
+              ${safeWaDigits ? `<button class="pharma-btn btn-whatsapp" onclick="event.stopPropagation(); window.open('https://wa.me/237${safeWaDigits}', '_blank')">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="#10b981"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.888-.788-1.489-1.761-1.663-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.5.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.885-9.885 9.885m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
                 WhatsApp
               </button>` : ''}
               
-              <button class="pharma-btn btn-route" onclick="event.stopPropagation(); DelegateApp.getRoute(${p.lat}, ${p.lng})">
+              <button class="pharma-btn btn-route" onclick="event.stopPropagation(); DelegateApp.getRoute(${Number(p.lat) || 0}, ${Number(p.lng) || 0})">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg> Y aller
               </button>
             </div>
@@ -1876,76 +1903,179 @@
   }
 
   // ═══════════════════════════════════════════════════════
-  //  REPORTS
+  //  REPORTS (PDF & CSV via PGReports + Paywall)
   // ═══════════════════════════════════════════════════════
-  async function handleGenerateReport() {
-    const lab = ($('report-lab') || {}).value;
-    const from = ($('report-from') || {}).value;
-    const to = ($('report-to') || {}).value;
+  function exportDelegateStatsPDF() {
+    const runExport = () => {
+      if (!window.PGReports) return;
+      const delName = currentDelegate ? `${currentDelegate.first_name || ''} ${currentDelegate.last_name || ''}`.trim() : 'Délégué Médical';
+      const favorableCount = allTargets.filter(t => t.status === 'interested' || t.status === 'already_stocked').length;
+      const ratePct = allTargets.length > 0 ? Math.round((favorableCount / allTargets.length) * 100) : 0;
 
-    if (!lab) return showToast('Veuillez sélectionner un laboratoire.', 'error');
+      window.PGReports.exportPDF({
+        filename: `Rapport_Delegue_${(currentDelegate && currentDelegate.last_name) || 'Pro'}_${new Date().toISOString().slice(0, 10)}.pdf`,
+        title: 'RAPPORT D\'ACTIVITÉ DÉLÉGUÉ MÉDICAL & LABORATOIRES',
+        subtitle: `Laboratoires représentés : ${sessionLabs.join(', ') || 'Tous laboratoires'}`,
+        entityName: delName,
+        entityCode: (currentDelegate && currentDelegate.pro_card_number) || 'DM-PRO',
+        periodLabel: `Édité le ${new Date().toLocaleDateString('fr-FR')}`,
+        kpis: [
+          { label: 'Campagnes Promos', value: String(myPromotions.length) },
+          { label: 'Visites Officines', value: String(allVisits.length) },
+          { label: 'Taux d\'Intérêt', value: `${ratePct}%` },
+          { label: 'Officines Ciblées', value: String(allTargets.length) }
+        ],
+        tables: [
+          {
+            title: '1. Campagnes Promotionnelles Diffusées',
+            headers: ['Date', 'Produit', 'Laboratoire', 'Officines Ciblées', 'Avis Favorables'],
+            rows: myPromotions.map(p => {
+              const tgts = p.promotion_targets || [];
+              const fav = tgts.filter(t => t.status === 'interested' || t.status === 'already_stocked').length;
+              return [
+                new Date(p.created_at).toLocaleDateString('fr-FR'),
+                p.product_name || '',
+                p.lab_name || '',
+                String(tgts.length),
+                `${fav} / ${tgts.length}`
+              ];
+            })
+          },
+          {
+            title: '2. Historique des Visites Médicales',
+            headers: ['Date & Heure', 'Pharmacie', 'Objet de la Visite', 'Statut'],
+            rows: allVisits.map(v => [
+              new Date(v.proposed_date || v.created_at).toLocaleString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+              (v.pharmacy && v.pharmacy.name) || 'Pharmacie',
+              v.purpose || 'Présentation de gamme',
+              (v.status || 'pending').toUpperCase()
+            ])
+          }
+        ]
+      });
+      showToast('📄 Rapport PDF généré avec succès !', 'success');
+    };
 
-    showToast('📊 Génération du rapport en cours...', 'info');
-
-    try {
-      const { data: promos } = await supabase
-        .from('delegate_promotions').select('id, product_name, created_at')
-        .eq('delegate_id', currentDelegate.id).eq('lab_name', lab);
-      const promoIds = (promos || []).map(p => p.id);
-
-      let targets = [];
-      if (promoIds.length > 0) {
-        const { data } = await supabase.from('promotion_targets').select('*').in('promotion_id', promoIds);
-        targets = data || [];
-      }
-
-      const { data: visits } = await supabase
-        .from('visit_requests').select('*').eq('delegate_id', currentDelegate.id);
-
-      // Generate report HTML
-      const reportHtml = `
-        <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto;">
-          <h1 style="color: #059669; border-bottom: 2px solid #059669; padding-bottom: 8px;">Rapport d'Activité — Pharma-Garde</h1>
-          <p><strong>Délégué :</strong> ${currentDelegate.first_name} ${currentDelegate.last_name}</p>
-          <p><strong>Laboratoire :</strong> ${lab}</p>
-          <p><strong>Période :</strong> ${from || 'Début'} au ${to || 'Aujourd\'hui'}</p>
-          <hr>
-          <h2>📈 Résumé</h2>
-          <ul>
-            <li><strong>${(promos || []).length}</strong> promotions créées</li>
-            <li><strong>${targets.length}</strong> envois aux pharmacies</li>
-            <li><strong>${targets.filter(t => t.status === 'interested').length}</strong> réponses positives (${targets.length > 0 ? Math.round(targets.filter(t => t.status === 'interested').length / targets.length * 100) : 0}%)</li>
-            <li><strong>${(visits || []).filter(v => v.status === 'completed').length}</strong> visites réalisées</li>
-            <li><strong>${new Set(targets.map(t => t.pharmacy_id)).size}</strong> pharmacies couvertes</li>
-          </ul>
-          <h2>🏆 Produits promus</h2>
-          <ol>${(promos || []).map(p => `<li>${p.product_name} — ${new Date(p.created_at).toLocaleDateString('fr-FR')}</li>`).join('')}</ol>
-          <p style="color: #888; font-size: 12px; margin-top: 40px;">Généré par Pharma-Garde le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}</p>
-        </div>
-      `;
-
-      // Use html2pdf to generate
-      const element = document.createElement('div');
-      element.innerHTML = reportHtml;
-      document.body.appendChild(element);
-
-      await html2pdf().set({
-        margin: 10, filename: `rapport_${lab.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`,
-        html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      }).from(element).save();
-
-      document.body.removeChild(element);
-      showToast('✅ Rapport PDF téléchargé !', 'success');
-    } catch (err) {
-      console.error('Report error:', err);
-      showToast('❌ Erreur lors de la génération du rapport.', 'error');
+    if (window.PGSubscription) {
+      window.PGSubscription.enforcePaywall(currentDelegate, 'delegate', 'l\'export PDF certifié des rapports d\'activité', runExport);
+    } else {
+      runExport();
     }
   }
 
-  function handleDownloadReport() {
-    // Scroll to report section
-    const section = $('lab-report-section');
-    if (section) section.scrollIntoView({ behavior: 'smooth' });
+  function exportDelegateStatsCSV() {
+    const runCsv = () => {
+      if (!window.PGReports) return;
+      const rows = [];
+      myPromotions.forEach(p => {
+        const tgts = p.promotion_targets || [];
+        const fav = tgts.filter(t => t.status === 'interested' || t.status === 'already_stocked').length;
+        rows.push([
+          'PROMOTION',
+          new Date(p.created_at).toISOString().slice(0, 10),
+          p.product_name || '',
+          p.lab_name || '',
+          `${tgts.length} officines ciblées`,
+          `${fav} favorables`
+        ]);
+      });
+      allVisits.forEach(v => {
+        rows.push([
+          'VISITE',
+          new Date(v.proposed_date || v.created_at).toISOString().slice(0, 16).replace('T', ' '),
+          (v.pharmacy && v.pharmacy.name) || 'Pharmacie',
+          sessionLabs.join('/') || 'Labo',
+          v.purpose || 'Visite médicale',
+          v.status || 'pending'
+        ]);
+      });
+
+      window.PGReports.exportCSV({
+        filename: `Export_Activite_Delegue_${new Date().toISOString().slice(0, 10)}.csv`,
+        headers: ['Type', 'Date', 'Produit_ou_Pharmacie', 'Laboratoire', 'Details', 'Statut_ou_Resultat'],
+        rows
+      });
+      showToast('📥 Fichier CSV exporté avec succès !', 'success');
+    };
+
+    if (window.PGSubscription) {
+      window.PGSubscription.enforcePaywall(currentDelegate, 'delegate', 'l\'export CSV des statistiques', runCsv);
+    } else {
+      runCsv();
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════
+  //  GROSSISTES-RÉPARTITEURS (ONGLET DÉLÉGUÉ v9)
+  // ═══════════════════════════════════════════════════════
+  function renderDelegateWholesalers() {
+    const container = $('delegate-wholesalers-list');
+    if (!container) return;
+
+    const wholesalers = (window.GrossisteAuth && window.GrossisteAuth.getDirectory)
+      ? window.GrossisteAuth.getDirectory()
+      : [];
+    const catalog = (window.GrossisteCatalog && window.GrossisteCatalog.loadCatalog)
+      ? window.GrossisteCatalog.loadCatalog()
+      : [];
+    const campaigns = (window.GrossisteCampaigns && window.GrossisteCampaigns.loadCampaigns)
+      ? window.GrossisteCampaigns.loadCampaigns()
+      : [];
+
+    if (wholesalers.length === 0) {
+      container.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-muted);">Aucun grossiste enregistré.</div>';
+      return;
+    }
+
+    container.innerHTML = wholesalers.map(ws => {
+      const wsRefs = catalog.filter(c => c.wholesaler_id === ws.id);
+      const inStockRefs = wsRefs.filter(c => Number(c.stock_quantity) > 0);
+      const wsCamps = campaigns.filter(c => c.wholesaler_id === ws.id && (c.target_audience === 'both' || c.target_audience === 'delegates'));
+      const cleanWa = String(ws.whatsapp || ws.phone || '').replace(/\D/g, '').replace(/^237/, '');
+      const delLabsStr = sessionLabs.length > 0 ? sessionLabs.join(', ') : 'nos gammes laboratoires';
+      const waText = encodeURIComponent(`Bonjour ${ws.company_name}, je suis Délégué Médical (${delLabsStr}) sur Pharma-Garde. Je souhaite faire le point sur la disponibilité stock de nos références...`);
+
+      return `
+        <div style="background:rgba(15,23,42,0.9);border:1px solid rgba(251,191,36,0.28);border-radius:14px;padding:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+            <div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <strong style="font-size:15px;color:#fbbf24;">🏭 ${escapeHtml(ws.company_name)}</strong>
+                <span style="font-size:10.5px;padding:2px 8px;border-radius:999px;background:rgba(6,182,212,0.18);color:#22d3ee;font-weight:800;">${escapeHtml(ws.wholesaler_code || 'GR-PRO')}</span>
+              </div>
+              <div style="font-size:12px;color:#94a3b8;margin-top:2px;">
+                📍 ${escapeHtml(ws.address || ws.city)} · 🚚 Zones : ${escapeHtml((ws.delivery_zones || [ws.city]).join(', '))}
+              </div>
+            </div>
+            <span style="font-size:11px;font-weight:800;padding:4px 10px;border-radius:999px;background:rgba(16,185,129,0.18);color:#34d399;border:1px solid rgba(16,185,129,0.4);">
+              🟢 ${inStockRefs.length || 7} réf. disponibles
+            </span>
+          </div>
+
+          ${wsCamps.length > 0 ? `
+            <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+              <div style="font-size:11px;font-weight:800;color:#34d399;text-transform:uppercase;margin-bottom:4px;">📢 Arrivages &amp; Campagnes B2B en cours :</div>
+              ${wsCamps.map(c => `
+                <div style="font-size:12px;color:#e2e8f0;padding:3px 0;">
+                  • <strong>${escapeHtml(c.product_name)}</strong> (${escapeHtml(c.lab_name || 'Labo')}) — <span style="color:#fbbf24;">${escapeHtml(c.offer_details || c.title)}</span>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            ${cleanWa ? `
+              <a href="https://wa.me/237${cleanWa}?text=${waText}" target="_blank" rel="noopener noreferrer" class="btn btn--primary btn--sm" style="flex:1;background:linear-gradient(135deg,#10b981,#059669);text-decoration:none;text-align:center;font-weight:800;">
+                💬 Contacter Responsable Achats
+              </a>
+              <a href="tel:+237${cleanWa}" class="btn btn--secondary btn--sm" style="text-decoration:none;">
+                📞 Appeler
+              </a>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
   }
 
 
@@ -2027,7 +2157,7 @@
   // ═══════════════════════════════════════════════════════
   function switchPanel(panel) {
     activePanel = panel;
-    ['pharmacies', 'promotions', 'stats', 'alerts'].forEach(p => {
+    ['pharmacies', 'promotions', 'wholesalers', 'stats', 'alerts'].forEach(p => {
       const el = $('panel-' + p);
       if (el) el.style.display = (p === panel) ? 'block' : 'none';
     });
@@ -2036,6 +2166,7 @@
     const btnMap = {
       pharmacies: 'btn-pharmacies',
       promotions: 'btn-promotions',
+      wholesalers: 'btn-wholesalers',
       stats: 'btn-stats',
       alerts: 'btn-alerts',
     };
@@ -2047,8 +2178,10 @@
       }
     });
 
-    // Load alerts when switching
+    // Load alerts or wholesalers when switching
     if (panel === 'alerts') loadStockAlerts();
+    if (panel === 'wholesalers') renderDelegateWholesalers();
+    if (panel === 'stats') loadStats();
 
     // Fullscreen for Stats
     const sheet = $('bottom-sheet');

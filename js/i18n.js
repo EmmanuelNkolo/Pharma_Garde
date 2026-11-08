@@ -39,7 +39,7 @@ const I18n = (() => {
 
       // Footer
       footer_line1: 'Application de santé publique — Cameroun',
-      footer_line2: 'Recherche de médicaments · Pharmacies de garde · Délégués médicaux',
+      footer_line2: 'Recherche de médicaments · Pharmacies de garde · Délégués médicaux · Grossistes-répartiteurs',
 
       // Welcome
       welcome_title: 'Bienvenue sur',
@@ -50,6 +50,8 @@ const I18n = (() => {
       btn_pharmacy_desc: 'Gérer votre officine',
       btn_delegate: 'Espace Délégué Médical',
       btn_delegate_desc: 'Promouvoir vos produits',
+      btn_wholesaler: 'Espace Grossiste-Répartiteur',
+      btn_wholesaler_desc: 'Catalogue B2B, commandes & arrivages',
 
       // Location
       location_title: 'Votre Position',
@@ -226,7 +228,7 @@ const I18n = (() => {
       ph_pwd_confirm: 'Retype your password',
 
       footer_line1: 'Public Health Application — Cameroon',
-      footer_line2: 'Medicine search · On-duty pharmacies · Medical delegates',
+      footer_line2: 'Medicine search · On-duty pharmacies · Medical delegates · Pharmaceutical wholesalers',
 
       welcome_title: 'Welcome to',
       welcome_subtitle: 'Find your medicines at nearby pharmacies',
@@ -236,6 +238,8 @@ const I18n = (() => {
       btn_pharmacy_desc: 'Manage your pharmacy',
       btn_delegate: 'Medical Delegate Area',
       btn_delegate_desc: 'Promote your products',
+      btn_wholesaler: 'Wholesaler-Distributor Area',
+      btn_wholesaler_desc: 'B2B catalog, orders & arrivals',
 
       location_title: 'Your Location',
       location_desc: 'To find nearby pharmacies, we need your location. Your data stays private.',

@@ -91,6 +91,11 @@
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
             <span data-i18n="btn_delegate">Espace Délégué Médical</span>
           </button>
+
+          <button onclick="try{sessionStorage.removeItem('pharmagarde_wholesaler_session');localStorage.removeItem('pharmagarde_wholesaler_session');}catch(e){}window.location.href='grossiste.html'" class="welcome-screen__btn" style="border-color: rgba(251, 191, 36, 0.35);">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M17 18h1"/><path d="M12 18h1"/><path d="M7 18h1"/></svg>
+            <span data-i18n="btn_wholesaler">Espace Grossiste-Répartiteur</span>
+          </button>
         </div>
 
         <!-- Actions Rapides : Partager, QR Code, Installer l'App -->
@@ -119,7 +124,7 @@
             </svg>
             <span data-i18n="footer_line1">Application de santé publique — Cameroun</span>
           </span>
-          <span data-i18n="footer_line2" style="text-align: center;">Recherche de médicaments · Pharmacies de garde · Délégués médicaux</span>
+          <span data-i18n="footer_line2" style="text-align: center;">Recherche de médicaments · Pharmacies de garde · Délégués médicaux · Grossistes-répartiteurs</span>
         </p>
       </div>
     </div>
@@ -408,15 +413,16 @@
 
   </div>
 
-  <!-- Scripts -->
+  <!-- Scripts (Versions CDN figées) -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
   <script src="js/supabaseClient.js?v=4"></script>
+  <script src="js/shared/network.js?v=9.0"></script>
   <script src="js/data/medicines.js?v=4"></script>
   <script src="js/data/pharmacies.js?v=4"></script>
   <script src="js/core.js?v=4"></script>
-  <script src="js/i18n.js?v=4"></script>
+  <script src="js/i18n.js?v=9.0"></script>
   <script src="js/geolocation.js?v=4"></script>
   <script src="js/payment.js?v=9"></script>
   <script src="js/pg-share.js?v=1.0"></script>

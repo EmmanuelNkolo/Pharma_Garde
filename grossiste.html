@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="description" content="Pharma-Garde — Espace Grossiste-Répartiteur & Distributeur Pharmaceutique B2B au Cameroun. Catalogue, commandes officines, arrivages et statistiques.">
+  <meta name="theme-color" content="#0a0f1c">
+  <title>Pharma-Garde — Espace Grossiste-Répartiteur B2B</title>
+
+  <!-- PWA & Mobile App Icons -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+
+  <!-- Fonts & Pinned CDNs -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="css/design-system.css?v=9.0">
+  <link rel="stylesheet" href="css/pro.css?v=9.0">
+  <link rel="stylesheet" href="css/pharma-auth.css?v=9.0">
+  <link rel="stylesheet" href="css/espace-pharmacie-v2.css?v=9.0">
+  <link rel="stylesheet" href="css/pg-connect.css?v=9.0">
+  <link rel="stylesheet" href="css/pg-share.css?v=9.0">
+  <link rel="stylesheet" href="css/grossiste.css?v=9.0">
+</head>
+<body>
+  <div class="app-container">
+
+    <!-- ════════════════════ AUTHENTIFICATION GROSSISTE B2B ════════════════════ -->
+    <div id="g-login-screen" class="pa-screen">
+      <div class="lang-switch pa-lang">
+        <button type="button" class="lang-switch__btn active" data-lang="fr">FR</button>
+        <button type="button" class="lang-switch__btn" data-lang="en">EN</button>
+      </div>
+
+      <div class="pa-wrap">
+        <a href="index.html" class="btn btn--ghost" style="margin-bottom: 14px;" onclick="try{sessionStorage.removeItem('pharmagarde_wholesaler_session');localStorage.removeItem('pharmagarde_wholesaler_session');}catch(e){}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+          <span data-i18n="back">Retour à l'accueil</span>
+        </a>
+
+        <!-- ─────────── CONNEXION GROSSISTE ─────────── -->
+        <form id="g-login-form" class="glass-card pa-card" novalidate onsubmit="return false;">
+          <div class="pa-head">
+            <div class="pa-icon">🏭</div>
+            <h1 class="pa-title" style="color:#fbbf24;">Connexion Grossiste-Répartiteur</h1>
+            <p class="pa-subtitle">Accédez à votre portail B2B de distribution pharmaceutique (Officines &amp; Laboratoires).</p>
+          </div>
+
+          <div class="form-group">
+            <label class="pa-label" for="g-login-email">Email professionnel <span class="req">*</span></label>
+            <input type="email" id="g-login-email" class="form-input" placeholder="Ex : contact@ubipharm-cm.com" autocomplete="email">
+          </div>
+          <div class="form-group">
+            <label class="pa-label" for="g-login-password">Mot de passe <span class="req">*</span></label>
+            <input type="password" id="g-login-password" class="form-input" placeholder="••••••••" autocomplete="current-password">
+          </div>
+
+          <button type="button" id="btn-g-login" class="btn btn--primary btn--block" style="margin-top: 14px;">
+            Se connecter à l'Espace Grossiste
+          </button>
+
+          <!-- Accès rapide comptes certifiés / démo -->
+          <div style="margin-top:18px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.08);">
+            <div style="font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:8px;text-align:center;">
+              ⚡ Accès Rapide Distributeurs Agréés (Démo / Test)
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <button type="button" class="btn btn--secondary btn--sm" data-demo-ws="ws_ubipharm_dla" style="justify-content:space-between;">
+                <span>🏭 UBIPHARM CAMEROUN SA (Douala)</span>
+                <span style="color:#fbbf24;font-weight:800;">GR-UBI237 →</span>
+              </button>
+              <button type="button" class="btn btn--secondary btn--sm" data-demo-ws="ws_laborex_dla" style="justify-content:space-between;">
+                <span>🏭 LABOREX CAMEROUN (CFAO)</span>
+                <span style="color:#34d399;font-weight:800;">GR-LAB884 →</span>
+              </button>
+              <button type="button" class="btn btn--secondary btn--sm" data-demo-ws="ws_apharm_yde" style="justify-content:space-between;">
+                <span>🏭 AFRICAPHARM DISTRIBUTION (Yaoundé)</span>
+                <span style="color:#60a5fa;font-weight:800;">GR-APH512 →</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="pa-switch-link" style="margin-top:16px;">
+            <span style="font-size: 13px; color: var(--text-muted);">Nouveau distributeur agréé ?</span>
+            <button type="button" class="btn btn--ghost" data-g-view="register" style="font-size: 14px; color: var(--emerald-400); font-weight: 700;">
+              Inscrire mon établissement →
+            </button>
+          </div>
+        </form>
+
+        <!-- ─────────── INSCRIPTION GROSSISTE ─────────── -->
+        <form id="g-register-form" class="glass-card pa-card hidden" novalidate onsubmit="return false;">
+          <div class="pa-head">
+            <div class="pa-icon">🏢</div>
+            <h2 class="pa-title" style="color:#fbbf24;">Inscription Grossiste-Répartiteur</h2>
+            <p class="pa-subtitle">Enregistrez votre société de distribution pharmaceutique (14 jours d'essai Pro inclus).</p>
+          </div>
+
+          <div class="pa-section">
+            <div class="pa-section__title"><span class="pa-section__num">1</span> Identité &amp; Agrément DPML / ONPC</div>
+            <div class="form-group">
+              <label class="pa-label">Raison sociale du Grossiste <span class="req">*</span></label>
+              <input type="text" id="g-reg-company" class="form-input" placeholder="Ex : UBIPHARM CAMEROUN SA">
+            </div>
+            <div class="form-group">
+              <label class="pa-label">Pharmacien Responsable / Directeur <span class="req">*</span></label>
+              <input type="text" id="g-reg-manager" class="form-input" placeholder="Ex : Dr Emmanuel Nkot">
+            </div>
+            <div class="pa-grid-2">
+              <div class="form-group">
+                <label class="pa-label">N° Agrément DPML / ONPC <span class="req">*</span></label>
+                <input type="text" id="g-reg-license" class="form-input" placeholder="Ex : DPML-GR-2024-012" style="text-transform:uppercase;">
+              </div>
+              <div class="form-group">
+                <label class="pa-label">N° RCCM</label>
+                <input type="text" id="g-reg-rccm" class="form-input" placeholder="Ex : RC/DLA/2020/B/1420">
+              </div>
+            </div>
+          </div>
+
+          <div class="pa-section">
+            <div class="pa-section__title"><span class="pa-section__num">2</span> Siège Logistique &amp; Zones de Livraison</div>
+            <div class="pa-grid-2">
+              <div class="form-group">
+                <label class="pa-label">Ville du dépôt principal <span class="req">*</span></label>
+                <select id="g-reg-city" class="form-input form-select">
+                  <option value="Douala">Douala</option>
+                  <option value="Yaoundé">Yaoundé</option>
+                  <option value="Bafoussam">Bafoussam</option>
+                  <option value="Garoua">Garoua</option>
+                  <option value="Bamenda">Bamenda</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="pa-label">Quartier / Zone Industrielle <span class="req">*</span></label>
+                <input type="text" id="g-reg-quarter" class="form-input" placeholder="Ex : Zone Industrielle Bassa">
+              </div>
+            </div>
+
+            <div class="pa-grid-2">
+              <div class="form-group">
+                <label class="pa-label">Minimum de commande (FCFA)</label>
+                <input type="number" id="g-reg-min-order" class="form-input" value="50000" step="5000">
+              </div>
+              <div class="form-group">
+                <label class="pa-label">Délai moyen de livraison (heures)</label>
+                <input type="number" id="g-reg-delay" class="form-input" value="6" min="1" max="72">
+              </div>
+            </div>
+
+            <label class="pa-label">Villes desservies par votre flotte</label>
+            <div class="pa-chips">
+              <label class="pa-chip"><input type="checkbox" class="g-reg-zone" value="Douala" checked><span>Douala</span></label>
+              <label class="pa-chip"><input type="checkbox" class="g-reg-zone" value="Yaoundé" checked><span>Yaoundé</span></label>
+              <label class="pa-chip"><input type="checkbox" class="g-reg-zone" value="Bafoussam" checked><span>Bafoussam</span></label>
+              <label class="pa-chip"><input type="checkbox" class="g-reg-zone" value="Garoua"><span>Garoua</span></label>
+              <label class="pa-chip"><input type="checkbox" class="g-reg-zone" value="Bamenda"><span>Bamenda</span></label>
+              <label class="pa-chip"><input type="checkbox" class="g-reg-zone" value="Kribi"><span>Kribi / Limbé</span></label>
+            </div>
+          </div>
+
+          <div class="pa-section">
+            <div class="pa-section__title"><span class="pa-section__num">3</span> Contacts &amp; Identifiants</div>
+            <div class="pa-grid-2">
+              <div class="form-group">
+                <label class="pa-label">Téléphone Standard / Commandes <span class="req">*</span></label>
+                <input type="tel" id="g-reg-phone" class="form-input" placeholder="699 10 20 30">
+              </div>
+              <div class="form-group">
+                <label class="pa-label">WhatsApp Commercial B2B</label>
+                <input type="tel" id="g-reg-whatsapp" class="form-input" placeholder="699 10 20 30">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="pa-label">Email professionnel <span class="req">*</span></label>
+              <input type="email" id="g-reg-email" class="form-input" placeholder="commandes@grossiste.cm">
+            </div>
+            <div class="form-group">
+              <label class="pa-label">Mot de passe <span class="req">*</span></label>
+              <input type="password" id="g-reg-password" class="form-input" placeholder="Minimum 8 caractères">
+            </div>
+          </div>
+
+          <button type="button" id="btn-g-register" class="btn btn--primary btn--block" style="margin-top: 14px;">
+            Créer mon Espace Grossiste B2B
+          </button>
+
+          <div class="pa-switch-link">
+            <button type="button" class="btn btn--ghost" data-g-view="login" style="font-size: 13px;">
+              Déjà inscrit ? <span style="color: var(--emerald-400); font-weight: 700;">Se connecter</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ════════════════════ TABLEAU DE BORD GROSSISTE B2B ════════════════════ -->
+    <div id="g-dashboard" class="hidden" style="min-height: 100vh; background: var(--bg-primary); padding-top: 68px;">
+
+      <!-- Header Grossiste -->
+      <header class="grossiste-header">
+        <div class="grossiste-header__left">
+          <a href="index.html" class="pg-home" title="Retour à l'accueil" onclick="try{sessionStorage.removeItem('pharmagarde_wholesaler_session');localStorage.removeItem('pharmagarde_wholesaler_session');}catch(e){}">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+          </a>
+          <div class="pg-logo"><div class="cross"></div></div>
+          <div class="pg-brand">
+            <span class="pg-brand__name">Pharma-Garde</span>
+            <span class="pg-brand__space" style="color: #22d3ee;">Espace Grossiste B2B</span>
+          </div>
+        </div>
+
+        <div class="grossiste-header__center">
+          <span id="grossiste-header-name" class="grossiste-gold-title">UBIPHARM CAMEROUN SA</span>
+          <span id="grossiste-header-code" class="grossiste-code-pill">GR-UBI237</span>
+        </div>
+
+        <div class="pharm-header__status-group">
+          <button type="button" id="g-status-open" class="header-status-btn status-open active" onclick="GrossisteApp.toggleStatus('open')">
+            <span class="dot-status dot-open"></span> <span>Livraisons Actives</span>
+          </button>
+          <button type="button" id="g-status-urgent_service" class="header-status-btn status-guard" onclick="GrossisteApp.toggleStatus('urgent_service')">
+            <span class="dot-status dot-guard"></span> <span>Urgences / Garde</span>
+          </button>
+          <button type="button" id="g-status-closed" class="header-status-btn status-closed" onclick="GrossisteApp.toggleStatus('closed')">
+            <span class="dot-status dot-closed"></span> <span>Fermé</span>
+          </button>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;">
+          <!-- Badge Abonnement Pro -->
+          <div id="grossiste-sub-badge-slot" data-pg-sub-badge="true"></div>
+
+          <button type="button" class="btn btn--icon" id="btn-g-fullscreen" title="Plein écran">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+          </button>
+          <button type="button" class="pg-icon-btn" title="Assistance Développeur (+237 694 929 909)" onclick="PGConnect && PGConnect.openSupport('Espace Grossiste')">
+            🛟
+          </button>
+          <button type="button" class="btn btn--icon" id="g-settings-open" title="Paramètres du Grossiste">
+            ⚙️
+          </button>
+        </div>
+      </header>
+
+      <!-- Navigation Principale des 5 Pôles Grossiste -->
+      <nav class="grossiste-nav" aria-label="Pôles Grossiste B2B">
+        <button type="button" class="grossiste-tab active" id="gtab-catalog" onclick="GrossisteApp.switchTab('catalog')">
+          <span class="grossiste-tab__icon">📦</span>
+          <div>
+            <div>Catalogue &amp; Stocks</div>
+            <div style="font-size:10.5px;opacity:0.75;font-weight:600;">Tarifs Cession &amp; CSV</div>
+          </div>
+          <span class="grossiste-tab__badge" id="tab-badge-catalog">10</span>
+        </button>
+
+        <button type="button" class="grossiste-tab" id="gtab-orders" onclick="GrossisteApp.switchTab('orders')">
+          <span class="grossiste-tab__icon">🛒</span>
+          <div>
+            <div>Commandes Officines</div>
+            <div style="font-size:10.5px;opacity:0.75;font-weight:600;">Traitement &amp; BL PDF</div>
+          </div>
+          <span class="grossiste-tab__badge" id="tab-badge-orders">1</span>
+        </button>
+
+        <button type="button" class="grossiste-tab" id="gtab-campaigns" onclick="GrossisteApp.switchTab('campaigns')">
+          <span class="grossiste-tab__icon">📢</span>
+          <div>
+            <div>Arrivages &amp; Ruptures</div>
+            <div style="font-size:10.5px;opacity:0.75;font-weight:600;">Promos &amp; Alertes Officines</div>
+          </div>
+          <span class="grossiste-tab__badge" id="tab-badge-campaigns">2</span>
+        </button>
+
+        <button type="button" class="grossiste-tab" id="gtab-network" onclick="GrossisteApp.switchTab('network')">
+          <span class="grossiste-tab__icon">🤝</span>
+          <div>
+            <div>Réseau B2B &amp; Carte</div>
+            <div style="font-size:10.5px;opacity:0.75;font-weight:600;">Pharmacies &amp; Délégués</div>
+          </div>
+        </button>
+
+        <button type="button" class="grossiste-tab" id="gtab-stats" onclick="GrossisteApp.switchTab('stats')">
+          <span class="grossiste-tab__icon">📊</span>
+          <div>
+            <div>Stats Pro &amp; Rapports</div>
+            <div style="font-size:10.5px;opacity:0.75;font-weight:600;">Graphiques, PDF &amp; CSV</div>
+          </div>
+        </button>
+      </nav>
+
+      <!-- Contenu Principal -->
+      <main class="grossiste-main">
+        <!-- Bannière de rappel d'échéance J-7 / J-3 / J-1 -->
+        <div id="grossiste-reminder-banner"></div>
+
+        <!-- ════════════════════════════════════════════════════════
+             PÔLE 1 : CATALOGUE & STOCKS B2B
+             ════════════════════════════════════════════════════════ -->
+        <section id="gpanel-catalog">
+          <div class="grossiste-pole-header">
+            <div>
+              <h2 class="grossiste-pole-title">📦 Catalogue des Références &amp; Tarifs de Cession B2B</h2>
+              <p class="grossiste-pole-desc">
+                Gérez vos stocks en temps réel, vos prix de cession HT, vos offres promotionnelles (10+1, remises) et vos imports/exports CSV sécurisés.
+              </p>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <input type="file" id="g-catalog-csv-input" accept=".csv" style="display:none;" onchange="GrossisteCatalog.importCatalogCsv(this, GrossisteApp.getCurrentWholesaler())">
+              <button type="button" class="btn btn--secondary btn--sm" onclick="document.getElementById('g-catalog-csv-input').click()">
+                📂 Importer CSV Stock
+              </button>
+              <button type="button" class="btn btn--secondary btn--sm" onclick="GrossisteCatalog.exportCatalogCSV(GrossisteApp.getCurrentWholesaler())">
+                📥 Exporter CSV
+              </button>
+              <button type="button" class="btn btn--secondary btn--sm" onclick="GrossisteCatalog.exportCatalogPDF(GrossisteApp.getCurrentWholesaler())">
+                📄 Tarif PDF
+              </button>
+              <button type="button" class="btn btn--primary btn--sm" style="background:linear-gradient(135deg,#10b981,#059669);font-weight:800;" onclick="GrossisteCatalog.openEditModal(null)">
+                + Ajouter une Référence
+              </button>
+            </div>
+          </div>
+
+          <div class="grossiste-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+              <input type="text" class="form-input" style="max-width:360px;" placeholder="🔍 Rechercher par nom, DCI, code CIP ou laboratoire..." oninput="GrossisteCatalog.setFilter('query', this.value)">
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                <select class="form-input form-select" style="width:auto;min-width:160px;" onchange="GrossisteCatalog.setFilter('stockStatus', this.value)">
+                  <option value="all">Tous les statuts</option>
+                  <option value="in_stock">🟢 En stock uniquement</option>
+                  <option value="low_stock">🟠 Stock faible / Seuil</option>
+                  <option value="rupture">🔴 En rupture (0)</option>
+                  <option value="promoted">🎁 En promotion B2B</option>
+                </select>
+                <span id="catalog-count-label" style="font-size:12px;color:#94a3b8;font-weight:700;"></span>
+              </div>
+            </div>
+
+            <div class="pharm-table-wrap">
+              <table class="pharm-table">
+                <thead>
+                  <tr>
+                    <th>Référence &amp; DCI</th>
+                    <th>Laboratoire &amp; Classe</th>
+                    <th>Prix Cession HT</th>
+                    <th>Prix Officine</th>
+                    <th>État du Stock</th>
+                    <th>Condition / Promo B2B</th>
+                    <th>Actions Rapides</th>
+                  </tr>
+                </thead>
+                <tbody id="grossiste-catalog-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════
+             PÔLE 2 : COMMANDES OFFICINES (B2B)
+             ════════════════════════════════════════════════════════ -->
+        <section id="gpanel-orders" style="display:none;">
+          <div class="grossiste-pole-header">
+            <div>
+              <h2 class="grossiste-pole-title">🛒 Commandes de Réapprovisionnement des Officines</h2>
+              <p class="grossiste-pole-desc">
+                Traitez les commandes B2B émises par les pharmacies partenaires, éditez les Bons de Livraison PDF et suivez les expéditions.
+              </p>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;" id="grossiste-order-filters">
+              <button type="button" class="time-pill-btn active" data-status="all" onclick="GrossisteOrders.setStatusFilter('all')">Toutes</button>
+              <button type="button" class="time-pill-btn" data-status="pending" onclick="GrossisteOrders.setStatusFilter('pending')">⏳ En attente</button>
+              <button type="button" class="time-pill-btn" data-status="confirmed" onclick="GrossisteOrders.setStatusFilter('confirmed')">📋 Confirmées</button>
+              <button type="button" class="time-pill-btn" data-status="shipped" onclick="GrossisteOrders.setStatusFilter('shipped')">🚚 En livraison</button>
+              <button type="button" class="time-pill-btn" data-status="delivered" onclick="GrossisteOrders.setStatusFilter('delivered')">✅ Livrées</button>
+            </div>
+          </div>
+
+          <div id="grossiste-orders-list"></div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════
+             PÔLE 3 : CAMPAGNES, ARRIVAGES & ALERTES RUPTURES
+             ════════════════════════════════════════════════════════ -->
+        <section id="gpanel-campaigns" style="display:none;">
+          <div class="grossiste-pole-header">
+            <div>
+              <h2 class="grossiste-pole-title">📢 Diffusion d'Arrivages B2B &amp; Alertes Ruptures Officines</h2>
+              <p class="grossiste-pole-desc">
+                Informez instantanément les Pharmacies et les Délégués Médicaux de vos nouveaux arrivages et répondez aux ruptures critiques.
+              </p>
+            </div>
+            <button type="button" class="btn btn--primary" style="background:linear-gradient(135deg,#fbbf24,#d97706);color:#0f172a;font-weight:900;border:none;" onclick="GrossisteCampaigns.openNewCampaignModal(GrossisteApp.getCurrentWholesaler())">
+              📢 Publier un Arrivage / Offre B2B
+            </button>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:18px;">
+            <div>
+              <h3 style="font-size:14px;font-weight:800;color:#34d399;text-transform:uppercase;margin-bottom:10px;">
+                🎁 Mes Campagnes &amp; Arrivages Diffusés
+              </h3>
+              <div id="grossiste-campaigns-list"></div>
+            </div>
+            <div>
+              <h3 style="font-size:14px;font-weight:800;color:#f87171;text-transform:uppercase;margin-bottom:10px;">
+                🚨 Alertes Ruptures des Officines du Secteur
+              </h3>
+              <div id="grossiste-rupture-alerts-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════
+             PÔLE 4 : RÉSEAU B2B (CARTE PHARMACIES & DÉLÉGUÉS)
+             ════════════════════════════════════════════════════════ -->
+        <section id="gpanel-network" style="display:none;">
+          <div class="grossiste-pole-header">
+            <div>
+              <h2 class="grossiste-pole-title">🤝 Cartographie Logistique &amp; Réseau B2B (Pharmacies &amp; Délégués)</h2>
+              <p class="grossiste-pole-desc">
+                Visualisez les officines clientes et les délégués médicaux partenaires pour coordonner la distribution des produits.
+              </p>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:16px;">
+            <div class="grossiste-card">
+              <h4 style="font-size:14px;font-weight:800;color:#34d399;margin:0 0 10px;">🗺️ Carte Logistique des Officines Desservies</h4>
+              <div id="grossiste-network-map"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:16px;">
+              <div class="grossiste-card" style="margin-bottom:0;">
+                <h4 style="font-size:14px;font-weight:800;color:#34d399;margin:0 0 8px;">🏥 Pharmacies d'Officine Partenaires</h4>
+                <div id="grossiste-partner-pharmacies-list"></div>
+              </div>
+              <div class="grossiste-card" style="margin-bottom:0;">
+                <h4 style="font-size:14px;font-weight:800;color:#fbbf24;margin:0 0 8px;">💼 Délégués Médicaux &amp; Laboratoires</h4>
+                <div id="grossiste-partner-delegates-list"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════
+             PÔLE 5 : STATISTIQUES PRO & RAPPORTS PDF / CSV
+             ════════════════════════════════════════════════════════ -->
+        <section id="gpanel-stats" style="display:none;">
+          <div class="grossiste-pole-header">
+            <div>
+              <h2 class="grossiste-pole-title">📊 Pilotage B2B, Indicateurs de Performance &amp; Rapports Certifiés</h2>
+              <p class="grossiste-pole-desc">
+                Analysez votre chiffre d'affaires B2B, votre taux de service officine et téléchargez vos rapports PDF et CSV.
+              </p>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button type="button" class="btn btn--secondary btn--sm" onclick="GrossisteStats.exportOrdersCSV(GrossisteApp.getCurrentWholesaler())">
+                📥 Exporter Commandes (.CSV)
+              </button>
+              <button type="button" class="btn btn--primary btn--sm" style="background:linear-gradient(135deg,#10b981,#059669);font-weight:800;" onclick="GrossisteStats.exportFullReportPDF(GrossisteApp.getCurrentWholesaler())">
+                📄 Générer Rapport Complet (.PDF)
+              </button>
+            </div>
+          </div>
+
+          <!-- 4 KPI Cards -->
+          <div class="grossiste-kpi-grid">
+            <div class="grossiste-kpi-card">
+              <div class="grossiste-kpi-val" style="color:#34d399;" id="gkpi-revenue">0 F</div>
+              <div class="grossiste-kpi-lbl">Chiffre d'Affaires B2B HT</div>
+            </div>
+            <div class="grossiste-kpi-card">
+              <div class="grossiste-kpi-val" style="color:#fbbf24;" id="gkpi-orders">0</div>
+              <div class="grossiste-kpi-lbl">Commandes Officines</div>
+            </div>
+            <div class="grossiste-kpi-card">
+              <div class="grossiste-kpi-val" style="color:#60a5fa;" id="gkpi-service-rate">96%</div>
+              <div class="grossiste-kpi-lbl">Taux de Service Livraison</div>
+            </div>
+            <div class="grossiste-kpi-card">
+              <div class="grossiste-kpi-val" style="color:#c084fc;" id="gkpi-active-refs">0 / 0</div>
+              <div class="grossiste-kpi-lbl">Références Disponibles</div>
+            </div>
+          </div>
+
+          <!-- Graphiques Chart.js -->
+          <div class="grossiste-charts-grid">
+            <div class="grossiste-card">
+              <h4 style="font-size:14px;font-weight:800;color:#34d399;margin:0 0 12px;">📈 Évolution Hebdomadaire du CA B2B &amp; Volume Commandes</h4>
+              <div class="grossiste-chart-box">
+                <canvas id="grossiste-chart-revenue"></canvas>
+              </div>
+            </div>
+            <div class="grossiste-card">
+              <h4 style="font-size:14px;font-weight:800;color:#fbbf24;margin:0 0 12px;">🎯 Répartition des Commandes par Statut</h4>
+              <div class="grossiste-chart-box">
+                <canvas id="grossiste-chart-status"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <div class="grossiste-card">
+            <h4 style="font-size:14px;font-weight:800;color:#60a5fa;margin:0 0 12px;">🏆 Top Références les Plus Commandées par les Officines</h4>
+            <div class="grossiste-chart-box" style="height:240px;">
+              <canvas id="grossiste-chart-top-products"></canvas>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+
+    <!-- ════════════════════ MODALES GROSSISTE B2B ════════════════════ -->
+
+    <!-- 1. Modale Ajout / Édition Référence Catalogue -->
+    <div id="grossiste-product-modal" class="modal-overlay">
+      <div class="modal-content" style="max-width:520px;">
+        <div class="modal-header">
+          <h3 id="gprod-modal-title" style="color:#fbbf24;font-weight:800;">➕ Nouvelle Référence Catalogue B2B</h3>
+          <button type="button" class="btn btn--icon" onclick="document.getElementById('grossiste-product-modal').classList.remove('active')">✕</button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="gprod-id">
+          <div class="pa-grid-2">
+            <div class="form-group">
+              <label class="form-label">Code CIP / SKU</label>
+              <input type="text" id="gprod-code" class="form-input" placeholder="CIP-34009301">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Classe Thérapeutique</label>
+              <select id="gprod-cat" class="form-input form-select">
+                <option value="Antibiotique">Antibiotique</option>
+                <option value="Antipaludéen">Antipaludéen</option>
+                <option value="Antalgique">Antalgique / Antipyrétique</option>
+                <option value="Pneumologie">Pneumologie</option>
+                <option value="Gastro-entérologie">Gastro-entérologie</option>
+                <option value="Cardiologie">Cardiologie</option>
+                <option value="Diabétologie">Diabétologie</option>
+                <option value="Matériel Médical">Matériel Médical</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Nom commercial &amp; Dosage *</label>
+            <input type="text" id="gprod-name" class="form-input" placeholder="Ex : Augmentin 1g Adultes (Boîte de 8)">
+          </div>
+          <div class="pa-grid-2">
+            <div class="form-group">
+              <label class="form-label">DCI (Molécule)</label>
+              <input type="text" id="gprod-dci" class="form-input" placeholder="Ex : Amoxicilline / Ac. Clavulanique">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Laboratoire Fabricant</label>
+              <input type="text" id="gprod-lab" class="form-input" placeholder="Ex : GSK, Sanofi, Novartis...">
+            </div>
+          </div>
+          <div class="pa-grid-2">
+            <div class="form-group">
+              <label class="form-label" style="color:#34d399;">Prix Cession Grossiste HT (FCFA) *</label>
+              <input type="number" id="gprod-wprice" class="form-input" placeholder="Ex : 4950">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Prix Public Officine (FCFA)</label>
+              <input type="number" id="gprod-pprice" class="form-input" placeholder="Ex : 6500">
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+            <div class="form-group">
+              <label class="form-label">Stock Disponible</label>
+              <input type="number" id="gprod-stock" class="form-input" value="100">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Seuil Alerte</label>
+              <input type="number" id="gprod-threshold" class="form-input" value="30">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Qté Min. Cmd</label>
+              <input type="number" id="gprod-minqty" class="form-input" value="5">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="color:#fbbf24;">Offre Promotionnelle / Gratuités (optionnel)</label>
+            <input type="text" id="gprod-promo" class="form-input" placeholder="Ex : 10+1 gratuit ou -12% dès 20 boîtes">
+          </div>
+          <button type="button" class="btn btn--primary btn--block" style="margin-top:12px;" onclick="GrossisteCatalog.saveFromModal(GrossisteApp.getCurrentWholesaler())">
+            💾 Enregistrer la Référence
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Modale Nouvelle Campagne / Arrivage B2B -->
+    <div id="grossiste-campaign-modal" class="modal-overlay">
+      <div class="modal-content" style="max-width:480px;">
+        <div class="modal-header">
+          <h3 style="color:#fbbf24;font-weight:800;">📢 Diffuser un Arrivage ou Offre B2B</h3>
+          <button type="button" class="btn btn--icon" onclick="document.getElementById('grossiste-campaign-modal').classList.remove('active')">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Titre de l'annonce *</label>
+            <input type="text" id="gcamp-title" class="form-input" placeholder="Ex : Nouvel Arrivage Antibiotiques & Insulines">
+          </div>
+          <div class="pa-grid-2">
+            <div class="form-group">
+              <label class="form-label">Produit(s) vedette(s) *</label>
+              <input type="text" id="gcamp-product" class="form-input" placeholder="Ex : Augmentin 1g">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Laboratoire</label>
+              <input type="text" id="gcamp-lab" class="form-input" placeholder="Ex : GSK">
+            </div>
+          </div>
+          <div class="pa-grid-2">
+            <div class="form-group">
+              <label class="form-label">Type d'offre</label>
+              <select id="gcamp-type" class="form-input form-select">
+                <option value="arrivage">🚢 Nouvel Arrivage</option>
+                <option value="gratuites">🎁 Unités Gratuites (ex: 10+2)</option>
+                <option value="remise">🏷️ Remise Quantitative</option>
+                <option value="urgence">⚡ Stock d'Urgence Anti-Rupture</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Destinataires</label>
+              <select id="gcamp-audience" class="form-input form-select">
+                <option value="both">🏥 Pharmacies &amp; 💼 Délégués</option>
+                <option value="pharmacies">🏥 Pharmacies uniquement</option>
+                <option value="delegates">💼 Délégués Médicaux uniquement</option>
+              </select>
+            </div>
+          </div>
+          <div class="pa-grid-2">
+            <div class="form-group">
+              <label class="form-label">Prix Cession Unitaire HT (FCFA)</label>
+              <input type="number" id="gcamp-price" class="form-input" placeholder="Ex : 4950">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Quantité minimale</label>
+              <input type="number" id="gcamp-minqty" class="form-input" value="10">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Détails &amp; Conditions de livraison</label>
+            <textarea id="gcamp-details" class="form-input" rows="3" placeholder="Ex : 10 achetés = +2 gratuits, livraison en 4h sur Douala et Yaoundé."></textarea>
+          </div>
+          <button type="button" class="btn btn--primary btn--block" style="margin-top:12px;" onclick="GrossisteCampaigns.saveCampaignFromModal(GrossisteApp.getCurrentWholesaler())">
+            🚀 Diffuser maintenant
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panneau Latéral Paramètres Grossiste -->
+    <div id="g-settings-panel" style="display:none;position:fixed;top:0;right:0;bottom:0;width:100%;max-width:400px;background:var(--bg-card);border-left:1px solid var(--border-default);z-index:2000;box-shadow:-8px 0 40px rgba(0,0,0,0.45);overflow-y:auto;padding:24px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <h3 style="font-size:18px;font-weight:800;color:#fbbf24;">⚙️ Paramètres Grossiste</h3>
+        <button type="button" class="btn btn--icon" id="g-settings-close">✕</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Raison Sociale</label>
+        <input type="text" id="g-set-company" class="form-input">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Pharmacien Responsable</label>
+        <input type="text" id="g-set-manager" class="form-input">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Téléphone Commandes</label>
+        <input type="text" id="g-set-phone" class="form-input">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Minimum de Commande Franco (FCFA)</label>
+        <input type="number" id="g-set-minorder" class="form-input">
+      </div>
+      <button type="button" id="g-settings-save" class="btn btn--primary btn--block" style="margin-top:12px;">💾 Enregistrer</button>
+      <hr style="border-color:var(--border-default);margin:20px 0;">
+      <button type="button" class="btn btn--secondary btn--block" style="margin-bottom:10px;" onclick="PGSubscription && PGSubscription.openPaywallModal(GrossisteApp.getCurrentWholesaler(), 'wholesaler')">
+        💎 Gérer mon Abonnement Pro
+      </button>
+      <button type="button" class="btn btn--secondary btn--block" style="margin-bottom:10px;" onclick="PharmaShare && PharmaShare.openModal('share')">
+        🔗 Partager l'application &amp; QR Code
+      </button>
+      <button type="button" id="btn-g-logout" class="btn btn--secondary btn--block" style="color:#f87171;">Déconnexion</button>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast-container">
+      <div id="toast" class="toast toast--success"><span id="toast-message"></span></div>
+    </div>
+
+  </div>
+
+  <!-- Scripts (Versions CDN figées + Modules Partagés + Modules Grossiste) -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="js/supabaseClient.js?v=9.0"></script>
+  <script src="js/data/pharmacies.js?v=9.0"></script>
+  <script src="js/core.js?v=9.0"></script>
+  <script src="js/i18n.js?v=9.0"></script>
+  <script src="js/shared/network.js?v=9.0"></script>
+  <script src="js/shared/subscription.js?v=9.0"></script>
+  <script src="js/shared/charts.js?v=9.0"></script>
+  <script src="js/shared/reports.js?v=9.0"></script>
+  <script src="js/pg-connect.js?v=9.0"></script>
+  <script src="js/pg-share.js?v=9.0"></script>
+  <script src="js/grossiste/auth.js?v=9.0"></script>
+  <script src="js/grossiste/catalog.js?v=9.0"></script>
+  <script src="js/grossiste/orders.js?v=9.0"></script>
+  <script src="js/grossiste/campaigns.js?v=9.0"></script>
+  <script src="js/grossiste/stats.js?v=9.0"></script>
+  <script src="js/grossiste/app.js?v=9.0"></script>
+</body>
+</html>

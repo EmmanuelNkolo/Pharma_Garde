@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.33.1";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 // =====================================================================
 // UTILS: HMAC-SHA256 Signature Verification
@@ -27,11 +27,16 @@ async function verifyNotchPaySignature(payload: string, signature: string, secre
 }
 
 // =====================================================================
-// MAIN HANDLER
+// MAIN HANDLER (Client 24h Pass + Pro Subscriptions Délégué / Grossiste / Pharmacie)
 // =====================================================================
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-notch-signature' } });
+    return new Response('ok', {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-notch-signature'
+      }
+    });
   }
 
   try {
@@ -64,29 +69,53 @@ serve(async (req: Request) => {
     const event = JSON.parse(rawPayload);
     console.log(`[NotchPay Webhook] Received valid notification for event: ${event.event}`);
 
-    // If it's a successful payment
-    if (event.event === 'payment.complete' && event.data.status === 'complete') {
-      const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-      
-      if (supabaseUrl && supabaseServiceKey) {
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const txData = event?.data || {};
+    const reference = String(txData.reference || txData.merchant_reference || '');
+    const txStatus = String(txData.status || '').toLowerCase();
+    const isCompleted = (event.event === 'payment.complete' || event.event === 'payment.successful') &&
+                        (txStatus === 'complete' || txStatus === 'successful' || txStatus === 'paid');
 
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+
+    if (supabaseUrl && supabaseServiceKey && reference) {
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+      if (isCompleted) {
+        // 1. Enregistrer systématiquement dans la table `payments`
         const { error: dbError } = await supabase
           .from('payments')
-          .upsert({ 
-            reference: event.data.reference, 
-            status: 'SUCCESSFUL', 
-            amount: event.data.amount,
-            operator: event.data.currency, // Or extract from customer data
+          .upsert({
+            reference,
+            status: 'SUCCESSFUL',
+            amount: txData.amount,
+            operator: txData.currency || 'XAF',
             updated_at: new Date().toISOString(),
-            metadata: event.data 
+            metadata: txData
           }, { onConflict: 'reference' });
 
         if (dbError) {
-          console.error('Erreur lors de la mise à jour de la BDD:', dbError);
-        } else {
-          console.log(`Transaction ${event.data.reference} enregistrée avec succès en BDD.`);
+          console.error('Erreur lors de la mise à jour de payments:', dbError);
+        }
+
+        // 2. Si c'est un abonnement Pro (référence commençant par `sub_`), activer l'abonnement
+        if (reference.startsWith('sub_') || txData?.metadata?.type === 'subscription') {
+          const { data: rpcResult, error: rpcError } = await supabase.rpc(
+            'activate_subscription_by_reference',
+            { p_reference: reference }
+          );
+          if (rpcError) {
+            console.error('[Webhook] Erreur activation abonnement:', rpcError);
+          } else {
+            console.log('[Webhook] Abonnement activé avec succès:', rpcResult);
+          }
+        }
+      } else if (txStatus === 'failed' || txStatus === 'canceled' || txStatus === 'cancelled') {
+        if (reference.startsWith('sub_')) {
+          await supabase
+            .from('subscriptions')
+            .update({ status: 'failed', updated_at: new Date().toISOString() })
+            .eq('payment_reference', reference);
         }
       }
     }

@@ -9,11 +9,12 @@
 (function (window) {
   'use strict';
 
-  // ── État Global des 3 Espaces ─────────────────────────────
-  let currentSpace = 'clients'; // 'clients' | 'delegates' | 'management'
+  // ── État Global des 4 Espaces ─────────────────────────────
+  let currentSpace = 'clients'; // 'clients' | 'delegates' | 'management' | 'wholesalers'
   let currentClientSubtab = 'requests';
   let currentDelegateSubtab = 'visits';
   let currentManagementSubtab = 'stats';
+  let currentWholesalerSubtab = 'catalog';
   let responseMode = 'auto'; // 'auto' | 'manual'
   let notifications = [];
   let unreadCount = 0;
@@ -21,6 +22,11 @@
   let countdownTimer24h = null;
   let syncSecondsRemaining = 3600; // 1 heure = 3600s
   let autoRepliesCount = 0;
+  let cachedWholesalers = [];
+  let cachedB2BCatalog = [];
+  let cachedB2BOrders = [];
+  let cachedB2BCampaigns = [];
+  let selectedB2BItem = null;
 
   // Assurances au Cameroun
   const CAMEROON_INSURANCES = [
@@ -39,11 +45,11 @@
   let activeInsurances = {};
 
   // ═════════════════════════════════════════════════════════
-  // 1. NAVIGATION ENTRE LES 3 GRANDS ESPACES
+  // 1. NAVIGATION ENTRE LES 4 GRANDS ESPACES
   // ═════════════════════════════════════════════════════════
   function switchSpace(spaceName) {
     currentSpace = spaceName;
-    const spaces = ['clients', 'delegates', 'management'];
+    const spaces = ['clients', 'delegates', 'management', 'wholesalers'];
 
     spaces.forEach(s => {
       const btn = document.getElementById('tab-space-' + s);
@@ -63,7 +69,22 @@
       switchManagementSubtab(currentManagementSubtab);
       renderStarProducts();
       updateConsistentStats();
+    } else if (spaceName === 'wholesalers') {
+      switchWholesalerSubtab(currentWholesalerSubtab);
+      loadWholesalersHub();
     }
+  }
+
+  // Sous-onglets Espace Grossistes
+  function switchWholesalerSubtab(tab) {
+    currentWholesalerSubtab = tab;
+    const tabs = ['catalog', 'orders', 'campaigns'];
+    tabs.forEach(t => {
+      const btn = document.getElementById('subtab-wh-' + t);
+      const subpanel = document.getElementById('subpanel-wh-' + t);
+      if (btn) btn.classList.toggle('active', t === tab);
+      if (subpanel) subpanel.style.display = (t === tab) ? 'block' : 'none';
+    });
   }
 
   // Sous-onglets Espace Clients
@@ -520,7 +541,9 @@
 
       const resp = await fetch(`${serverUrl}/health`, {
         signal: controller.signal,
-        headers: config.apiKey ? { 'Authorization': `Bearer ${config.apiKey}` } : {}
+        headers: config.apiKey
+          ? { 'Authorization': `Bearer ${config.apiKey}`, 'X-Connector-Token': config.apiKey }
+          : {}
       });
       clearTimeout(timeoutId);
 
@@ -625,7 +648,12 @@
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3500);
-        const resp = await fetch(`${config.serverUrl}/api/stock`, { signal: controller.signal });
+        const resp = await fetch(`${config.serverUrl}/api/stock`, {
+          signal: controller.signal,
+          headers: config.apiKey
+            ? { 'Authorization': `Bearer ${config.apiKey}`, 'X-Connector-Token': config.apiKey }
+            : {}
+        });
         clearTimeout(timeoutId);
 
         if (resp.ok) {
@@ -693,12 +721,16 @@
           const parsed = JSON.parse(content);
           items = Array.isArray(parsed) ? parsed : (parsed.items || []);
         } else {
-          // Format CSV (séparateur virgule ou point-virgule)
+          // Format CSV sécurisé (anti CSV-injection via PGNetwork)
+          const cleanCell = (val) => (window.PGNetwork && window.PGNetwork.cleanImportedCsvValue)
+            ? window.PGNetwork.cleanImportedCsvValue(val)
+            : String(val || '').trim().replace(/^["']|["']$/g, '').replace(/^[=+\-@]+/, '');
+
           const lines = content.split(/\r?\n/).filter(line => line.trim().length > 0);
           if (lines.length > 1) {
             const sep = lines[0].includes(';') ? ';' : ',';
             for (let i = 1; i < lines.length; i++) {
-              const cols = lines[i].split(sep).map(c => c.trim().replace(/^["']|["']$/g, ''));
+              const cols = lines[i].split(sep).map(cleanCell);
               if (cols[0]) {
                 const stockVal = parseInt(cols[1], 10);
                 items.push({
@@ -707,7 +739,7 @@
                   stock: isNaN(stockVal) ? 10 : stockVal,
                   price: parseInt(cols[2], 10) || 1000,
                   status: (isNaN(stockVal) || stockVal > 0) ? 'en_stock' : 'rupture',
-                  covered_insurances: cols[3] ? cols[3].split('|').map(s => s.trim()) : ['Ascoma', 'Activa', 'AXA']
+                  covered_insurances: cols[3] ? cols[3].split('|').map(cleanCell) : ['Ascoma', 'Activa', 'AXA']
                 });
               }
             }
@@ -807,6 +839,437 @@
     if (posRespEl) posRespEl.textContent = positive;
     if (arrivedEl) arrivedEl.textContent = arrived;
     if (convRateEl) convRateEl.textContent = rate + '%';
+
+    // Graphiques Chart.js Pro (v9)
+    if (window.PGCharts) {
+      const labels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+      window.PGCharts.renderTrendChart('pharm-stats-trend-canvas', labels, [
+        { label: 'Demandes Reçues', data: [6, 8, 5, 9, 7, 8, 5], color: '#10b981' },
+        { label: 'Réponses Positives', data: [5, 7, 5, 8, 6, 6, 4], color: '#3b82f6' },
+        { label: 'Achats Honorés', data: [4, 6, 4, 7, 5, 6, 4], color: '#fbbf24' }
+      ]);
+
+      const stock = window.pharmacyStock || [];
+      const inStockCount = stock.filter(p => p.status !== 'rupture').length || 17;
+      const ruptureCount = stock.filter(p => p.status === 'rupture').length || 3;
+      const activeInsCount = Object.values(activeInsurances).filter(Boolean).length || 8;
+
+      window.PGCharts.renderDistributionChart(
+        'pharm-stats-dist-canvas',
+        ['Produits En Stock', 'Produits En Rupture', 'Assurances Actives'],
+        [inStockCount, ruptureCount, activeInsCount],
+        ['#10b981', '#ef4444', '#fbbf24']
+      );
+    }
+  }
+
+  // ═════════════════════════════════════════════════════════
+  // 8. RAPPORTS OFFICIELS PDF & CSV (PHARMACIE v9)
+  // ═════════════════════════════════════════════════════════
+  function getActivePharmacyProfile() {
+    if (window.PharmDash && typeof window.PharmDash.getCurrentPharmacy === 'function') {
+      const p = window.PharmDash.getCurrentPharmacy();
+      if (p) return p;
+    }
+    try {
+      const s = sessionStorage.getItem('pharmagarde_pharmacy_session');
+      if (s) return JSON.parse(s);
+    } catch (e) {}
+    return { id: 'pharm_demo', name: 'Pharmacie Officine', city: 'Douala', phone: '+237 699 00 00 00' };
+  }
+
+  function exportStatsCSV() {
+    if (!window.PGReports) return;
+    const pharm = getActivePharmacyProfile();
+    const stock = window.pharmacyStock || [];
+
+    const headers = ['Médicament', 'Statut Stock', 'Prix Indicatif (FCFA)', 'Assurances Couvertes', 'Officine'];
+    const rows = (stock.length > 0 ? stock : [
+      { name: 'Paracétamol 500mg', status: 'en_stock', price: 500, covered_insurances: ['Ascoma', 'Activa'] },
+      { name: 'Doliprane 1000mg', status: 'en_stock', price: 1200, covered_insurances: ['Ascoma', 'AXA'] },
+      { name: 'Coartem 80/480mg', status: 'en_stock', price: 3200, covered_insurances: ['Ascoma', 'Sanlam'] },
+      { name: 'Amoxicilline 1g', status: 'en_stock', price: 2400, covered_insurances: ['Activa', 'Gras Savoye'] },
+      { name: 'Ventoline 100µg', status: 'rupture', price: 3800, covered_insurances: ['Ascoma'] }
+    ]).map(item => [
+      item.name || '',
+      item.status === 'rupture' ? 'EN RUPTURE' : 'EN STOCK',
+      item.price || 1000,
+      Array.isArray(item.covered_insurances) ? item.covered_insurances.join(' | ') : 'Tiers Payant',
+      pharm.name || 'Officine'
+    ]);
+
+    window.PGReports.exportCSV(
+      `PharmaGarde_Inventaire_Stats_${(pharm.name || 'Officine').replace(/\s+/g, '_')}`,
+      headers,
+      rows
+    );
+  }
+
+  function exportStatsPDF() {
+    if (!window.PGReports) return;
+    const pharm = getActivePharmacyProfile();
+    const total = document.getElementById('stat-total-received')?.textContent || '48';
+    const positive = document.getElementById('stat-positive-responses')?.textContent || '41';
+    const arrived = document.getElementById('stat-total-arrived')?.textContent || '36';
+    const rate = document.getElementById('stat-conversion-rate')?.textContent || '75%';
+    const stock = window.pharmacyStock || [];
+
+    window.PGReports.exportPDF({
+      filename: `Rapport_Officine_${(pharm.name || 'Pharmacie').replace(/\s+/g, '_')}`,
+      title: 'Rapport Analytique d\'Activité & Stock Officine',
+      subtitle: 'Demandes patients, taux de service, produits vedettes et état du stock',
+      entityName: pharm.name || 'Pharmacie Partenaire',
+      entityMeta: `${pharm.city || 'Cameroun'} • Tél : ${pharm.phone || 'N/A'}`,
+      periodLabel: `Généré le ${new Date().toLocaleDateString('fr-FR')}`,
+      kpis: [
+        { label: 'Demandes Reçues', value: total, sub: 'Total période' },
+        { label: 'Réponses Positives', value: positive, sub: 'En stock & assuré' },
+        { label: 'Achats Honorés', value: arrived, sub: 'Retraits comptoir' },
+        { label: 'Taux de Succès', value: rate, sub: 'Conversion globale' }
+      ],
+      tables: [
+        {
+          title: '🏆 Top Médicaments Sollicités & Produits Vedettes',
+          headers: ['Rang', 'Médicament', 'Période Vedette', 'Volume Demandes'],
+          rows: [
+            ['#1', 'Paracétamol 500mg', 'Produit du Jour', '34 demandes'],
+            ['#2', 'Doliprane 1000mg', 'Produit de la Semaine', '186 demandes'],
+            ['#3', 'Coartem 80/480mg', 'Produit du Mois', '540 demandes'],
+            ['#4', 'Amoxicilline 1g', 'Produit de l\'Année', '2 140 demandes']
+          ]
+        },
+        {
+          title: '📋 Extrait de l\'Inventaire & État des Stocks',
+          headers: ['Médicament', 'Statut Actuel', 'Action Recommandée'],
+          rows: (stock.slice(0, 12).map(p => [
+            p.name,
+            p.status === 'rupture' ? 'EN RUPTURE' : 'EN STOCK',
+            p.status === 'rupture' ? 'Commande B2B Grossiste requise' : 'Disponible au comptoir'
+          ]))
+        }
+      ]
+    });
+  }
+
+  // ═════════════════════════════════════════════════════════
+  // 9. PÔLE 4 : ESPACE GROSSISTES-RÉPARTITEURS & COMMANDES B2B
+  // ═════════════════════════════════════════════════════════
+  const esc = (str) => (window.PGNetwork && window.PGNetwork.escapeHtml)
+    ? window.PGNetwork.escapeHtml(str)
+    : String(str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+
+  async function loadWholesalersHub() {
+    try {
+      // 1. Liste des grossistes partenaires
+      if (window.GrossisteAuth && typeof window.GrossisteAuth.fetchAllWholesalers === 'function') {
+        cachedWholesalers = await window.GrossisteAuth.fetchAllWholesalers();
+      }
+      const selectEl = document.getElementById('pharm-wh-select');
+      if (selectEl && cachedWholesalers.length > 0) {
+        const currentVal = selectEl.value || 'all';
+        selectEl.innerHTML = `<option value="all">🏭 Tous les grossistes (${cachedWholesalers.length})</option>` +
+          cachedWholesalers.map(w => `<option value="${esc(w.id)}">${esc(w.company_name)} (${esc(w.city || 'Douala')})</option>`).join('');
+        selectEl.value = currentVal;
+      }
+
+      // 2. Catalogue B2B global
+      if (window.GrossisteCatalog && typeof window.GrossisteCatalog.loadCatalog === 'function') {
+        cachedB2BCatalog = await window.GrossisteCatalog.loadCatalog(null);
+      }
+      filterWholesalerCatalog();
+
+      // 3. Commandes B2B de l'officine
+      await loadPharmacyB2BOrders();
+
+      // 4. Arrivages & Campagnes des grossistes
+      await loadWholesalerCampaignsForPharmacy();
+    } catch (e) {
+      console.warn('[PharmDash] loadWholesalersHub error:', e);
+    }
+  }
+
+  function filterWholesalerCatalog() {
+    const container = document.getElementById('pharm-wh-catalog-container');
+    if (!container) return;
+
+    const query = (document.getElementById('pharm-wh-search')?.value || '').toLowerCase().trim();
+    const whFilter = document.getElementById('pharm-wh-select')?.value || 'all';
+    const stFilter = document.getElementById('pharm-wh-status')?.value || 'all';
+
+    const whMap = {};
+    cachedWholesalers.forEach(w => { whMap[w.id] = w; });
+
+    const filtered = cachedB2BCatalog.filter(item => {
+      if (whFilter !== 'all' && item.wholesaler_id !== whFilter) return false;
+      if (stFilter !== 'all' && item.stock_status !== stFilter) return false;
+      if (!query) return true;
+      return (
+        (item.product_name || '').toLowerCase().includes(query) ||
+        (item.dci || '').toLowerCase().includes(query) ||
+        (item.lab_name || '').toLowerCase().includes(query) ||
+        (item.cip_code || '').toLowerCase().includes(query)
+      );
+    });
+
+    if (filtered.length === 0) {
+      container.innerHTML = `
+        <div class="pharm-card" style="text-align:center; padding:28px; color:var(--text-muted);">
+          Aucun produit grossiste ne correspond à votre filtre.
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="pharm-table-wrap">
+        <table class="pharm-table">
+          <thead>
+            <tr>
+              <th>Produit / DCI</th>
+              <th>Grossiste-Répartiteur</th>
+              <th>Laboratoire</th>
+              <th>Prix Cession HT</th>
+              <th>Prix Public</th>
+              <th>Disponibilité</th>
+              <th>Action B2B</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filtered.map(item => {
+              const wh = whMap[item.wholesaler_id] || cachedWholesalers[0] || { company_name: 'UBIPHARM Cameroun', city: 'Douala' };
+              const stBadge = item.stock_status === 'in_stock'
+                ? `<span class="chip chip--green" style="font-size:11px;">🟢 En stock (${item.stock_quantity || 0})</span>`
+                : item.stock_status === 'low_stock'
+                  ? `<span class="chip chip--gold" style="font-size:11px;">🟡 Stock tendu (${item.stock_quantity || 0})</span>`
+                  : `<span class="chip chip--red" style="font-size:11px;">🔴 Rupture</span>`;
+              const canOrder = item.stock_status !== 'out_of_stock';
+              return `
+                <tr>
+                  <td>
+                    <div style="font-weight:800; color:#fff;">💊 ${esc(item.product_name)}</div>
+                    <div style="font-size:11px; color:var(--text-muted);">${esc(item.dci || '')} ${item.form_dosage ? '• ' + esc(item.form_dosage) : ''}</div>
+                  </td>
+                  <td>
+                    <div style="font-weight:700; color:#34d399;">🏭 ${esc(wh.company_name)}</div>
+                    <div style="font-size:11px; color:var(--text-muted);">📍 ${esc(wh.city || 'Douala')}</div>
+                  </td>
+                  <td style="font-weight:600; color:#e2e8f0;">${esc(item.lab_name || '—')}</td>
+                  <td style="font-weight:800; color:#fbbf24;">${Number(item.wholesale_price || 0).toLocaleString('fr-FR')} FCFA</td>
+                  <td style="color:var(--text-secondary);">${Number(item.retail_price || 0).toLocaleString('fr-FR')} FCFA</td>
+                  <td>${stBadge}</td>
+                  <td>
+                    ${canOrder
+                      ? `<button type="button" class="btn btn--sm" style="background:linear-gradient(135deg,#10b981,#059669); color:#fff; font-weight:800; border:none;" onclick="PharmDash.openB2BOrderModal('${esc(item.id)}')">
+                           🛒 Commander
+                         </button>`
+                      : `<span style="font-size:11.5px; color:var(--text-muted);">Indisponible</span>`
+                    }
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function openB2BOrderModal(itemId) {
+    const item = cachedB2BCatalog.find(i => i.id === itemId);
+    if (!item) return;
+    selectedB2BItem = item;
+
+    const wh = cachedWholesalers.find(w => w.id === item.wholesaler_id) || cachedWholesalers[0] || {
+      id: item.wholesaler_id || 'wh_demo_ubipharm',
+      company_name: 'UBIPHARM Cameroun',
+      city: 'Douala'
+    };
+    selectedB2BItem._wholesaler = wh;
+
+    const idInput = document.getElementById('b2b-modal-item-id');
+    const summaryEl = document.getElementById('b2b-modal-product-summary');
+    const qtyInput = document.getElementById('b2b-modal-qty');
+    const notesInput = document.getElementById('b2b-modal-notes');
+
+    if (idInput) idInput.value = item.id;
+    const minQty = Math.max(1, Number(item.min_order_qty) || 5);
+    if (qtyInput) {
+      qtyInput.min = String(minQty);
+      qtyInput.value = String(Math.max(10, minQty));
+    }
+    if (notesInput) notesInput.value = '';
+
+    if (summaryEl) {
+      summaryEl.innerHTML = `
+        <div style="font-weight:800; color:#fff; font-size:14px;">💊 ${esc(item.product_name)}</div>
+        <div style="font-size:12px; color:#34d399; margin-top:3px;">🏭 Grossiste : <strong>${esc(wh.company_name)}</strong> (${esc(wh.city || 'Douala')})</div>
+        <div style="font-size:12px; color:var(--text-secondary); margin-top:3px;">
+          Prix Cession HT : <strong style="color:#fbbf24;">${Number(item.wholesale_price || 0).toLocaleString('fr-FR')} FCFA / boîte</strong> • Qté min : ${minQty}
+        </div>
+      `;
+    }
+
+    updateB2BModalTotal();
+    const modal = document.getElementById('b2b-order-modal');
+    if (modal) modal.classList.add('active');
+  }
+
+  function updateB2BModalTotal() {
+    if (!selectedB2BItem) return;
+    const qty = Math.max(1, parseInt(document.getElementById('b2b-modal-qty')?.value || '1', 10));
+    const total = qty * (Number(selectedB2BItem.wholesale_price) || 0);
+    const totalEl = document.getElementById('b2b-modal-total');
+    if (totalEl) totalEl.textContent = `${total.toLocaleString('fr-FR')} FCFA`;
+  }
+
+  async function submitB2BOrderModal() {
+    if (!selectedB2BItem || !window.GrossisteOrders) return;
+    const qty = Math.max(1, parseInt(document.getElementById('b2b-modal-qty')?.value || '10', 10));
+    const notes = (document.getElementById('b2b-modal-notes')?.value || '').trim();
+    const pharm = getActivePharmacyProfile();
+    const wh = selectedB2BItem._wholesaler || { id: selectedB2BItem.wholesaler_id || 'wh_demo_ubipharm', company_name: 'UBIPHARM Cameroun' };
+
+    const order = await window.GrossisteOrders.createOrderFromPharmacy({
+      wholesaler_id: wh.id,
+      wholesaler_name: wh.company_name,
+      pharmacy_id: pharm.id,
+      pharmacy_name: pharm.name || 'Pharmacie Officine',
+      pharmacy_city: pharm.city || 'Douala',
+      pharmacy_phone: pharm.phone || pharm.whatsapp || '+237 699 00 00 00',
+      delivery_urgency: 'urgent',
+      notes: notes || `Commande B2B depuis l'Espace Pharmacie (${pharm.name || 'Officine'})`,
+      items: [
+        {
+          product_name: selectedB2BItem.product_name,
+          cip_code: selectedB2BItem.cip_code || '',
+          qty: qty,
+          unit_price: Number(selectedB2BItem.wholesale_price) || 0
+        }
+      ]
+    });
+
+    const modal = document.getElementById('b2b-order-modal');
+    if (modal) modal.classList.remove('active');
+
+    if (typeof showToast === 'function') {
+      showToast(`✅ Commande ${order.order_code} transmise à ${wh.company_name} !`, 'success');
+    }
+
+    await loadPharmacyB2BOrders();
+    switchWholesalerSubtab('orders');
+  }
+
+  async function quickOrderFromWholesaler(productName) {
+    switchSpace('wholesalers');
+    switchWholesalerSubtab('catalog');
+    await loadWholesalersHub();
+    const searchInput = document.getElementById('pharm-wh-search');
+    if (searchInput) {
+      searchInput.value = productName || '';
+      filterWholesalerCatalog();
+    }
+  }
+
+  async function loadPharmacyB2BOrders() {
+    const container = document.getElementById('pharm-wh-orders-container');
+    const badgeEl = document.getElementById('pharm-wh-orders-badge');
+    const navBadgeEl = document.getElementById('space-badge-wholesalers');
+
+    if (!window.GrossisteOrders) return;
+    const allOrders = await window.GrossisteOrders.loadOrders(null);
+    const pharm = getActivePharmacyProfile();
+
+    // Filtre les commandes de la pharmacie courante + commandes de démo pour visibilité immédiate
+    cachedB2BOrders = allOrders.filter(o => !o.pharmacy_id || o.pharmacy_id === pharm.id || String(o.id).startsWith('ord_demo_'));
+
+    if (badgeEl) badgeEl.textContent = cachedB2BOrders.length;
+    if (navBadgeEl) navBadgeEl.textContent = cachedB2BOrders.length > 0 ? `${cachedB2BOrders.length} cmd` : 'B2B';
+
+    if (!container) return;
+    if (cachedB2BOrders.length === 0) {
+      container.innerHTML = `
+        <div class="pharm-card" style="text-align:center; padding:28px; color:var(--text-muted);">
+          Aucune commande B2B enregistrée pour le moment. Utilisez l'onglet Catalogue B2B pour commander en 1 clic.
+        </div>
+      `;
+      return;
+    }
+
+    const statusMeta = {
+      pending: { label: '⏳ En attente de confirmation', cls: 'chip--gold' },
+      confirmed: { label: '✅ Confirmée & en préparation', cls: 'chip--blue' },
+      shipped: { label: '🚚 En cours de livraison', cls: 'chip--green' },
+      delivered: { label: '📦 Livrée à l\'officine', cls: 'chip--green' },
+      rejected: { label: '❌ Rejetée', cls: 'chip--red' }
+    };
+
+    container.innerHTML = cachedB2BOrders.map(ord => {
+      const st = statusMeta[ord.status] || statusMeta.pending;
+      const items = Array.isArray(ord.items) ? ord.items : [];
+      const wh = cachedWholesalers.find(w => w.id === ord.wholesaler_id) || cachedWholesalers[0] || { company_name: 'UBIPHARM Cameroun', phone: '+237 233 42 18 90' };
+      const dateStr = new Date(ord.created_at || Date.now()).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+      return `
+        <div class="pharm-card" style="margin-bottom:12px; border-color:rgba(16,185,129,0.3);">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+            <div>
+              <div style="font-size:15px; font-weight:900; color:#fff;">
+                🧾 ${esc(ord.order_code || 'CMD-B2B')} • <span style="color:#34d399;">🏭 ${esc(ord.wholesaler_name || wh.company_name)}</span>
+              </div>
+              <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+                Passée le ${esc(dateStr)} • Total HT : <strong style="color:#fbbf24;">${Number(ord.total_amount || 0).toLocaleString('fr-FR')} FCFA</strong>
+              </div>
+            </div>
+            <span class="chip ${st.cls}" style="font-size:11.5px;">${st.label}</span>
+          </div>
+          <div style="background:rgba(0,0,0,0.25); border-radius:8px; padding:10px; margin-bottom:8px;">
+            ${items.map(it => `
+              <div style="display:flex; justify-content:space-between; font-size:12.5px; padding:3px 0; border-bottom:1px dashed rgba(255,255,255,0.06);">
+                <span style="color:#e2e8f0; font-weight:700;">💊 ${esc(it.product_name)} × <strong>${Number(it.qty || 0)}</strong></span>
+                <span style="color:#fbbf24; font-weight:700;">${(Number(it.qty || 0) * Number(it.unit_price || 0)).toLocaleString('fr-FR')} FCFA</span>
+              </div>
+            `).join('')}
+          </div>
+          ${ord.notes ? `<div style="font-size:12px; color:var(--text-secondary);">💬 Note : ${esc(ord.notes)}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function loadWholesalerCampaignsForPharmacy() {
+    const container = document.getElementById('pharm-wh-campaigns-container');
+    if (!container || !window.GrossisteCampaigns) return;
+
+    cachedB2BCampaigns = await window.GrossisteCampaigns.loadCampaigns(null);
+    if (!cachedB2BCampaigns || cachedB2BCampaigns.length === 0) {
+      container.innerHTML = `<div class="pharm-card" style="text-align:center; padding:24px; color:var(--text-muted);">Aucune annonce d'arrivage en cours.</div>`;
+      return;
+    }
+
+    container.innerHTML = cachedB2BCampaigns.map(c => {
+      const badge = c.campaign_type === 'arrival'
+        ? '<span class="chip chip--green">🚢 Nouvel Arrivage</span>'
+        : c.campaign_type === 'promo'
+          ? `<span class="chip chip--gold">🏷️ Promo -${Number(c.discount_percent || 0)}%</span>`
+          : '<span class="chip chip--red">⚠️ Info Tension</span>';
+      return `
+        <div class="pharm-card" style="margin-bottom:12px; border-color:rgba(251,191,36,0.3);">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:6px;">
+            <div style="font-size:15px; font-weight:800; color:#fff;">${esc(c.title)}</div>
+            ${badge}
+          </div>
+          <p style="font-size:12.5px; color:var(--text-secondary); line-height:1.5; margin-bottom:10px;">
+            ${esc(c.description || '')}
+          </p>
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:11.5px; color:var(--text-muted);">
+            <span>📍 Zone : ${esc((c.target_cities || ['National']).join(', '))}</span>
+            <button type="button" class="btn btn--sm" style="background:rgba(16,185,129,0.15); color:#34d399; border:1px solid rgba(16,185,129,0.4); font-weight:700;" onclick="PharmDash.switchWholesalerSubtab('catalog')">
+              📦 Voir les produits au catalogue →
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
   }
 
   // ═════════════════════════════════════════════════════════
@@ -821,11 +1284,23 @@
   window.PharmDash.initConnectorDaemon = initConnectorDaemon;
   window.PharmDash.start24hCountdownTimer = start24hCountdownTimer;
 
-  // Méthodes des 3 Grands Espaces
+  // Méthodes des 4 Grands Espaces
   window.PharmDash.switchSpace = switchSpace;
   window.PharmDash.switchClientSubtab = switchClientSubtab;
   window.PharmDash.switchDelegateSubtab = switchDelegateSubtab;
   window.PharmDash.switchManagementSubtab = switchManagementSubtab;
+  window.PharmDash.switchWholesalerSubtab = switchWholesalerSubtab;
+
+  // Pôle Grossistes & B2B + Rapports PDF/CSV
+  window.PharmDash.loadWholesalersHub = loadWholesalersHub;
+  window.PharmDash.filterWholesalerCatalog = filterWholesalerCatalog;
+  window.PharmDash.openB2BOrderModal = openB2BOrderModal;
+  window.PharmDash.updateB2BModalTotal = updateB2BModalTotal;
+  window.PharmDash.submitB2BOrderModal = submitB2BOrderModal;
+  window.PharmDash.quickOrderFromWholesaler = quickOrderFromWholesaler;
+  window.PharmDash.loadPharmacyB2BOrders = loadPharmacyB2BOrders;
+  window.PharmDash.exportStatsPDF = exportStatsPDF;
+  window.PharmDash.exportStatsCSV = exportStatsCSV;
 
   // Centre de notifications
   window.PharmDash.toggleNotifications = toggleNotifications;

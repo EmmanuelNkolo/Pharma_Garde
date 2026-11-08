@@ -311,6 +311,7 @@
 
         <!-- Droite : Sélecteur Langue FR/EN + Plein Écran + Paramètres -->
         <div style="display: flex; align-items: center; gap: 8px;">
+          <div id="pharmacy-sub-badge-slot" data-pg-sub-badge="true"></div>
           <!-- Cloche d'Alerte Intelligente & Centre de Notifications -->
           <div class="pharm-notif-bell-wrap" id="pharm-notif-wrap">
             <button type="button" class="pharm-notif-bell" id="pharm-notif-bell-btn" onclick="PharmDash.toggleNotifications()" title="Alertes &amp; Notifications">
@@ -377,10 +378,21 @@
           </div>
           <span class="pharm-space-tab__badge" id="space-badge-management" style="background:rgba(251,191,36,0.2); color:#fbbf24; border-color:rgba(251,191,36,0.4);">Auto ON</span>
         </button>
+
+        <!-- 4. Espace Grossistes & Commandes B2B -->
+        <button type="button" class="pharm-space-tab" id="tab-space-wholesalers" onclick="PharmDash.switchSpace('wholesalers')">
+          <span class="pharm-space-tab__icon">🏭</span>
+          <div style="text-align:left; line-height:1.2;">
+            <div>Espace Grossistes &amp; B2B</div>
+            <div style="font-size:11px; font-weight:600; opacity:0.8;">Catalogues, Commandes &amp; Arrivages</div>
+          </div>
+          <span class="pharm-space-tab__badge" id="space-badge-wholesalers" style="background:rgba(16,185,129,0.2); color:#34d399; border-color:rgba(16,185,129,0.4);">B2B</span>
+        </button>
       </nav>
 
-      <!-- ═══════════════ CONTENU DES 3 GRANDS ESPACES ═══════════════ -->
+      <!-- ═══════════════ CONTENU DES 4 GRANDS ESPACES ═══════════════ -->
       <div style="padding: 16px 16px 100px; max-width: 1400px; margin: 0 auto;">
+        <div id="pharmacy-reminder-slot"></div>
 
         <!-- ════════════════════════════════════════════════════════════════
              ESPACE 1 : ESPACE PATIENTS & CLIENTS
@@ -581,6 +593,21 @@
 
           <!-- Sous-panneau 3A : Statistiques & Produits Vedettes -->
           <div id="subpanel-mgmt-stats">
+            <!-- Barre Export PDF / CSV & Période -->
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+              <div style="font-size:13px; font-weight:800; color:#fbbf24; text-transform:uppercase; display:flex; align-items:center; gap:6px;">
+                <span>📈</span> Tableau de Bord Analytique Pro &amp; Rapports Officiels
+              </div>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button type="button" class="btn btn--sm" style="background:rgba(16,185,129,0.16); color:#34d399; border:1px solid rgba(16,185,129,0.45); font-weight:800;" onclick="PharmDash.exportStatsPDF()">
+                  📄 Rapport PDF
+                </button>
+                <button type="button" class="btn btn--sm" style="background:rgba(59,130,246,0.16); color:#60a5fa; border:1px solid rgba(59,130,246,0.45); font-weight:800;" onclick="PharmDash.exportStatsCSV()">
+                  📥 Export CSV
+                </button>
+              </div>
+            </div>
+
             <!-- 4 KPI Principaux Cohérents -->
             <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin-bottom:18px;">
               <div class="pharm-card" style="padding:14px; text-align:center; border-color:rgba(16,185,129,0.35);">
@@ -598,6 +625,26 @@
               <div class="pharm-card" style="padding:14px; text-align:center; border-color:rgba(168,85,247,0.35);">
                 <div style="font-size:30px; font-weight:900; color:#c084fc;" id="stat-conversion-rate">0%</div>
                 <div style="font-size:11px; font-weight:800; color:var(--text-secondary); text-transform:uppercase;">Taux de Succès</div>
+              </div>
+            </div>
+
+            <!-- Graphiques Chart.js Pro -->
+            <div style="display:grid; grid-template-columns:2fr 1fr; gap:14px; margin-bottom:18px;">
+              <div class="pharm-card" style="padding:14px;">
+                <div style="font-size:12.5px; font-weight:800; color:#34d399; text-transform:uppercase; margin-bottom:8px;">
+                  📈 Évolution Demandes, Réponses &amp; Achats (7 jours)
+                </div>
+                <div style="height:220px; position:relative;">
+                  <canvas id="pharm-stats-trend-canvas"></canvas>
+                </div>
+              </div>
+              <div class="pharm-card" style="padding:14px;">
+                <div style="font-size:12.5px; font-weight:800; color:#fbbf24; text-transform:uppercase; margin-bottom:8px;">
+                  🎯 Répartition Statuts Stock &amp; Assurances
+                </div>
+                <div style="height:220px; position:relative;">
+                  <canvas id="pharm-stats-dist-canvas"></canvas>
+                </div>
               </div>
             </div>
 
@@ -846,6 +893,70 @@
           </div>
         </div>
 
+        <!-- ════════════════════════════════════════════════════════════════
+             ESPACE 4 : ESPACE GROSSISTES-RÉPARTITEURS & COMMANDES B2B
+             ════════════════════════════════════════════════════════════════ -->
+        <div id="space-wholesalers" class="pharm-space-content" style="display:none;">
+          <div class="pharm-pole-header">
+            <div>
+              <h2 class="pharm-pole-title">
+                <span>🏭</span> Pôle Grossistes-Répartiteurs &amp; Commandes B2B
+              </h2>
+              <p class="pharm-pole-desc">
+                Consultez les stocks grossistes en temps réel (UBIPHARM, LABOREX, DPDC, CAMEG…), passez vos commandes B2B en 1 clic et suivez vos livraisons.
+              </p>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button type="button" class="btn btn--secondary btn--sm" onclick="PharmDash.loadWholesalersHub()" style="border-color:rgba(16,185,129,0.45); color:#34d399; font-weight:800;">
+                🔄 Actualiser Catalogues &amp; Commandes
+              </button>
+            </div>
+          </div>
+
+          <!-- Sous-onglets internes du Pôle Grossistes -->
+          <div class="pharm-subtabs">
+            <button type="button" class="pharm-subtab-btn active" id="subtab-wh-catalog" onclick="PharmDash.switchWholesalerSubtab('catalog')">
+              <span>📦</span> Catalogue B2B &amp; Réappro 1-Clic
+            </button>
+            <button type="button" class="pharm-subtab-btn" id="subtab-wh-orders" onclick="PharmDash.switchWholesalerSubtab('orders')">
+              <span>🛒</span> Suivi de mes Commandes B2B
+              <span id="pharm-wh-orders-badge" style="margin-left:4px; font-size:11px; font-weight:800; padding:2px 7px; border-radius:999px; background:rgba(251,191,36,0.2); color:#fbbf24;">0</span>
+            </button>
+            <button type="button" class="pharm-subtab-btn" id="subtab-wh-campaigns" onclick="PharmDash.switchWholesalerSubtab('campaigns')">
+              <span>📢</span> Arrivages &amp; Promotions Grossistes
+            </button>
+          </div>
+
+          <!-- Sous-panneau 4A : Catalogue B2B & Commande 1-Clic -->
+          <div id="subpanel-wh-catalog">
+            <div class="pharm-card" style="margin-bottom:14px;">
+              <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                <input type="text" id="pharm-wh-search" class="form-input" placeholder="🔍 Rechercher un produit, DCI, laboratoire ou code CIP..." style="flex:1; min-width:220px;" oninput="PharmDash.filterWholesalerCatalog()">
+                <select id="pharm-wh-select" class="form-input form-select" style="max-width:240px;" onchange="PharmDash.filterWholesalerCatalog()">
+                  <option value="all">🏭 Tous les grossistes</option>
+                </select>
+                <select id="pharm-wh-status" class="form-input form-select" style="max-width:190px;" onchange="PharmDash.filterWholesalerCatalog()">
+                  <option value="all">Tous les statuts</option>
+                  <option value="in_stock">🟢 En stock</option>
+                  <option value="low_stock">🟡 Stock tendu</option>
+                  <option value="out_of_stock">🔴 En rupture</option>
+                </select>
+              </div>
+            </div>
+            <div id="pharm-wh-catalog-container"></div>
+          </div>
+
+          <!-- Sous-panneau 4B : Suivi Commandes B2B -->
+          <div id="subpanel-wh-orders" style="display:none;">
+            <div id="pharm-wh-orders-container"></div>
+          </div>
+
+          <!-- Sous-panneau 4C : Arrivages & Campagnes Grossistes -->
+          <div id="subpanel-wh-campaigns" style="display:none;">
+            <div id="pharm-wh-campaigns-container"></div>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -984,6 +1095,34 @@
       </div>
     </div>
 
+    <!-- 5. MODALE COMMANDE B2B GROSSISTE EN 1 CLIC -->
+    <div id="b2b-order-modal" class="modal-overlay">
+      <div class="modal-content modal-content--sm" style="padding: 24px;">
+        <div class="modal-header" style="padding: 0 0 12px; margin-bottom: 14px; border-bottom: 1px solid var(--border-default);">
+          <h3 style="font-size: 16px; font-weight: 800; color: #34d399;">🛒 Commande B2B Grossiste</h3>
+          <button class="btn btn--icon" onclick="document.getElementById('b2b-order-modal').classList.remove('active')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <input type="hidden" id="b2b-modal-item-id">
+        <div id="b2b-modal-product-summary" style="background:rgba(15,23,42,0.8); border:1px solid rgba(16,185,129,0.3); border-radius:10px; padding:12px; margin-bottom:14px; font-size:13px;"></div>
+        <div class="form-group">
+          <label class="form-label">Quantité à commander (boîtes) *</label>
+          <input type="number" id="b2b-modal-qty" class="form-input" min="1" value="10" oninput="PharmDash.updateB2BModalTotal()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Instructions de livraison / Urgence</label>
+          <input type="text" id="b2b-modal-notes" class="form-input" placeholder="Ex: Livraison urgente tournée du matin">
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:rgba(251,191,36,0.1); border:1px solid rgba(251,191,36,0.3); border-radius:10px; margin-bottom:16px;">
+          <span style="font-size:12.5px; color:var(--text-secondary); font-weight:700;">Total HT estimé :</span>
+          <span id="b2b-modal-total" style="font-size:17px; font-weight:900; color:#fbbf24;">0 FCFA</span>
+        </div>
+        <div style="display:flex; gap:10px;">
+          <button type="button" class="btn btn--secondary" style="flex:1;" onclick="document.getElementById('b2b-order-modal').classList.remove('active')">Annuler</button>
+          <button type="button" class="btn btn--primary" style="flex:1; background:linear-gradient(135deg,#10b981,#059669); font-weight:800;" onclick="PharmDash.submitB2BOrderModal()">✅ Envoyer Commande</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Toast -->
     <div class="toast-container">
       <div id="toast" class="toast toast--success"><span id="toast-message"></span></div>
@@ -1012,9 +1151,10 @@
 
   </div>
 
-  <!-- Scripts -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Scripts (Versions CDN figées + Modules v9) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="js/data/medicines.js"></script>
   <script src="js/supabaseClient.js?v=4.0"></script>
   <script src="js/core.js?v=4.0"></script>
@@ -1022,7 +1162,15 @@
   <script src="js/geolocation.js?v=4.0"></script>
   <script src="js/pg-connect.js?v=1.0"></script>
   <script src="js/pg-share.js?v=1.0"></script>
-  <script src="js/pharmacien.js?v=4.0"></script>
-  <script src="js/pharmacie-spaces-controller.js?v=2.0"></script>
+  <script src="js/shared/network.js?v=9.0"></script>
+  <script src="js/shared/subscription.js?v=9.0"></script>
+  <script src="js/shared/charts.js?v=9.0"></script>
+  <script src="js/shared/reports.js?v=9.0"></script>
+  <script src="js/grossiste/auth.js?v=9.0"></script>
+  <script src="js/grossiste/catalog.js?v=9.0"></script>
+  <script src="js/grossiste/orders.js?v=9.0"></script>
+  <script src="js/grossiste/campaigns.js?v=9.0"></script>
+  <script src="js/pharmacien.js?v=9.0"></script>
+  <script src="js/pharmacie-spaces-controller.js?v=9.0"></script>
 </body>
 </html>

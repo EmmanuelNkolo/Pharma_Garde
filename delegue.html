@@ -219,7 +219,10 @@
             <span id="city-name-display">Douala</span>
           </span>
 
-                    <!-- Profil & Réglages Délégué dans le Header (remplace le bouton réglages) -->
+          <!-- Badge Abonnement Pro Délégué -->
+          <span id="delegate-sub-badge-slot" data-pg-sub-badge="true"></span>
+
+          <!-- Profil & Réglages Délégué dans le Header (remplace le bouton réglages) -->
           <button type="button" class="pg-head-me" id="settings-open" title="Mon Profil &amp; Paramètres">
             <span id="header-avatar-slot"></span>
             <span class="pg-head-me__name" id="header-delegate-name">Profil</span>
@@ -249,8 +252,11 @@
                 <div class="delegate-sidebar__content">
 
 
-          <!-- 4 Onglets Principaux (Pharmacies, Promotions, Stats, Alertes) avec style harmonieux -->
-          <div class="delegate-nav-tabs">
+          <!-- Bannière Rappel Échéance Abonnement J-7 / J-3 / J-1 -->
+          <div id="delegate-reminder-banner"></div>
+
+          <!-- 5 Onglets Principaux (Pharmacies, Promotions, Grossistes, Stats, Alertes) -->
+          <div class="delegate-nav-tabs" style="grid-template-columns: repeat(5, 1fr);">
             <button type="button" class="delegate-nav-tab active" id="btn-pharmacies">
               <span class="tab-icon">🏥</span>
               <span data-i18n="del_pharmacies">Pharmacies</span>
@@ -258,6 +264,10 @@
             <button type="button" class="delegate-nav-tab" id="btn-promotions">
               <span class="tab-icon">📢</span>
               <span data-i18n="del_promotions">Promotions</span>
+            </button>
+            <button type="button" class="delegate-nav-tab" id="btn-wholesalers">
+              <span class="tab-icon">🏭</span>
+              <span data-i18n="del_wholesalers">Grossistes</span>
             </button>
             <button type="button" class="delegate-nav-tab" id="btn-stats">
               <span class="tab-icon">📊</span>
@@ -363,10 +373,43 @@
             </h4>
             <div id="promo-tracking-list"></div>
 
-            <!-- Report -->
-            <button id="btn-download-report" class="btn btn--secondary btn--block" style="margin-top: 16px;">
-              📄 <span data-i18n="del_report">Générer le rapport PDF</span>
-            </button>
+            <!-- Graphique Analytique Pro -->
+            <div style="background: rgba(15,23,42,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 14px; margin: 16px 0;">
+              <h4 style="font-size: 13.5px; font-weight: 800; color: var(--amber-400); margin: 0 0 10px;">
+                📈 Répartition des Retours Officines &amp; Visites
+              </h4>
+              <div style="position: relative; height: 220px; width: 100%;">
+                <canvas id="delegate-chart"></canvas>
+              </div>
+            </div>
+
+            <!-- Rapports Pro PDF & CSV -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px;">
+              <button type="button" id="btn-download-report" class="btn btn--primary" style="background: linear-gradient(135deg, #10b981, #059669); font-weight: 800;">
+                📄 <span data-i18n="del_report">Rapport PDF</span>
+              </button>
+              <button type="button" id="btn-download-csv" class="btn btn--secondary" style="font-weight: 800; border-color: rgba(251,191,36,0.4); color: #fbbf24;">
+                📥 <span>Export CSV</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Panel: Grossistes-Répartiteurs (NOUVEAU v9) -->
+          <div id="panel-wholesalers" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+              <div>
+                <h4 style="font-size: 15px; font-weight: 800; color: var(--amber-400); display: flex; align-items: center; gap: 6px; margin: 0;">
+                  🏭 <span>Grossistes-Répartiteurs &amp; Disponibilité Gammes</span>
+                </h4>
+                <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+                  Vérifiez la disponibilité de vos produits chez les grossistes et consultez leurs arrivages B2B.
+                </p>
+              </div>
+              <a href="grossiste.html" class="btn btn--secondary btn--sm" style="font-size: 11.5px; color: #22d3ee; border-color: rgba(6,182,212,0.4); text-decoration: none;">
+                🏭 Portail Grossiste →
+              </a>
+            </div>
+            <div id="delegate-wholesalers-list" style="display: flex; flex-direction: column; gap: 12px;"></div>
           </div>
 
           <!-- Panel: Alerts -->
@@ -683,6 +726,9 @@
       <hr style="border-color: var(--border-default); margin: 24px 0;">
       <!-- Support Développeur Pharma-Garde -->
       <div id="delegate-support-container" style="margin-top: 16px; margin-bottom: 16px;"></div>
+      <button type="button" class="btn btn--secondary btn--block" id="btn-open-delegate-sub" style="margin-bottom: 10px; border-color: rgba(251,191,36,0.45); color: #fbbf24; font-weight: 800;">
+        <span>💎</span> <span>Mon Abonnement Pro (Mobile Money)</span>
+      </button>
       <button type="button" class="btn btn--secondary btn--block" onclick="PharmaShare.openModal('share')" style="margin-bottom: 10px;">
         <span>🔗</span> <span>Partager l'application &amp; QR Code</span>
       </button>
@@ -692,18 +738,25 @@
 
   </div>
 
-  <!-- Scripts -->
+  <!-- Scripts (Versions CDN figées + Modules Partagés) -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <script src="js/supabaseClient.js?v=2.2"></script>
-  <script src="js/data/pharmacies.js?v=2.2"></script>
-  <script src="js/core.js?v=2.2"></script>
-  <script src="js/i18n.js?v=2.2"></script>
-  <script src="js/geolocation.js?v=2.2"></script>
-  <script src="js/pg-connect.js?v=1.0"></script>
-  <script src="js/pg-share.js?v=1.0"></script>
-  <script src="js/delegue.js?v=4.2"></script>
+  <script src="js/supabaseClient.js?v=9.0"></script>
+  <script src="js/data/pharmacies.js?v=9.0"></script>
+  <script src="js/core.js?v=9.0"></script>
+  <script src="js/i18n.js?v=9.0"></script>
+  <script src="js/geolocation.js?v=9.0"></script>
+  <script src="js/shared/network.js?v=9.0"></script>
+  <script src="js/shared/subscription.js?v=9.0"></script>
+  <script src="js/shared/charts.js?v=9.0"></script>
+  <script src="js/shared/reports.js?v=9.0"></script>
+  <script src="js/grossiste/auth.js?v=9.0"></script>
+  <script src="js/grossiste/catalog.js?v=9.0"></script>
+  <script src="js/grossiste/campaigns.js?v=9.0"></script>
+  <script src="js/pg-connect.js?v=9.0"></script>
+  <script src="js/pg-share.js?v=9.0"></script>
+  <script src="js/delegue.js?v=9.0"></script>
 </body>
 </html>
