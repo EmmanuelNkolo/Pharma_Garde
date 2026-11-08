@@ -37,9 +37,9 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
   <!-- Design System & Modules -->
-  <link rel="stylesheet" href="css/design-system.css?v=6">
-  <link rel="stylesheet" href="css/pro.css?v=6.3">
-  <link rel="stylesheet" href="css/pg-share.css?v=1.0">
+  <link rel="stylesheet" href="css/design-system.css?v=9.6">
+  <link rel="stylesheet" href="css/pro.css?v=9.6">
+  <link rel="stylesheet" href="css/pg-share.css?v=9.6">
 </head>
 <body>
   <div class="app-container">
@@ -66,7 +66,7 @@
       </div>
 
       <div class="welcome-screen__inner">
-        <!-- Logo -->
+        <!-- Logo de l'application au-dessus du nom -->
         <div class="splash-logo welcome-screen__logo">
           <div class="cross"></div>
         </div>
@@ -74,76 +74,44 @@
         <h1 class="welcome-screen__title-lead" data-i18n="welcome_title">Bienvenue sur</h1>
         <h2 class="welcome-screen__title-main">Pharma-Garde</h2>
         <p class="welcome-screen__subtitle" data-i18n="welcome_subtitle">
-          Plateforme Nationale Interconnectée de Santé Publique au Cameroun — Patients, Officines, Délégués Médicaux &amp; Grossistes-Répartiteurs
+          Trouvez vos médicaments dans les pharmacies proches de vous
         </p>
-
-        <!-- Bandeau d'Informations Clés de la Plateforme -->
-        <div class="welcome-screen__highlights">
-          <div class="welcome-highlight-pill">
-            <span class="welcome-highlight-pill__icon">🇨🇲</span>
-            <div>
-              <strong>58 Départements</strong>
-              <small>10 Régions du Cameroun</small>
-            </div>
-          </div>
-          <div class="welcome-highlight-pill">
-            <span class="welcome-highlight-pill__icon">📡</span>
-            <div>
-              <strong>Radar GPS Exact</strong>
-              <small>Rayon 2 km à 50 km &amp; Garde</small>
-            </div>
-          </div>
-          <div class="welcome-highlight-pill">
-            <span class="welcome-highlight-pill__icon">⚡</span>
-            <div>
-              <strong>Temps Réel 24h/24</strong>
-              <small>Stocks, Ordonnances &amp; B2B</small>
-            </div>
-          </div>
-          <div class="welcome-highlight-pill">
-            <span class="welcome-highlight-pill__icon">💳</span>
-            <div>
-              <strong>Mobile Money</strong>
-              <small>MTN MoMo &amp; Orange Money</small>
-            </div>
-          </div>
-        </div>
 
         <!-- Space Selection : Grille Rectangulaire 2x2 Parfaitement Alignée -->
         <div class="welcome-screen__spaces">
           <button id="btn-espace-client" class="welcome-screen__btn">
-            <span class="welcome-screen__btn-badge">Accès Patient · Pass 100 FCFA / 24h</span>
+            <span class="welcome-screen__btn-badge welcome-screen__btn-badge--gold">ESPACE PATIENT</span>
             <div class="welcome-screen__btn-icon">
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
             </div>
-            <span class="welcome-screen__btn-title" data-i18n="btn_client">Espace Client</span>
+            <span class="welcome-screen__btn-title">Espace Client</span>
             <small class="welcome-screen__btn-sub">Recherche de médicaments · Scan Ordonnance · Pharmacies Ouvertes &amp; de Garde · Itinéraire GPS</small>
           </button>
 
           <button onclick="try{sessionStorage.removeItem('pharmagarde_pharmacy_session');localStorage.removeItem('pharmagarde_pharmacy_session');}catch(e){}window.location.href='pharmacien.html'" class="welcome-screen__btn">
-            <span class="welcome-screen__btn-badge">Officines Certifiées ONPC</span>
+            <span class="welcome-screen__btn-badge welcome-screen__btn-badge--gold">ESPACE PHARMACIE</span>
             <div class="welcome-screen__btn-icon">
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
             </div>
-            <span class="welcome-screen__btn-title" data-i18n="btn_pharmacy">Espace Pharmacie</span>
+            <span class="welcome-screen__btn-title">Officine Certifiée</span>
             <small class="welcome-screen__btn-sub">Demandes Patients en direct · Réservations 60 min · Délégués Médicaux &amp; Commandes Grossistes B2B</small>
           </button>
 
           <button onclick="try{sessionStorage.removeItem('pharmagarde_delegate_session');localStorage.removeItem('pharmagarde_delegate_session');}catch(e){}window.location.href='delegue.html'" class="welcome-screen__btn">
-            <span class="welcome-screen__btn-badge">Visiteurs &amp; Laboratoires</span>
+            <span class="welcome-screen__btn-badge welcome-screen__btn-badge--gold">ESPACE DÉLÉGUÉS MÉDICAUX</span>
             <div class="welcome-screen__btn-icon">
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
             </div>
-            <span class="welcome-screen__btn-title" data-i18n="btn_delegate">Espace Délégué Médical</span>
+            <span class="welcome-screen__btn-title">Visiteurs Laboratoires</span>
             <small class="welcome-screen__btn-sub">Campagnes &amp; Molécules · Alertes Ruptures Officines · Suivi des Stocks Grossistes &amp; Rapports Pro</small>
           </button>
 
-          <button onclick="try{sessionStorage.removeItem('pharmagarde_wholesaler_session');localStorage.removeItem('pharmagarde_wholesaler_session');}catch(e){}window.location.href='grossiste.html'" class="welcome-screen__btn welcome-screen__btn--wholesaler">
-            <span class="welcome-screen__btn-badge welcome-screen__btn-badge--gold">Distribution Pharmaceutique B2B</span>
+          <button onclick="try{sessionStorage.removeItem('pharmagarde_wholesaler_session');localStorage.removeItem('pharmagarde_wholesaler_session');}catch(e){}window.location.href='grossiste.html'" class="welcome-screen__btn">
+            <span class="welcome-screen__btn-badge welcome-screen__btn-badge--gold">ESPACE GROSSISTES-RÉPARTITEURS</span>
             <div class="welcome-screen__btn-icon">
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M17 18h1"/><path d="M12 18h1"/><path d="M7 18h1"/></svg>
             </div>
-            <span class="welcome-screen__btn-title" data-i18n="btn_wholesaler">Espace Grossiste-Répartiteur</span>
+            <span class="welcome-screen__btn-title">Distributeurs Pharmaceutiques B2B</span>
             <small class="welcome-screen__btn-sub">Catalogue &amp; Tarifs Cession HT · Commandes Officines · Arrivages &amp; Radar GPS des 58 Départements</small>
           </button>
         </div>
