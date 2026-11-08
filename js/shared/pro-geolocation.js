@@ -9,20 +9,90 @@
 (function (window) {
   'use strict';
 
-  const CITY_COORDS = {
-    'Douala': { lat: 4.0511, lng: 9.7085 },
-    'Yaoundé': { lat: 3.8480, lng: 11.5021 },
-    'Bafoussam': { lat: 5.4764, lng: 10.4175 },
-    'Bamenda': { lat: 5.9631, lng: 10.1591 },
-    'Garoua': { lat: 9.3014, lng: 13.3977 },
-    'Maroua': { lat: 10.5956, lng: 14.3157 },
-    'Ngaoundéré': { lat: 7.3219, lng: 13.5847 },
-    'Bertoua': { lat: 4.5763, lng: 13.6846 },
-    'Kribi': { lat: 2.9405, lng: 9.9076 },
-    'Limbé': { lat: 4.0247, lng: 9.2032 },
-    'Buéa': { lat: 4.1560, lng: 9.2632 },
-    'Ebolowa': { lat: 2.9000, lng: 11.1500 }
+  // Référentiel officiel des 58 Chefs-lieux de Départements du Cameroun (10 Régions) + Buéa (Chef-lieu Région Sud-Ouest)
+  const CAMEROON_DEPARTMENT_HUBS = {
+    // 1. Adamaoua (5 départements)
+    'Ngaoundéré': { lat: 7.3277, lng: 13.5847, dept: 'Vina', region: 'Adamaoua', label: 'Ngaoundéré (Vina)' },
+    'Banyo': { lat: 6.7510, lng: 11.8037, dept: 'Mayo-Banyo', region: 'Adamaoua', label: 'Banyo (Mayo-Banyo)' },
+    'Meiganga': { lat: 6.5167, lng: 14.3000, dept: 'Mbéré', region: 'Adamaoua', label: 'Meiganga (Mbéré)' },
+    'Tibati': { lat: 6.4650, lng: 12.6284, dept: 'Djérem', region: 'Adamaoua', label: 'Tibati (Djérem)' },
+    'Tignère': { lat: 7.3667, lng: 12.6500, dept: 'Faro-et-Déo', region: 'Adamaoua', label: 'Tignère (Faro-et-Déo)' },
+
+    // 2. Centre (10 départements)
+    'Yaoundé': { lat: 3.8480, lng: 11.5021, dept: 'Mfoundi', region: 'Centre', label: 'Yaoundé (Mfoundi)' },
+    'Akonolinga': { lat: 3.7667, lng: 12.2500, dept: 'Nyong-et-Mfoumou', region: 'Centre', label: 'Akonolinga (Nyong-et-Mfoumou)' },
+    'Bafia': { lat: 4.7500, lng: 11.2333, dept: 'Mbam-et-Inoubou', region: 'Centre', label: 'Bafia (Mbam-et-Inoubou)' },
+    'Éséka': { lat: 3.6500, lng: 10.7667, dept: 'Nyong-et-Kéllé', region: 'Centre', label: 'Éséka (Nyong-et-Kéllé)' },
+    'Mbalmayo': { lat: 3.5167, lng: 11.5000, dept: 'Nyong-et-So\'o', region: 'Centre', label: 'Mbalmayo (Nyong-et-So\'o)' },
+    'Mfou': { lat: 3.7167, lng: 11.6333, dept: 'Méfou-et-Afamba', region: 'Centre', label: 'Mfou (Méfou-et-Afamba)' },
+    'Monatélé': { lat: 4.2500, lng: 11.2000, dept: 'Lékié', region: 'Centre', label: 'Monatélé (Lékié)' },
+    'Nanga-Eboko': { lat: 4.6833, lng: 12.3667, dept: 'Haute-Sanaga', region: 'Centre', label: 'Nanga-Eboko (Haute-Sanaga)' },
+    'Ngoumou': { lat: 3.6333, lng: 11.3167, dept: 'Méfou-et-Akono', region: 'Centre', label: 'Ngoumou (Méfou-et-Akono)' },
+    'Ntui': { lat: 4.4500, lng: 11.6333, dept: 'Mbam-et-Kim', region: 'Centre', label: 'Ntui (Mbam-et-Kim)' },
+
+    // 3. Est (4 départements)
+    'Bertoua': { lat: 4.5773, lng: 13.6846, dept: 'Lom-et-Djérem', region: 'Est', label: 'Bertoua (Lom-et-Djérem)' },
+    'Abong-Mbang': { lat: 3.9833, lng: 13.1833, dept: 'Haut-Nyong', region: 'Est', label: 'Abong-Mbang (Haut-Nyong)' },
+    'Batouri': { lat: 4.4333, lng: 14.3667, dept: 'Kadey', region: 'Est', label: 'Batouri (Kadey)' },
+    'Yokadouma': { lat: 3.5167, lng: 15.0500, dept: 'Boumba-et-Ngoko', region: 'Est', label: 'Yokadouma (Boumba-et-Ngoko)' },
+
+    // 4. Extrême-Nord (6 départements)
+    'Maroua': { lat: 10.5956, lng: 14.3157, dept: 'Diamaré', region: 'Extrême-Nord', label: 'Maroua (Diamaré)' },
+    'Kaélé': { lat: 10.1092, lng: 14.4508, dept: 'Mayo-Kani', region: 'Extrême-Nord', label: 'Kaélé (Mayo-Kani)' },
+    'Kousséri': { lat: 12.0769, lng: 15.0306, dept: 'Logone-et-Chari', region: 'Extrême-Nord', label: 'Kousséri (Logone-et-Chari)' },
+    'Mokolo': { lat: 10.7425, lng: 13.8022, dept: 'Mayo-Tsanaga', region: 'Extrême-Nord', label: 'Mokolo (Mayo-Tsanaga)' },
+    'Mora': { lat: 11.0461, lng: 14.1401, dept: 'Mayo-Sava', region: 'Extrême-Nord', label: 'Mora (Mayo-Sava)' },
+    'Yagoua': { lat: 10.3411, lng: 15.2329, dept: 'Mayo-Danay', region: 'Extrême-Nord', label: 'Yagoua (Mayo-Danay)' },
+
+    // 5. Littoral (4 départements)
+    'Douala': { lat: 4.0511, lng: 9.7085, dept: 'Wouri', region: 'Littoral', label: 'Douala (Wouri)' },
+    'Édéa': { lat: 3.8000, lng: 10.1333, dept: 'Sanaga-Maritime', region: 'Littoral', label: 'Édéa (Sanaga-Maritime)' },
+    'Nkongsamba': { lat: 4.9547, lng: 9.9404, dept: 'Moungo', region: 'Littoral', label: 'Nkongsamba (Moungo)' },
+    'Yabassi': { lat: 4.4570, lng: 9.9682, dept: 'Nkam', region: 'Littoral', label: 'Yabassi (Nkam)' },
+
+    // 6. Nord (4 départements)
+    'Garoua': { lat: 9.3014, lng: 13.3977, dept: 'Bénoué', region: 'Nord', label: 'Garoua (Bénoué)' },
+    'Guider': { lat: 9.9333, lng: 13.9467, dept: 'Mayo-Louti', region: 'Nord', label: 'Guider (Mayo-Louti)' },
+    'Poli': { lat: 8.4833, lng: 13.2500, dept: 'Faro', region: 'Nord', label: 'Poli (Faro)' },
+    'Tcholliré': { lat: 8.4000, lng: 14.1667, dept: 'Mayo-Rey', region: 'Nord', label: 'Tcholliré (Mayo-Rey)' },
+
+    // 7. Nord-Ouest (7 départements)
+    'Bamenda': { lat: 5.9597, lng: 10.1460, dept: 'Mezam', region: 'Nord-Ouest', label: 'Bamenda (Mezam)' },
+    'Fundong': { lat: 6.2500, lng: 10.2667, dept: 'Boyo', region: 'Nord-Ouest', label: 'Fundong (Boyo)' },
+    'Kumbo': { lat: 6.2000, lng: 10.6667, dept: 'Bui', region: 'Nord-Ouest', label: 'Kumbo (Bui)' },
+    'Mbengwi': { lat: 6.0167, lng: 10.0000, dept: 'Momo', region: 'Nord-Ouest', label: 'Mbengwi (Momo)' },
+    'Ndop': { lat: 6.0000, lng: 10.4167, dept: 'Ngoketunjia', region: 'Nord-Ouest', label: 'Ndop (Ngoketunjia)' },
+    'Nkambé': { lat: 6.5833, lng: 10.6667, dept: 'Donga-Mantung', region: 'Nord-Ouest', label: 'Nkambé (Donga-Mantung)' },
+    'Wum': { lat: 6.3833, lng: 10.0667, dept: 'Menchum', region: 'Nord-Ouest', label: 'Wum (Menchum)' },
+
+    // 8. Ouest (8 départements)
+    'Bafoussam': { lat: 5.4778, lng: 10.4176, dept: 'Mifi', region: 'Ouest', label: 'Bafoussam (Mifi)' },
+    'Bafang': { lat: 5.1571, lng: 10.1771, dept: 'Haut-Nkam', region: 'Ouest', label: 'Bafang (Haut-Nkam)' },
+    'Baham': { lat: 5.3308, lng: 10.3808, dept: 'Hauts-Plateaux', region: 'Ouest', label: 'Baham (Hauts-Plateaux)' },
+    'Bandjoun': { lat: 5.3756, lng: 10.4126, dept: 'Koung-Khi', region: 'Ouest', label: 'Bandjoun (Koung-Khi)' },
+    'Bangangté': { lat: 5.1408, lng: 10.5253, dept: 'Ndé', region: 'Ouest', label: 'Bangangté (Ndé)' },
+    'Dschang': { lat: 5.4439, lng: 10.0533, dept: 'Menoua', region: 'Ouest', label: 'Dschang (Menoua)' },
+    'Foumban': { lat: 5.7266, lng: 10.9016, dept: 'Noun', region: 'Ouest', label: 'Foumban (Noun)' },
+    'Mbouda': { lat: 5.6261, lng: 10.2542, dept: 'Bamboutos', region: 'Ouest', label: 'Mbouda (Bamboutos)' },
+
+    // 9. Sud (4 départements)
+    'Ebolowa': { lat: 2.9000, lng: 11.1500, dept: 'Mvila', region: 'Sud', label: 'Ebolowa (Mvila)' },
+    'Ambam': { lat: 2.3833, lng: 11.2833, dept: 'Vallée-du-Ntem', region: 'Sud', label: 'Ambam (Vallée-du-Ntem)' },
+    'Kribi': { lat: 2.9405, lng: 9.9076, dept: 'Océan', region: 'Sud', label: 'Kribi (Océan)' },
+    'Sangmélima': { lat: 2.9333, lng: 11.9833, dept: 'Dja-et-Lobo', region: 'Sud', label: 'Sangmélima (Dja-et-Lobo)' },
+
+    // 10. Sud-Ouest (6 départements + Chef-lieu de Région)
+    'Limbé': { lat: 4.0247, lng: 9.2032, dept: 'Fako', region: 'Sud-Ouest', label: 'Limbé (Fako)' },
+    'Buéa': { lat: 4.1560, lng: 9.2632, dept: 'Fako (Chef-lieu Région)', region: 'Sud-Ouest', label: 'Buéa (Fako)' },
+    'Bangem': { lat: 5.0167, lng: 9.8000, dept: 'Koupé-Manengouba', region: 'Sud-Ouest', label: 'Bangem (Koupé-Manengouba)' },
+    'Kumba': { lat: 4.6363, lng: 9.4469, dept: 'Meme', region: 'Sud-Ouest', label: 'Kumba (Meme)' },
+    'Mamfé': { lat: 5.7513, lng: 9.3137, dept: 'Manyu', region: 'Sud-Ouest', label: 'Mamfé (Manyu)' },
+    'Menji': { lat: 5.6167, lng: 9.9333, dept: 'Lebialem', region: 'Sud-Ouest', label: 'Menji (Lebialem)' },
+    'Mundemba': { lat: 4.9500, lng: 8.8667, dept: 'Ndian', region: 'Sud-Ouest', label: 'Mundemba (Ndian)' }
   };
+
+  window.CAMEROON_DEPARTMENT_HUBS = CAMEROON_DEPARTMENT_HUBS;
+  const CITY_COORDS = CAMEROON_DEPARTMENT_HUBS;
 
   // Annuaire de référence des Délégués Médicaux Accrédités (enrichissement d'identité & GPS)
   const VERIFIED_DELEGATES = [
@@ -142,7 +212,7 @@
           { id: 'ph_7', name: 'Pharmacie Centrale de Bafoussam', manager_name: 'Dr. Michel Talla', license_number: 'ONPC-2014-0177', city: 'Bafoussam', quarter: 'Marché A', address: 'Face Marché Central, Bafoussam', phone: '695443322', whatsapp: '695443322', status: 'open', hours: '07:30 - 20:30', lat: 5.4764, lng: 10.4175 }
         ];
 
-    return base.map((p, idx) => {
+    const normalizedBase = base.map((p, idx) => {
       const c = CITY_COORDS[p.city] || CITY_COORDS['Douala'];
       return {
         id: p.id || ('ph_' + (idx + 1)),
@@ -161,6 +231,50 @@
         lng: Number(p.lng) || (c.lng + ((idx % 4) - 1.5) * 0.012)
       };
     });
+
+    // Garantit la couverture de tous les 58 chefs-lieux de départements du Cameroun
+    const coveredCities = new Set(normalizedBase.map(p => (p.city || '').toLowerCase()));
+    let deptIdx = 1;
+    Object.entries(CAMEROON_DEPARTMENT_HUBS).forEach(([cityName, hub]) => {
+      if (!coveredCities.has(cityName.toLowerCase())) {
+        const numCode = String(300 + deptIdx).padStart(4, '0');
+        normalizedBase.push({
+          id: `ph_dept_${deptIdx}_a`,
+          role: 'pharmacy',
+          name: `Pharmacie Centrale de ${cityName}`,
+          manager_name: `Dr. Titulaire (${cityName} Centre)`,
+          license_number: `ONPC-CM-${numCode}`,
+          city: cityName,
+          quarter: 'Centre Commercial / Préfecture',
+          address: `Avenue de la Préfecture, ${cityName} (${hub.dept})`,
+          phone: `699${String(100000 + deptIdx * 137).slice(0, 6)}`,
+          whatsapp: `699${String(100000 + deptIdx * 137).slice(0, 6)}`,
+          status: 'open',
+          hours: '07:30 - 21:00',
+          lat: Number((hub.lat + 0.0045).toFixed(5)),
+          lng: Number((hub.lng - 0.0035).toFixed(5))
+        });
+        normalizedBase.push({
+          id: `ph_dept_${deptIdx}_b`,
+          role: 'pharmacy',
+          name: `Pharmacie de Garde du ${hub.dept} (${cityName})`,
+          manager_name: `Dr. Pharmacien Référent (${hub.dept})`,
+          license_number: `ONPC-CM-${numCode}G`,
+          city: cityName,
+          quarter: 'Carrefour Hôpital Départemental',
+          address: `Face Hôpital de District, ${cityName} (${hub.region})`,
+          phone: `677${String(200000 + deptIdx * 193).slice(0, 6)}`,
+          whatsapp: `677${String(200000 + deptIdx * 193).slice(0, 6)}`,
+          status: 'guard',
+          hours: '24h/24 (Service de Garde)',
+          lat: Number((hub.lat - 0.0052).toFixed(5)),
+          lng: Number((hub.lng + 0.0048).toFixed(5))
+        });
+        deptIdx++;
+      }
+    });
+
+    return normalizedBase;
   }
 
   /**
@@ -472,3 +586,4 @@
     openActorModal
   };
 })(window);
+

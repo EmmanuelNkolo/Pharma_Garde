@@ -126,13 +126,87 @@
             <div class="pa-section__title"><span class="pa-section__num">2</span> Siège Logistique &amp; Zones de Livraison</div>
             <div class="pa-grid-2">
               <div class="form-group">
-                <label class="pa-label">Ville du dépôt principal <span class="req">*</span></label>
-                <select id="g-reg-city" class="form-input form-select">
-                  <option value="Douala">Douala</option>
-                  <option value="Yaoundé">Yaoundé</option>
-                  <option value="Bafoussam">Bafoussam</option>
-                  <option value="Garoua">Garoua</option>
-                  <option value="Bamenda">Bamenda</option>
+                <label class="pa-label">Ville du dépôt principal (Chef-lieu de département) <span class="req">*</span></label>
+                <select id="g-reg-city" class="form-input form-select" data-all-depts="1">
+                  <optgroup label="Région : Littoral (4 dép.)">
+                    <option value="Douala" selected>Douala (Wouri)</option>
+                    <option value="Édéa">Édéa (Sanaga-Maritime)</option>
+                    <option value="Nkongsamba">Nkongsamba (Moungo)</option>
+                    <option value="Yabassi">Yabassi (Nkam)</option>
+                  </optgroup>
+                  <optgroup label="Région : Centre (10 dép.)">
+                    <option value="Yaoundé">Yaoundé (Mfoundi)</option>
+                    <option value="Akonolinga">Akonolinga (Nyong-et-Mfoumou)</option>
+                    <option value="Bafia">Bafia (Mbam-et-Inoubou)</option>
+                    <option value="Éséka">Éséka (Nyong-et-Kéllé)</option>
+                    <option value="Mbalmayo">Mbalmayo (Nyong-et-So'o)</option>
+                    <option value="Mfou">Mfou (Méfou-et-Afamba)</option>
+                    <option value="Monatélé">Monatélé (Lékié)</option>
+                    <option value="Nanga-Eboko">Nanga-Eboko (Haute-Sanaga)</option>
+                    <option value="Ngoumou">Ngoumou (Méfou-et-Akono)</option>
+                    <option value="Ntui">Ntui (Mbam-et-Kim)</option>
+                  </optgroup>
+                  <optgroup label="Région : Ouest (8 dép.)">
+                    <option value="Bafoussam">Bafoussam (Mifi)</option>
+                    <option value="Bafang">Bafang (Haut-Nkam)</option>
+                    <option value="Baham">Baham (Hauts-Plateaux)</option>
+                    <option value="Bandjoun">Bandjoun (Koung-Khi)</option>
+                    <option value="Bangangté">Bangangté (Ndé)</option>
+                    <option value="Dschang">Dschang (Menoua)</option>
+                    <option value="Foumban">Foumban (Noun)</option>
+                    <option value="Mbouda">Mbouda (Bamboutos)</option>
+                  </optgroup>
+                  <optgroup label="Région : Nord (4 dép.)">
+                    <option value="Garoua">Garoua (Bénoué)</option>
+                    <option value="Guider">Guider (Mayo-Louti)</option>
+                    <option value="Poli">Poli (Faro)</option>
+                    <option value="Tcholliré">Tcholliré (Mayo-Rey)</option>
+                  </optgroup>
+                  <optgroup label="Région : Extrême-Nord (6 dép.)">
+                    <option value="Maroua">Maroua (Diamaré)</option>
+                    <option value="Kaélé">Kaélé (Mayo-Kani)</option>
+                    <option value="Kousséri">Kousséri (Logone-et-Chari)</option>
+                    <option value="Mokolo">Mokolo (Mayo-Tsanaga)</option>
+                    <option value="Mora">Mora (Mayo-Sava)</option>
+                    <option value="Yagoua">Yagoua (Mayo-Danay)</option>
+                  </optgroup>
+                  <optgroup label="Région : Adamaoua (5 dép.)">
+                    <option value="Ngaoundéré">Ngaoundéré (Vina)</option>
+                    <option value="Banyo">Banyo (Mayo-Banyo)</option>
+                    <option value="Meiganga">Meiganga (Mbéré)</option>
+                    <option value="Tibati">Tibati (Djérem)</option>
+                    <option value="Tignère">Tignère (Faro-et-Déo)</option>
+                  </optgroup>
+                  <optgroup label="Région : Nord-Ouest (7 dép.)">
+                    <option value="Bamenda">Bamenda (Mezam)</option>
+                    <option value="Fundong">Fundong (Boyo)</option>
+                    <option value="Kumbo">Kumbo (Bui)</option>
+                    <option value="Mbengwi">Mbengwi (Momo)</option>
+                    <option value="Ndop">Ndop (Ngoketunjia)</option>
+                    <option value="Nkambé">Nkambé (Donga-Mantung)</option>
+                    <option value="Wum">Wum (Menchum)</option>
+                  </optgroup>
+                  <optgroup label="Région : Sud-Ouest (6 dép.)">
+                    <option value="Limbé">Limbé (Fako)</option>
+                    <option value="Buéa">Buéa (Fako — Chef-lieu Région)</option>
+                    <option value="Bangem">Bangem (Koupé-Manengouba)</option>
+                    <option value="Kumba">Kumba (Meme)</option>
+                    <option value="Mamfé">Mamfé (Manyu)</option>
+                    <option value="Menji">Menji (Lebialem)</option>
+                    <option value="Mundemba">Mundemba (Ndian)</option>
+                  </optgroup>
+                  <optgroup label="Région : Sud (4 dép.)">
+                    <option value="Ebolowa">Ebolowa (Mvila)</option>
+                    <option value="Ambam">Ambam (Vallée-du-Ntem)</option>
+                    <option value="Kribi">Kribi (Océan)</option>
+                    <option value="Sangmélima">Sangmélima (Dja-et-Lobo)</option>
+                  </optgroup>
+                  <optgroup label="Région : Est (4 dép.)">
+                    <option value="Bertoua">Bertoua (Lom-et-Djérem)</option>
+                    <option value="Abong-Mbang">Abong-Mbang (Haut-Nyong)</option>
+                    <option value="Batouri">Batouri (Kadey)</option>
+                    <option value="Yokadouma">Yokadouma (Boumba-et-Ngoko)</option>
+                  </optgroup>
                 </select>
               </div>
               <div class="form-group">
@@ -479,13 +553,87 @@
                 </div>
               </div>
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                <select id="grossiste-net-city-hub" class="form-input form-select" style="width:auto;min-width:155px;padding:6px 10px;font-size:12px;" onchange="GrossisteStats.setHubCity(this.value)">
+                <select id="grossiste-net-city-hub" class="form-input form-select" data-all-depts="1" style="width:auto;min-width:225px;padding:6px 10px;font-size:12px;" onchange="GrossisteStats.setHubCity(this.value)">
                   <option value="auto">📍 Hub : Siège / GPS Actuel</option>
-                  <option value="Douala">📍 Hub : Douala (Akwa)</option>
-                  <option value="Yaoundé">📍 Hub : Yaoundé (Centre)</option>
-                  <option value="Bafoussam">📍 Hub : Bafoussam</option>
-                  <option value="Garoua">📍 Hub : Garoua</option>
-                  <option value="Bamenda">📍 Hub : Bamenda</option>
+                  <optgroup label="Région : Littoral (4 départements)">
+                    <option value="Douala">📍 Hub : Douala — Dép. Wouri</option>
+                    <option value="Édéa">📍 Hub : Édéa — Dép. Sanaga-Maritime</option>
+                    <option value="Nkongsamba">📍 Hub : Nkongsamba — Dép. Moungo</option>
+                    <option value="Yabassi">📍 Hub : Yabassi — Dép. Nkam</option>
+                  </optgroup>
+                  <optgroup label="Région : Centre (10 départements)">
+                    <option value="Yaoundé">📍 Hub : Yaoundé — Dép. Mfoundi</option>
+                    <option value="Akonolinga">📍 Hub : Akonolinga — Dép. Nyong-et-Mfoumou</option>
+                    <option value="Bafia">📍 Hub : Bafia — Dép. Mbam-et-Inoubou</option>
+                    <option value="Éséka">📍 Hub : Éséka — Dép. Nyong-et-Kéllé</option>
+                    <option value="Mbalmayo">📍 Hub : Mbalmayo — Dép. Nyong-et-So'o</option>
+                    <option value="Mfou">📍 Hub : Mfou — Dép. Méfou-et-Afamba</option>
+                    <option value="Monatélé">📍 Hub : Monatélé — Dép. Lékié</option>
+                    <option value="Nanga-Eboko">📍 Hub : Nanga-Eboko — Dép. Haute-Sanaga</option>
+                    <option value="Ngoumou">📍 Hub : Ngoumou — Dép. Méfou-et-Akono</option>
+                    <option value="Ntui">📍 Hub : Ntui — Dép. Mbam-et-Kim</option>
+                  </optgroup>
+                  <optgroup label="Région : Ouest (8 départements)">
+                    <option value="Bafoussam">📍 Hub : Bafoussam — Dép. Mifi</option>
+                    <option value="Bafang">📍 Hub : Bafang — Dép. Haut-Nkam</option>
+                    <option value="Baham">📍 Hub : Baham — Dép. Hauts-Plateaux</option>
+                    <option value="Bandjoun">📍 Hub : Bandjoun — Dép. Koung-Khi</option>
+                    <option value="Bangangté">📍 Hub : Bangangté — Dép. Ndé</option>
+                    <option value="Dschang">📍 Hub : Dschang — Dép. Menoua</option>
+                    <option value="Foumban">📍 Hub : Foumban — Dép. Noun</option>
+                    <option value="Mbouda">📍 Hub : Mbouda — Dép. Bamboutos</option>
+                  </optgroup>
+                  <optgroup label="Région : Nord (4 départements)">
+                    <option value="Garoua">📍 Hub : Garoua — Dép. Bénoué</option>
+                    <option value="Guider">📍 Hub : Guider — Dép. Mayo-Louti</option>
+                    <option value="Poli">📍 Hub : Poli — Dép. Faro</option>
+                    <option value="Tcholliré">📍 Hub : Tcholliré — Dép. Mayo-Rey</option>
+                  </optgroup>
+                  <optgroup label="Région : Extrême-Nord (6 départements)">
+                    <option value="Maroua">📍 Hub : Maroua — Dép. Diamaré</option>
+                    <option value="Kaélé">📍 Hub : Kaélé — Dép. Mayo-Kani</option>
+                    <option value="Kousséri">📍 Hub : Kousséri — Dép. Logone-et-Chari</option>
+                    <option value="Mokolo">📍 Hub : Mokolo — Dép. Mayo-Tsanaga</option>
+                    <option value="Mora">📍 Hub : Mora — Dép. Mayo-Sava</option>
+                    <option value="Yagoua">📍 Hub : Yagoua — Dép. Mayo-Danay</option>
+                  </optgroup>
+                  <optgroup label="Région : Adamaoua (5 départements)">
+                    <option value="Ngaoundéré">📍 Hub : Ngaoundéré — Dép. Vina</option>
+                    <option value="Banyo">📍 Hub : Banyo — Dép. Mayo-Banyo</option>
+                    <option value="Meiganga">📍 Hub : Meiganga — Dép. Mbéré</option>
+                    <option value="Tibati">📍 Hub : Tibati — Dép. Djérem</option>
+                    <option value="Tignère">📍 Hub : Tignère — Dép. Faro-et-Déo</option>
+                  </optgroup>
+                  <optgroup label="Région : Nord-Ouest (7 départements)">
+                    <option value="Bamenda">📍 Hub : Bamenda — Dép. Mezam</option>
+                    <option value="Fundong">📍 Hub : Fundong — Dép. Boyo</option>
+                    <option value="Kumbo">📍 Hub : Kumbo — Dép. Bui</option>
+                    <option value="Mbengwi">📍 Hub : Mbengwi — Dép. Momo</option>
+                    <option value="Ndop">📍 Hub : Ndop — Dép. Ngoketunjia</option>
+                    <option value="Nkambé">📍 Hub : Nkambé — Dép. Donga-Mantung</option>
+                    <option value="Wum">📍 Hub : Wum — Dép. Menchum</option>
+                  </optgroup>
+                  <optgroup label="Région : Sud-Ouest (6 départements)">
+                    <option value="Limbé">📍 Hub : Limbé — Dép. Fako</option>
+                    <option value="Buéa">📍 Hub : Buéa — Dép. Fako (Chef-lieu Région)</option>
+                    <option value="Bangem">📍 Hub : Bangem — Dép. Koupé-Manengouba</option>
+                    <option value="Kumba">📍 Hub : Kumba — Dép. Meme</option>
+                    <option value="Mamfé">📍 Hub : Mamfé — Dép. Manyu</option>
+                    <option value="Menji">📍 Hub : Menji — Dép. Lebialem</option>
+                    <option value="Mundemba">📍 Hub : Mundemba — Dép. Ndian</option>
+                  </optgroup>
+                  <optgroup label="Région : Sud (4 départements)">
+                    <option value="Ebolowa">📍 Hub : Ebolowa — Dép. Mvila</option>
+                    <option value="Ambam">📍 Hub : Ambam — Dép. Vallée-du-Ntem</option>
+                    <option value="Kribi">📍 Hub : Kribi — Dép. Océan</option>
+                    <option value="Sangmélima">📍 Hub : Sangmélima — Dép. Dja-et-Lobo</option>
+                  </optgroup>
+                  <optgroup label="Région : Est (4 départements)">
+                    <option value="Bertoua">📍 Hub : Bertoua — Dép. Lom-et-Djérem</option>
+                    <option value="Abong-Mbang">📍 Hub : Abong-Mbang — Dép. Haut-Nyong</option>
+                    <option value="Batouri">📍 Hub : Batouri — Dép. Kadey</option>
+                    <option value="Yokadouma">📍 Hub : Yokadouma — Dép. Boumba-et-Ngoko</option>
+                  </optgroup>
                 </select>
                 <select id="grossiste-net-status-filter" class="form-input form-select" style="width:auto;min-width:145px;padding:6px 10px;font-size:12px;" onchange="GrossisteStats.setStatusFilter(this.value)">
                   <option value="all">🏥 Tous statuts</option>
