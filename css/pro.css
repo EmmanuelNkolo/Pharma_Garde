@@ -491,14 +491,14 @@
 .pharma-btn.btn-whatsapp { color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
 .pharma-btn.btn-route { color: #60a5fa; border: 1px solid rgba(96,165,250,0.3); }
 
-/* ── Welcome Screen (Portail multi-espaces & Centrage Parfait) ──── */
+/* ── Welcome Screen (Portail multi-espaces, Rectangle 2x2 & Centrage Parfait) ──── */
 .welcome-screen-overlay {
   position: fixed;
   inset: 0;
   z-index: 9000;
   background:
-    radial-gradient(1000px 500px at 50% 0%, rgba(16, 185, 129, 0.14), transparent 70%),
-    radial-gradient(800px 400px at 50% 100%, rgba(15, 23, 42, 0.85), transparent 70%),
+    radial-gradient(1000px 500px at 50% 0%, rgba(16, 185, 129, 0.16), transparent 70%),
+    radial-gradient(900px 450px at 50% 100%, rgba(251, 191, 36, 0.08), transparent 70%),
     var(--bg-primary);
   display: flex;
   flex-direction: column;
@@ -508,7 +508,7 @@
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
-  padding: 28px 20px;
+  padding: 24px 18px;
 }
 
 .welcome-screen-overlay.hidden {
@@ -518,26 +518,27 @@
 .welcome-screen__inner {
   margin: auto;
   width: 100%;
-  max-width: 980px;
+  max-width: 920px;
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 16px 0;
+  padding: 12px 0;
 }
 
 .welcome-screen__logo {
-  margin: 0 auto 16px;
+  margin: 0 auto 12px;
   animation: none;
 }
 
 .welcome-screen__title-lead {
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 2px;
+  letter-spacing: 2.2px;
   margin-bottom: 4px;
+  font-weight: 700;
 }
 
 .welcome-screen__title-main {
@@ -545,44 +546,138 @@
   font-weight: 900;
   background: linear-gradient(135deg, var(--emerald-400), var(--emerald-200));
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   letter-spacing: -0.5px;
 }
 
 .welcome-screen__subtitle {
   color: var(--text-secondary);
-  font-size: 15px;
-  margin-bottom: 24px;
-  line-height: 1.4;
-  max-width: 540px;
+  font-size: 14.5px;
+  margin-bottom: 18px;
+  line-height: 1.5;
+  max-width: 720px;
 }
 
-.welcome-screen__spaces {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+/* Bandeau des 4 Piliers d'Informations Clés sur l'Accueil */
+.welcome-screen__highlights {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
   width: 100%;
+  max-width: 860px;
+  margin: 0 auto 20px;
 }
 
-.welcome-screen__btn {
-  padding: 16px 20px;
-  font-size: 15px;
-  font-weight: 700;
+.welcome-highlight-pill {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  border-radius: var(--radius-lg);
-  border: 1px solid rgba(16, 185, 129, 0.35);
-  background: rgba(16, 185, 129, 0.05);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  gap: 9px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  text-align: left;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.welcome-highlight-pill__icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.welcome-highlight-pill strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  color: #f8fafc;
+  line-height: 1.2;
+}
+
+.welcome-highlight-pill small {
+  display: block;
+  font-size: 10.5px;
+  color: #94a3b8;
+  margin-top: 2px;
+  line-height: 1.2;
+}
+
+/* Grille Rectangulaire 2x2 pour les 4 Boutons d'Accès aux Espaces */
+.welcome-screen__spaces {
+  display: grid !important;
+  grid-template-columns: repeat(2, 1fr) !important;
+  gap: 16px !important;
+  width: 100% !important;
+  max-width: 860px !important;
+  margin: 0 auto 18px !important;
+  align-items: stretch !important;
+}
+
+.welcome-screen__btn {
+  min-height: 158px;
+  padding: 20px 18px;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  gap: 8px;
+  border-radius: 18px;
+  border: 1.5px solid rgba(16, 185, 129, 0.38);
+  background: linear-gradient(160deg, rgba(16, 185, 129, 0.08), rgba(15, 23, 42, 0.88));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   width: 100%;
+  height: 100%;
   color: var(--emerald-400, #34d399) !important;
   text-decoration: none;
   cursor: pointer;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.35);
+  position: relative;
+}
+
+.welcome-screen__btn--wholesaler {
+  border-color: rgba(251, 191, 36, 0.42) !important;
+  background: linear-gradient(160deg, rgba(251, 191, 36, 0.08), rgba(15, 23, 42, 0.88));
+}
+
+.welcome-screen__btn-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7 !important;
+  border: 1px solid rgba(16, 185, 129, 0.32);
+}
+
+.welcome-screen__btn-badge--gold {
+  background: rgba(251, 191, 36, 0.16);
+  color: #fde68a !important;
+  border-color: rgba(251, 191, 36, 0.42);
+}
+
+.welcome-screen__btn-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(16, 185, 129, 0.32);
+  margin: 2px auto;
+}
+
+.welcome-screen__btn--wholesaler .welcome-screen__btn-icon {
+  background: rgba(251, 191, 36, 0.14);
+  border-color: rgba(251, 191, 36, 0.38);
 }
 
 .welcome-screen__btn svg {
@@ -591,65 +686,81 @@
   transition: transform 0.25s ease;
 }
 
-.welcome-screen__btn span {
-  color: var(--emerald-400, #34d399) !important;
-  font-weight: 700;
+.welcome-screen__btn--wholesaler svg {
+  color: #fbbf24 !important;
+  stroke: #fbbf24 !important;
+}
+
+.welcome-screen__btn-title,
+.welcome-screen__btn span.welcome-screen__btn-title {
+  color: #ffffff !important;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.welcome-screen__btn-sub {
+  color: #94a3b8 !important;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  max-width: 340px;
 }
 
 .welcome-screen__btn:hover,
 .welcome-screen__btn:active {
-  background: rgba(16, 185, 129, 0.18);
-  border-color: rgba(52, 211, 153, 0.7);
+  background: linear-gradient(160deg, rgba(16, 185, 129, 0.22), rgba(15, 23, 42, 0.94)) !important;
+  border-color: rgba(52, 211, 153, 0.85) !important;
   color: #ffffff !important;
   transform: translateY(-3px);
-  box-shadow: 0 10px 28px rgba(16, 185, 129, 0.28);
+  box-shadow: 0 12px 32px rgba(16, 185, 129, 0.32) !important;
+}
+
+.welcome-screen__btn--wholesaler:hover,
+.welcome-screen__btn--wholesaler:active {
+  background: linear-gradient(160deg, rgba(251, 191, 36, 0.22), rgba(15, 23, 42, 0.94)) !important;
+  border-color: rgba(251, 191, 36, 0.85) !important;
+  box-shadow: 0 12px 32px rgba(251, 191, 36, 0.28) !important;
 }
 
 .welcome-screen__btn:hover svg,
 .welcome-screen__btn:active svg {
   color: #ffffff !important;
   stroke: #ffffff !important;
-  transform: scale(1.12);
+  transform: scale(1.1);
 }
 
-.welcome-screen__btn:hover span,
-.welcome-screen__btn:active span {
-  color: #ffffff !important;
+.welcome-screen__btn:hover .welcome-screen__btn-sub,
+.welcome-screen__btn:active .welcome-screen__btn-sub {
+  color: #e2e8f0 !important;
 }
 
-/* ── Centrage en 3 colonnes pour écrans moyens et grands (PC, Mac, tablettes) ── */
-@media (min-width: 768px) {
+@media (max-width: 640px) {
+  .welcome-screen__highlights {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
   .welcome-screen__spaces {
-    display: grid !important;
-    grid-template-columns: repeat(3, 1fr) !important;
-    gap: 20px !important;
-    width: 100% !important;
-    margin: 12px 0 18px !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
   }
-
   .welcome-screen__btn {
-    min-height: 135px !important;
-    padding: 22px 18px !important;
-    font-size: 16px !important;
-    font-weight: 800 !important;
-    flex-direction: column !important;
-    gap: 12px !important;
-    border-radius: 20px !important;
-    border: 1.5px solid rgba(16, 185, 129, 0.38) !important;
-    background: rgba(16, 185, 129, 0.06) !important;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4) !important;
+    min-height: 138px;
+    padding: 14px 10px;
   }
-
-  .welcome-screen__btn svg {
-    width: 32px !important;
-    height: 32px !important;
+  .welcome-screen__btn-title,
+  .welcome-screen__btn span.welcome-screen__btn-title {
+    font-size: 13.5px;
+  }
+  .welcome-screen__btn-sub {
+    font-size: 10.5px;
   }
 }
 
 .welcome-screen__footer {
   color: var(--text-muted);
   font-size: 12px;
-  margin-top: 20px;
+  margin-top: 14px;
   line-height: 1.6;
   display: flex;
   flex-direction: column;
@@ -657,7 +768,7 @@
   gap: 4px;
 }
 
-/* ── Mode Paysage EXCLUSIF pour petits téléphones portables ─── */
+/* ── Mode Paysage pour petits téléphones portables ─── */
 @media (orientation: landscape) and (max-height: 480px) and (max-width: 900px) {
   .welcome-screen-overlay {
     padding: 10px 14px 20px !important;
@@ -666,7 +777,7 @@
 
   .welcome-screen__inner {
     margin: 0 auto !important;
-    max-width: 760px !important;
+    max-width: 820px !important;
     padding: 2px 0 12px !important;
   }
 
@@ -674,48 +785,19 @@
     display: none !important;
   }
 
-  .welcome-screen__title-lead {
-    font-size: 11px !important;
-    letter-spacing: 1.5px !important;
-    margin-bottom: 2px !important;
-  }
-
-  .welcome-screen__title-main {
-    font-size: 22px !important;
-    margin-bottom: 2px !important;
-  }
-
-  .welcome-screen__subtitle {
-    font-size: 12.5px !important;
-    margin-bottom: 10px !important;
-  }
-
   .welcome-screen__spaces {
     display: grid !important;
-    grid-template-columns: repeat(3, 1fr) !important;
-    gap: 8px !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
     width: 100% !important;
   }
 
   .welcome-screen__btn {
-    min-height: auto !important;
-    padding: 10px 6px !important;
-    font-size: 12.5px !important;
-    font-weight: 700 !important;
+    min-height: 92px !important;
+    padding: 10px 12px !important;
     flex-direction: column !important;
     gap: 4px !important;
     text-align: center !important;
-  }
-
-  .welcome-screen__btn svg {
-    width: 20px !important;
-    height: 20px !important;
-  }
-
-  .welcome-screen__footer {
-    margin-top: 8px !important;
-    font-size: 10.5px !important;
-    gap: 2px !important;
   }
 }
 
@@ -1178,4 +1260,142 @@
     box-shadow: 0 0 24px rgba(52, 211, 153, 1), 0 0 8px #fff;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   HARMONISATION GLOBALE : ALIGNEMENT & CENTRAGE BOUTONS ET CHAMPS DE SAISIE
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* 1. Boutons toujours centrés (icône + texte) et alignés sur le même axe */
+.btn,
+.pg-btn,
+.pharma-btn,
+.time-pill-btn,
+.radius-pill,
+.welcome-quick-btn,
+.header-status-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  vertical-align: middle;
+  line-height: 1.25;
+}
+
+.btn--block,
+.pg-btn--block {
+  display: flex !important;
+  width: 100% !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+/* 2. Espaces de saisie (inputs, selects, préfixes téléphone, mots de passe) uniformisés */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  width: 100%;
+  text-align: left;
+}
+
+.form-label,
+.pa-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  text-align: left;
+  width: 100%;
+}
+
+.form-input,
+.form-select {
+  min-height: 46px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  line-height: 1.35;
+}
+
+/* Alignement parfait des grilles 2 colonnes de formulaires */
+.pa-grid-2,
+.pg-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+  width: 100%;
+}
+
+@media (max-width: 520px) {
+  .pa-grid-2,
+  .pg-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Alignement des champs téléphone (+237 + input) */
+.pa-phone {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+}
+.pa-phone__prefix {
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.pa-phone .form-input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Alignement des cartes de connexion / inscription au centre de l'écran */
+.pa-wrap {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.pa-card {
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.pa-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Alignement rectangulaire des 3 boutons d'actions rapides de l'accueil */
+.welcome-screen__quick-actions {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 12px !important;
+  width: 100% !important;
+  max-width: 860px !important;
+  margin: 4px auto 10px !important;
+}
+
+.welcome-quick-btn {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+}
+
+@media (max-width: 640px) {
+  .welcome-screen__quick-actions {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+}
+
 

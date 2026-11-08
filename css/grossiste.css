@@ -64,8 +64,10 @@
 .grossiste-tab {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   padding: 13px 14px;
+  min-height: 64px;
   border-radius: 14px;
   background: rgba(15, 23, 42, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -162,6 +164,11 @@
   border-radius: 14px;
   padding: 16px;
   transition: all 0.2s;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .grossiste-kpi-card:hover {
