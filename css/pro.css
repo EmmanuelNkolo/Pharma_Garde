@@ -643,16 +643,18 @@
 
 .welcome-screen__btn-title,
 .welcome-screen__btn span.welcome-screen__btn-title {
-  color: #ffffff !important;
+  color: var(--emerald-400, #34d399) !important;
   font-size: 15.5px;
   font-weight: 800;
   line-height: 1.25;
 }
 
-.welcome-screen__btn-sub {
-  color: #94a3b8 !important;
+.welcome-screen__btn-sub,
+.welcome-screen__btn small.welcome-screen__btn-sub {
+  color: var(--emerald-400, #34d399) !important;
+  opacity: 0.9;
   font-size: 11.5px;
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1.38;
   max-width: 340px;
 }
@@ -661,7 +663,7 @@
 .welcome-screen__btn:active {
   background: linear-gradient(160deg, rgba(16, 185, 129, 0.22), rgba(15, 23, 42, 0.94)) !important;
   border-color: rgba(52, 211, 153, 0.85) !important;
-  color: #ffffff !important;
+  color: var(--emerald-300, #6ee7b7) !important;
   transform: translateY(-3px);
   box-shadow: 0 12px 32px rgba(16, 185, 129, 0.32) !important;
 }
@@ -674,14 +676,16 @@
 
 .welcome-screen__btn:hover svg,
 .welcome-screen__btn:active svg {
-  color: #ffffff !important;
-  stroke: #ffffff !important;
+  color: var(--emerald-300, #6ee7b7) !important;
+  stroke: var(--emerald-300, #6ee7b7) !important;
   transform: scale(1.1);
 }
 
+.welcome-screen__btn:hover .welcome-screen__btn-title,
+.welcome-screen__btn:active .welcome-screen__btn-title,
 .welcome-screen__btn:hover .welcome-screen__btn-sub,
 .welcome-screen__btn:active .welcome-screen__btn-sub {
-  color: #e2e8f0 !important;
+  color: var(--emerald-300, #6ee7b7) !important;
 }
 
 @media (max-width: 640px) {
