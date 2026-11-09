@@ -31,7 +31,7 @@ const App = (() => {
   let reservationInterval = null;
 
   function escapeHtml(unsafe) {
-    if (!unsafe) return '';
+    if (unsafe === null || unsafe === undefined) return '';
     return unsafe.toString()
          .replace(/&/g, "&amp;")
          .replace(/</g, "&lt;")
@@ -93,6 +93,36 @@ const App = (() => {
       iconSize: [18, 18], iconAnchor: [9, 9]
     });
     userMarker = L.marker([lat, lng], { icon: icon, zIndexOffset: 1000 }).addTo(leafletMap);
+    // Ré-applique l'étiquette « Vous êtes ici » (quartier) si elle est déjà connue
+    if (lastLocationInfo && window.PGLocation) PGLocation.labelUserMarker(userMarker, lastLocationInfo, lastAccuracy);
+  }
+
+  // ── Localisation précise : quartier, zone, arrondissement ─────
+  let lastLocationInfo = null;
+  let lastAccuracy = null;
+  let lastRevPos = null;
+
+  async function refreshLocationLabels(pos, opts) {
+    if (!window.PGLocation) return;
+    const o = opts || {};
+    // Évite les appels inutiles : nouveau géocodage seulement après 120 m de déplacement
+    if (!o.force && lastRevPos && Geolocation.haversine(pos.lat, pos.lng, lastRevPos.lat, lastRevPos.lng) < 0.12) return;
+    lastRevPos = { lat: pos.lat, lng: pos.lng };
+    const info = await PGLocation.reverse(pos.lat, pos.lng);
+    lastLocationInfo = info;
+    const cityEl = $('#city-name');
+    if (cityEl) {
+      cityEl.textContent = info.short || info.city || 'Position détectée';
+      const badge = $('#city-badge');
+      if (badge) badge.title = info.full || info.display || '';
+    }
+    if (userMarker) PGLocation.labelUserMarker(userMarker, info, lastAccuracy);
+  }
+
+  function fitRadius() {
+    if (leafletMap && radiusCircle) {
+      try { leafletMap.fitBounds(radiusCircle.getBounds(), { padding: [16, 16], maxZoom: 16 }); } catch (e) { /* carte non prête */ }
+    }
   }
 
   function drawRadiusCircle(pos, radiusKm) {
@@ -146,7 +176,8 @@ const App = (() => {
         iconSize: [24, 24], iconAnchor: [12, 12]
       });
       const marker = L.marker([p.lat, p.lng], { icon }).addTo(leafletMap);
-      marker.bindPopup('<b>' + (p.name || 'Pharmacie') + '</b><br>' + (p.address || '') + '<br><b>' + (p.distance || '?') + ' km</b>');
+      // Sécurité : les noms/adresses proviennent d'OSM ou de la base → échappement systématique
+      marker.bindPopup('<b>' + escapeHtml(p.name || 'Pharmacie') + '</b><br>' + escapeHtml(p.address || '') + '<br><b>' + escapeHtml(p.distance != null ? p.distance : '?') + ' km</b>');
       if (onClick) marker.on('click', () => onClick(p));
       pharmacyMarkers.push(marker);
     });
@@ -154,7 +185,9 @@ const App = (() => {
 
   function recenterOnUser() {
     const pos = Geolocation.getPosition();
-    if (pos && leafletMap) leafletMap.setView([pos.lat, pos.lng], 13);
+    if (pos && leafletMap) {
+      if (radiusCircle) fitRadius(); else leafletMap.setView([pos.lat, pos.lng], 14);
+    }
   }
 
   function getRouteToPharmacy(pharmacyId) {
@@ -162,8 +195,8 @@ const App = (() => {
     if (p) {
       getRoute(p.lat, p.lng, p.name);
     } else {
-      const respMatch = (typeof realResponses !== 'undefined') ? realResponses.find(r => r.pharmacy_id === pharmacyId) : null;
-      const match = (typeof pharmaciesInRadius !== 'undefined') ? pharmaciesInRadius.find(x => x.id === pharmacyId) : null;
+      const respMatch = (typeof realResponses !== 'undefined') ? realResponses.find(r => String(r.pharmacy_id) === String(pharmacyId)) : null;
+      const match = (typeof pharmaciesInRadius !== 'undefined') ? pharmaciesInRadius.find(x => String(x.id) === String(pharmacyId)) : null;
       if (match && match.lat && match.lng) {
         getRoute(match.lat, match.lng, match.name || (respMatch && respMatch.pharmacy_name));
       } else {
@@ -232,6 +265,12 @@ const App = (() => {
         $$('.radius-pill').forEach(p => p.classList.remove('active'));
         pill.classList.add('active');
         currentRadius = parseInt(pill.dataset.radius);
+        const pos = Geolocation.getPosition();
+        if (pos && leafletMap) {
+          drawRadiusCircle(pos, currentRadius);
+          fitRadius();
+          if (window.PGLocation) PGLocation.showAreaLabels(leafletMap, pos, currentRadius);
+        }
         updatePharmacies();
       });
     });
@@ -351,7 +390,7 @@ const App = (() => {
         const banner = $('#responses-banner');
         if (banner) banner.style.display = 'none';
         const actions = $('#main-actions');
-        if (actions) actions.style.display = 'flex';
+        if (actions) actions.style.display = '';
         const list = $('#pharmacy-list');
         if (list) list.innerHTML = '';
         
@@ -431,13 +470,8 @@ const App = (() => {
     const btnGarde = document.getElementById('btn-garde');
     if (btnGarde) btnGarde.addEventListener('click', () => {
       filterGardeOnly = !filterGardeOnly;
-      if (filterGardeOnly) {
-        btnGarde.style.background = 'rgba(245,158,11,0.25)';
-        btnGarde.style.borderColor = 'rgba(245,158,11,0.5)';
-      } else {
-        btnGarde.style.background = 'rgba(245,158,11,0.12)';
-        btnGarde.style.borderColor = 'rgba(245,158,11,0.25)';
-      }
+      btnGarde.classList.toggle('is-on', filterGardeOnly);
+      btnGarde.setAttribute('aria-pressed', filterGardeOnly ? 'true' : 'false');
       updatePharmacies();
     });
 
@@ -481,39 +515,79 @@ const App = (() => {
     }
   }
 
-  // ── GPS Request ────────────────────────────────────────
+  // ── GPS Request (affichage dès le 1er relevé, affinage en arrière-plan) ──
+  let watchStarted = false;
+  let gpsMapReady = false;
+
+  function applyFix(fix) {
+    if (!fix || !isFinite(fix.lat) || !isFinite(fix.lng)) return;
+    const prev = Geolocation.getPosition();
+    if (fix.accuracy) lastAccuracy = fix.accuracy;
+    Geolocation.setPosition(fix.lat, fix.lng);
+    try { localStorage.setItem('pg_last_fix', JSON.stringify({ lat: fix.lat, lng: fix.lng, accuracy: fix.accuracy || null, ts: Date.now() })); } catch (e) { /* quota */ }
+    if (!gpsMapReady) {
+      gpsMapReady = true;
+      hideLocationModal();
+      setupMapWithPosition(fix);
+      setTimeout(() => { if (leafletMap) leafletMap.invalidateSize(); }, 400);
+      return;
+    }
+    // Affinage : on ne redessine que si le déplacement est significatif (> 25 m)
+    const moved = prev ? Geolocation.haversine(prev.lat, prev.lng, fix.lat, fix.lng) : 1;
+    setUserMarker(fix.lat, fix.lng);
+    if (moved > 0.025) {
+      drawRadiusCircle(fix, currentRadius);
+      refreshLocationLabels(fix);
+      scheduleUpdatePharmacies();
+    }
+  }
+
   async function handleGPSRequest() {
     const btn = $('#btn-gps');
     if (btn) {
       btn.textContent = 'Détection en cours...';
       btn.disabled = true;
     }
+    gpsMapReady = !!leafletMap;
 
     try {
-      const pos = await Geolocation.getCurrentPosition();
-      hideLocationModal();
-      
-      setTimeout(() => {
-        if (leafletMap) leafletMap.invalidateSize();
-      }, 500);
+      let best;
+      if (window.PG && typeof PG.locate === 'function') {
+        // Le premier relevé (souvent < 2 s) affiche immédiatement la carte,
+        // les relevés suivants affinent la précision jusqu'à 25 m.
+        best = await PG.locate({ desired: 25, maxWait: 20000, onProgress: applyFix });
+      } else {
+        best = await Geolocation.getCurrentPosition();
+      }
+      applyFix(best);
+      const acc = best && best.accuracy ? ` (±${Math.round(best.accuracy)} m)` : '';
+      showToast(`📍 Position détectée${acc}`, 'success');
 
-      setupMapWithPosition(pos);
-      showToast(`📍 Position détectée : ${'Position détectée'}`, 'success');
-      
-      // Start watching for position updates
-      Geolocation.watchPosition((newPos) => {
-        setUserMarker(newPos.lat, newPos.lng);
-        updatePharmacies();
-      });
+      // Suivi continu (une seule fois), filtré par distance
+      if (!watchStarted) {
+        watchStarted = true;
+        Geolocation.watchPosition((newPos) => applyFix(newPos));
+      }
     } catch (error) {
       console.error('GPS error:', error);
-      // Fallback to last saved city or default
-      const savedCity = 'Douala';
-      const cityData = CITIES_AND_QUARTERS[savedCity] || CITIES_AND_QUARTERS['Douala'];
-      Geolocation.setPosition(cityData.center.lat, cityData.center.lng);
-      hideLocationModal();
-      setupMapWithPosition(cityData.center);
-      showToast(`⚠️ GPS indisponible — Position par défaut : ${savedCity}`, 'info');
+      if (gpsMapReady) {
+        // Une position approximative a déjà été obtenue : on la conserve
+        showToast('📍 Position approximative conservée — activez le GPS haute précision pour l\'affiner.', 'info');
+      } else {
+        // Dernière position connue (< 24 h) puis ville par défaut
+        let fallback = null;
+        try {
+          const last = JSON.parse(localStorage.getItem('pg_last_fix') || 'null');
+          if (last && Date.now() - last.ts < 24 * 3600 * 1000) fallback = last;
+        } catch (e) { /* ignore */ }
+        const cityData = CITIES_AND_QUARTERS['Douala'];
+        const center = fallback || cityData.center;
+        Geolocation.setPosition(center.lat, center.lng);
+        hideLocationModal();
+        gpsMapReady = true;
+        setupMapWithPosition(center);
+        showToast(fallback ? '⚠️ GPS indisponible — dernière position connue utilisée' : '⚠️ GPS indisponible — Position par défaut : Douala', 'info');
+      }
     } finally {
       if (btn) {
         btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> Détecter ma position`;
@@ -523,146 +597,66 @@ const App = (() => {
   }
 
   // ── Map Setup ──────────────────────────────────────────
-  async function setupMapWithPosition(pos) {
-    // Initialize map
+  function setupMapWithPosition(pos) {
     initLeafletMap('client-map', pos, 13);
     setUserMarker(pos.lat, pos.lng);
     drawRadiusCircle(pos, currentRadius);
+    fitRadius();
 
-    // Fetch city name and update UI
-    if (PG && typeof PG.reverse === 'function') {
-      const addressData = await PG.reverse(pos.lat, pos.lng);
-      if (addressData) {
-        const cityName = addressData.city || addressData.town || addressData.village || addressData.state || 'Douala';
-        const cityEl = $('#city-name');
-        if (cityEl) cityEl.textContent = cityName;
-      }
-    }
-
-    // Update pharmacies
+    // En parallèle (non bloquant) : liste des pharmacies, quartier exact, noms des zones
     updatePharmacies();
+    refreshLocationLabels(pos, { force: true });
+    if (window.PGLocation) PGLocation.showAreaLabels(leafletMap, pos, currentRadius);
   }
 
-  // ── Pharmacy Data ──────────────────────────────────────
-  let cachedOSMPharmacies = [];
-  let lastOSMLocation = null;
+  // ── Pharmacy Data (service + rendu progressif) ─────────
+  let updateGen = 0;
+  let updateTimer = null;
+
+  function scheduleUpdatePharmacies() {
+    clearTimeout(updateTimer);
+    updateTimer = setTimeout(updatePharmacies, 350);
+  }
 
   async function updatePharmacies() {
     const pos = Geolocation.getPosition();
     if (!pos) return;
+    const gen = ++updateGen;
 
-    // Get local hardcoded pharmacies
-    let allPharmacies = typeof LOCAL_PHARMACIES !== 'undefined' ? LOCAL_PHARMACIES.slice() : [];
-
-    // Fetch registered pharmacies from Supabase
-    try {
-      if (window.supabase) {
-        const { data, error } = await supabase.from('pharmacies').select('*');
-        if (!error && data) {
-          data.forEach(dbPharm => {
-            // Avoid duplicates by name
-            const exists = allPharmacies.find(p => p.name.toLowerCase().trim() === dbPharm.name.toLowerCase().trim());
-            if (!exists) {
-              allPharmacies.push({
-                id: dbPharm.id,
-                name: dbPharm.name,
-                address: dbPharm.address,
-                phone: dbPharm.phone,
-                whatsapp: dbPharm.whatsapp,
-                lat: dbPharm.lat,
-                lng: dbPharm.lng,
-                isOpen: dbPharm.is_open,
-                isOnDuty: dbPharm.is_on_duty,
-                hours: dbPharm.opening_hours || '08h00 - 20h00',
-                isRegistered: true
-              });
-            }
-          });
-        }
-      }
-    } catch (err) {
-      console.error('Error fetching registered pharmacies:', err);
+    if (!window.PGPharmacyService) {
+      console.error('PGPharmacyService manquant');
+      return;
     }
-
-    // Fetch real pharmacies from OpenStreetMap (Overpass API)
-    try {
-      let fetchNew = true;
-      if (lastOSMLocation) {
-        const distToLast = Geolocation.haversine(pos.lat, pos.lng, lastOSMLocation.lat, lastOSMLocation.lng);
-        if (distToLast < 5) fetchNew = false; // Reuse cache if within 5km of last fetch
-      }
-
-      if (fetchNew) {
-        const overpassUrl = 'https://overpass-api.de/api/interpreter';
-        // Large search radius for cache (e.g., 20km) to cover max radius
-        const query = `[out:json];node["amenity"="pharmacy"](around:20000,${pos.lat},${pos.lng});out;`;
-        
-        const response = await fetch(overpassUrl + '?data=' + encodeURIComponent(query));
-        const osmData = await response.json();
-        
-        cachedOSMPharmacies = [];
-        if (osmData && osmData.elements) {
-          osmData.elements.forEach(el => {
-            if (!el.tags) return;
-            const name = el.tags.name || 'Pharmacie sans nom';
-            cachedOSMPharmacies.push({
-              id: 'osm_' + el.id,
-              name: name,
-              address: el.tags['addr:street'] || el.tags.address || 'Adresse inconnue',
-              phone: el.tags.phone || el.tags['contact:phone'] || '',
-              whatsapp: el.tags.whatsapp || el.tags['contact:whatsapp'] || '',
-              lat: el.lat,
-              lng: el.lon,
-              isOpen: true,
-              isOnDuty: false,
-              hours: el.tags.opening_hours || '08h00 - 20h00',
-              isRegistered: false,
-              source: 'osm'
-            });
-          });
-        }
-        lastOSMLocation = { lat: pos.lat, lng: pos.lng };
-      }
-
-      // Merge OSM cache into allPharmacies
-      cachedOSMPharmacies.forEach(osmPharm => {
-        const exists = allPharmacies.find(p => p.name.toLowerCase().trim() === osmPharm.name.toLowerCase().trim() && Math.abs(p.lat - osmPharm.lat) < 0.05);
-        if (!exists) {
-          allPharmacies.push(osmPharm);
-        }
-      });
-    } catch (err) {
-      console.error('Error fetching from Overpass:', err);
-    }
-
-    // Add distance to each
-    allPharmacies = allPharmacies.map(p => {
-      const pCopy = Object.assign({}, p);
-      pCopy.distance = parseFloat(Geolocation.haversine(pos.lat, pos.lng, p.lat, p.lng).toFixed(1));
-      return pCopy;
+    // 1er rendu instantané (données locales + caches), puis rendu complet
+    const all = await PGPharmacyService.load(pos, (partial) => {
+      if (gen === updateGen) displayPharmacies(partial, pos);
     });
+    if (gen !== updateGen) return; // résultat obsolète (rayon/position modifié entre-temps)
+    displayPharmacies(all, pos);
+  }
 
+  function displayPharmacies(allPharmacies, pos) {
     // Filter by radius
     pharmaciesInRadius = allPharmacies.filter(p => p.distance <= currentRadius);
 
     // Show/hide closed pharmacies based on setting
     const toggleEl = $('#toggle-closed'); const showClosed = toggleEl ? toggleEl.classList.contains('active') : true;
-    let displayPharmacies = showClosed 
-      ? pharmaciesInRadius 
+    let displayList = showClosed
+      ? pharmaciesInRadius
       : pharmaciesInRadius.filter(p => p.isOpen || p.isOnDuty);
 
     if (filterGardeOnly) {
-      displayPharmacies = displayPharmacies.filter(p => p.isOnDuty);
+      displayList = displayList.filter(p => p.isOnDuty);
     }
 
     // If an active search is ongoing, only show pharmacies that have responded
     if (activeRequestIds.length > 0) {
-      const respondedPharmacyIds = new Set(realResponses.map(r => r.pharmacy_id));
-      displayPharmacies = displayPharmacies.filter(p => respondedPharmacyIds.has(p.id));
+      const respondedPharmacyIds = new Set(realResponses.map(r => String(r.pharmacy_id)));
+      displayList = displayList.filter(p => respondedPharmacyIds.has(String(p.id)));
     }
 
     // Sort: on-duty first, then open, then by distance
-    displayPharmacies.sort((a, b) => {
+    displayList.sort((a, b) => {
       if (a.isOnDuty && !b.isOnDuty) return -1;
       if (!a.isOnDuty && b.isOnDuty) return 1;
       if (a.isOpen && !b.isOpen) return -1;
@@ -671,12 +665,12 @@ const App = (() => {
     });
 
     // Update map markers
-    addPharmacyMarkers(displayPharmacies, (p) => openDetail(p));
+    addPharmacyMarkers(displayList, (p) => openDetail(p));
     drawRadiusCircle(pos, currentRadius);
 
     // Update stats
-    const openCount = displayPharmacies.filter(p => p.isOpen).length;
-    const guardCount = displayPharmacies.filter(p => p.isOnDuty).length;
+    const openCount = displayList.filter(p => p.isOpen).length;
+    const guardCount = displayList.filter(p => p.isOnDuty).length;
     const openCountEl = $('#open-count');
     const guardCountEl = $('#guard-count');
     if (openCountEl) {
@@ -690,14 +684,44 @@ const App = (() => {
 
     // Render pharmacy list
     if (activeRequestIds.length === 0) {
-      renderPharmacyList(displayPharmacies);
+      renderPharmacyList(displayList);
     }
   }
 
-  // ── Pharmacy List Rendering ────────────────────────────
+  // ── Pharmacy List Rendering (délégation d'événements, aucun code inline) ──
+  const ICON_PIN = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
+  const ICON_CLOCK = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+  const ICON_MOON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+  const ICON_CALL = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
+  const ICON_WA = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d8b4e2" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>';
+  const ICON_ROUTE = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>';
+  const MAX_LIST = 80; // rendu limité pour rester fluide même avec des centaines d'officines
+
+  function bindPharmacyListDelegation() {
+    const list = $('#pharmacy-list');
+    if (!list || list._pgDelegated) return;
+    list._pgDelegated = true;
+    list.addEventListener('click', (e) => {
+      const card = e.target.closest('[data-pharma-id]');
+      if (!card || !list.contains(card)) return;
+      const p = findPharmacy(card.getAttribute('data-pharma-id'));
+      if (!p) return;
+      const actionEl = e.target.closest('[data-action]');
+      const action = actionEl ? actionEl.getAttribute('data-action') : 'detail';
+      e.stopPropagation();
+      if (action === 'call') callPharmacy(p.phone);
+      else if (action === 'whatsapp') openWhatsApp(p.whatsapp || p.phone);
+      else if (action === 'route') getRoute(p.lat, p.lng, p.name);
+      else if (action === 'identity') {
+        if (window.PGProGeo) PGProGeo.openActorModal('pharmacy', { id: p.id, name: p.name, lat: Number(p.lat) || 4.0511, lng: Number(p.lng) || 9.7085, phone: p.phone || '', address: p.address || '' });
+      } else openDetail(p);
+    });
+  }
+
   function renderPharmacyList(pharmacies) {
     const list = $('#pharmacy-list');
     if (!list) return;
+    bindPharmacyListDelegation();
 
     if (pharmacies.length === 0) {
       list.innerHTML = `
@@ -709,51 +733,33 @@ const App = (() => {
       return;
     }
 
-    list.innerHTML = pharmacies.map(p => {
-      return `
-<div class="pharma-card ${p.isOnDuty ? 'pharma-card--guard' : ''}" onclick="App.openDetail(App.findPharmacy('${p.id}'))">
-  <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
-    <div>
+    list.innerHTML = pharmacies.slice(0, MAX_LIST).map(p => `
+<div class="pharma-card ${p.isOnDuty ? 'pharma-card--guard' : ''}" data-pharma-id="${escapeHtml(p.id)}">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; gap:10px;">
+    <div style="min-width:0;">
       <div style="font-weight:700; font-size:16px; color:#fff; margin-bottom:4px;">${escapeHtml(p.name)}</div>
-      <div style="font-size:13px; color:#94a3b8; display:flex; align-items:center; gap:4px;">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-        ${escapeHtml(p.address || 'Adresse inconnue')}
-      </div>
+      <div style="font-size:13px; color:#94a3b8; display:flex; align-items:center; gap:4px;">${ICON_PIN} ${escapeHtml(p.address || 'Adresse inconnue')}</div>
     </div>
-    <div style="text-align:right;">
-      <div style="font-weight:700; font-size:16px; color:#10b981;">${p.distance}</div>
+    <div style="text-align:right; flex-shrink:0;">
+      <div style="font-weight:700; font-size:16px; color:#10b981;">${escapeHtml(p.distance)}</div>
       <div style="font-size:12px; color:#64748b;">km</div>
     </div>
   </div>
-  
   <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
-    ${p.isOnDuty ? 
-      '<div style="background:rgba(217,119,6,0.15); border:1px solid #d97706; border-radius:12px; padding:4px 10px; font-size:11px; font-weight:700; color:#fbbf24; display:flex; align-items:center; gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> DE GARDE</div>' : 
-      '<div style="background:rgba(16,185,129,0.15); border:1px solid #10b981; border-radius:12px; padding:4px 10px; font-size:11px; font-weight:700; color:#10b981; display:flex; align-items:center; gap:4px;">OUVERT</div>'
-    }
-    <div style="font-size:12px; color:#94a3b8; display:flex; align-items:center; gap:4px;">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-      ${escapeHtml(p.hours || '08h00 - 20h00')}
-    </div>
+    ${p.isOnDuty
+      ? `<div style="background:rgba(217,119,6,0.15); border:1px solid #d97706; border-radius:12px; padding:4px 10px; font-size:11px; font-weight:700; color:#fbbf24; display:flex; align-items:center; gap:4px;">${ICON_MOON} DE GARDE</div>`
+      : '<div style="background:rgba(16,185,129,0.15); border:1px solid #10b981; border-radius:12px; padding:4px 10px; font-size:11px; font-weight:700; color:#10b981; display:flex; align-items:center; gap:4px;">OUVERT</div>'}
+    <div style="font-size:12px; color:#94a3b8; display:flex; align-items:center; gap:4px;">${ICON_CLOCK} ${escapeHtml(p.hours || '08h00 - 20h00')}</div>
   </div>
-
   <div style="display:flex; gap:8px; flex-wrap:wrap;">
-    <button class="pharma-btn btn-call" onclick="event.stopPropagation(); App.callPharmacy('${p.phone || ''}')">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg> Appeler
-    </button>
-    <button class="pharma-btn btn-whatsapp" onclick="event.stopPropagation(); App.openWhatsApp('${p.whatsapp || p.phone || ''}')">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d8b4e2" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg> WhatsApp
-    </button>
-    <button class="pharma-btn btn-route" onclick="event.stopPropagation(); App.getRoute(${p.lat}, ${p.lng}, '${escapeHtml(p.name).replace(/'/g, "\\'")}')">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg> Y aller
-    </button>
-    <button class="pharma-btn" style="background:rgba(59,130,246,0.14); border:1px solid rgba(59,130,246,0.4); color:#93c5fd;" onclick="event.stopPropagation(); PGProGeo && PGProGeo.openActorModal('pharmacy', { id: '${escapeHtml(p.id)}', name: '${escapeHtml(p.name).replace(/'/g, "\\'")}', lat: ${Number(p.lat) || 4.0511}, lng: ${Number(p.lng) || 9.7085}, phone: '${escapeHtml(p.phone || '')}', address: '${escapeHtml(p.address || '').replace(/'/g, "\\'")}' })">
-      🪪 Identité &amp; GPS
-    </button>
+    <button type="button" class="pharma-btn btn-call" data-action="call">${ICON_CALL} Appeler</button>
+    <button type="button" class="pharma-btn btn-whatsapp" data-action="whatsapp">${ICON_WA} WhatsApp</button>
+    <button type="button" class="pharma-btn btn-route" data-action="route">${ICON_ROUTE} Y aller</button>
+    <button type="button" class="pharma-btn" data-action="identity" style="background:rgba(59,130,246,0.14); border:1px solid rgba(59,130,246,0.4); color:#93c5fd;">🪪 Identité &amp; GPS</button>
   </div>
-</div>
-      `;
-    }).join('');
+</div>`).join('') + (pharmacies.length > MAX_LIST
+      ? `<div style="text-align:center; font-size:12px; color:#94a3b8; padding:10px;">+ ${pharmacies.length - MAX_LIST} autres officines — réduisez le rayon pour affiner.</div>`
+      : '');
   }
 
   // ── Search Modal ───────────────────────────────────────
@@ -792,7 +798,7 @@ const App = (() => {
     if (list) {
       list.innerHTML = selectedMedicines.map((med, i) => `
         <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
-          <span>💊 ${med}</span>
+          <span>💊 ${escapeHtml(med)}</span>
           <span style="color: var(--green-400);">✓</span>
         </div>
       `).join('');
@@ -1361,11 +1367,11 @@ const App = (() => {
           else if (status === 'en_stock') badge = '<span style="color:var(--green-500)">✅ En stock</span>';
           else badge = '<span style="color:var(--red-500)">❌ Rupture</span>';
           const reserveBtn = isInStock
-            ? `<button class="btn btn-sm reserve-med-btn" data-request-id="${resp.request_id}" data-pharmacy-id="${resp.pharmacy_id}" data-med="${med}" data-pharmacy-name="${resp.pharmacy_name || ''}" data-pharmacy-phone="${resp.pharmacy_phone || ''}" data-pharmacy-address="${resp.pharmacy_address || ''}" onclick="App.toggleReserveMedicine(this)">Réserver</button>`
+            ? `<button class="btn btn-sm reserve-med-btn" data-request-id="${escapeHtml(resp.request_id)}" data-pharmacy-id="${escapeHtml(resp.pharmacy_id)}" data-med="${escapeHtml(med)}" data-pharmacy-name="${escapeHtml(resp.pharmacy_name || '')}" data-pharmacy-phone="${escapeHtml(resp.pharmacy_phone || '')}" data-pharmacy-address="${escapeHtml(resp.pharmacy_address || '')}" onclick="App.toggleReserveMedicine(this)">Réserver</button>`
             : '';
 
           return `<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 13px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
-            <span style="font-weight: 500; flex: 1;">💊 ${med}</span>
+            <span style="font-weight: 500; flex: 1;">💊 ${escapeHtml(med)}</span>
             ${badge}
             ${reserveBtn}
           </div>`;
@@ -1375,11 +1381,11 @@ const App = (() => {
       const sessionId = sessionStorage.getItem('pharma_session_id') || 'INCONNU';
       
       return `
-        <div class="pharma-card" data-pharmacy-id="${resp.pharmacy_id}">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; cursor:pointer;" onclick="App.openDetail(App.findPharmacy('${resp.pharmacy_id}'))">
+        <div class="pharma-card" data-pharmacy-id="${escapeHtml(resp.pharmacy_id)}">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; cursor:pointer;" data-pid="${escapeHtml(resp.pharmacy_id)}" onclick="App.openDetail(App.findPharmacy(this.dataset.pid))">
             <div>
               <div style="font-weight:700; font-size:16px; color:#fff; margin-bottom:4px;">${escapeHtml(resp.pharmacy_name || 'Pharmacie')}</div>
-              <div style="font-size: 11px; color: #10b981; margin: 2px 0 4px; font-weight: 600;">ID Session : ${sessionId}</div>
+              <div style="font-size: 11px; color: #10b981; margin: 2px 0 4px; font-weight: 600;">ID Session : ${escapeHtml(sessionId)}</div>
               <div style="font-size:13px; color:#94a3b8; display:flex; align-items:center; gap:4px;">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
                 ${escapeHtml(resp.pharmacy_address || 'Adresse inconnue')}
@@ -1397,17 +1403,17 @@ const App = (() => {
 
           <div style="display:flex; gap:8px;">
             ${resp.pharmacy_phone ? `
-              <button class="pharma-btn btn-call" onclick="App.callPharmacy('${escapeHtml(resp.pharmacy_phone)}')">
+              <button class="pharma-btn btn-call" data-phone="${escapeHtml(resp.pharmacy_phone)}" onclick="App.callPharmacy(this.dataset.phone)">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg> Appeler
               </button>
-              <button class="pharma-btn btn-whatsapp" onclick="App.openWhatsApp('237${escapeHtml(resp.pharmacy_phone)}')">
+              <button class="pharma-btn btn-whatsapp" data-phone="${escapeHtml(resp.pharmacy_phone)}" onclick="App.openWhatsApp(this.dataset.phone)">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="#10b981"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.888-.788-1.489-1.761-1.663-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.5.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.885-9.885 9.885m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg> WhatsApp
               </button>
             ` : ''}
-            <button class="pharma-btn btn-route" onclick="App.getRouteToPharmacy('${resp.pharmacy_id}')">
+            <button class="pharma-btn btn-route" data-pid="${escapeHtml(resp.pharmacy_id)}" onclick="App.getRouteToPharmacy(this.dataset.pid)">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg> Y aller
             </button>
-            <button class="pharma-btn" style="background:rgba(59,130,246,0.14); border:1px solid rgba(59,130,246,0.4); color:#93c5fd;" onclick="PGProGeo && PGProGeo.openActorModal('pharmacy', { id: '${escapeHtml(resp.pharmacy_id || '')}', name: '${escapeHtml(resp.pharmacy_name || 'Pharmacie').replace(/'/g, "\\'")}', phone: '${escapeHtml(resp.pharmacy_phone || '')}', address: '${escapeHtml(resp.pharmacy_address || '').replace(/'/g, "\\'")}' })">
+            <button class="pharma-btn" style="background:rgba(59,130,246,0.14); border:1px solid rgba(59,130,246,0.4); color:#93c5fd;" data-pid="${escapeHtml(resp.pharmacy_id || '')}" data-name="${escapeHtml(resp.pharmacy_name || 'Pharmacie')}" data-phone="${escapeHtml(resp.pharmacy_phone || '')}" data-address="${escapeHtml(resp.pharmacy_address || '')}" onclick="window.PGProGeo && PGProGeo.openActorModal('pharmacy', { id: this.dataset.pid, name: this.dataset.name, phone: this.dataset.phone, address: this.dataset.address })">
               🪪 Identité &amp; GPS
             </button>
           </div>
@@ -1616,6 +1622,23 @@ const App = (() => {
     }
   }
 
+  // Chargement différé du moteur OCR (≈ 60 Ko + modèle) : uniquement lors du 1er scan
+  let tesseractPromise = null;
+  function loadTesseract() {
+    if (typeof Tesseract !== 'undefined') return Promise.resolve();
+    if (!tesseractPromise) {
+      tesseractPromise = new Promise((resolve) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+        s.crossOrigin = 'anonymous';
+        s.onload = () => resolve();
+        s.onerror = () => { tesseractPromise = null; resolve(); };
+        document.head.appendChild(s);
+      });
+    }
+    return tesseractPromise;
+  }
+
   async function handleOCRFile(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -1624,6 +1647,7 @@ const App = (() => {
     showToast('📸 Analyse de l\'ordonnance en cours...', 'info');
 
     try {
+      await loadTesseract();
       if (typeof Tesseract !== 'undefined') {
         const result = await Tesseract.recognize(file, 'fra', {
           logger: (m) => {
@@ -1793,14 +1817,22 @@ const App = (() => {
 
   // ── Actions ────────────────────────────────────────────
   function callPharmacy(phone) {
-    if (phone) {
-      window.open(`tel:${phone}`, '_self');
+    // Sécurité : seuls les chiffres et le « + » sont conservés (pas d'injection d'URI)
+    const clean = String(phone || '').replace(/[^\d+]/g, '');
+    if (clean) {
+      window.open(`tel:${clean}`, '_self');
+    } else {
+      showToast('Numéro de téléphone non renseigné pour cette officine.', 'info');
     }
   }
 
   function openWhatsApp(number) {
-    if (number) {
-      window.open(`https://wa.me/${number}`, '_blank');
+    let digits = String(number || '').replace(/\D/g, '');
+    if (digits.length === 9) digits = '237' + digits; // numéros camerounais saisis sans indicatif
+    if (digits) {
+      window.open(`https://wa.me/${digits}`, '_blank', 'noopener');
+    } else {
+      showToast('Numéro WhatsApp non renseigné pour cette officine.', 'info');
     }
   }
 
@@ -1844,7 +1876,10 @@ const App = (() => {
 
     try {
       const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${userLng},${userLat};${lng},${lat}?overview=full&geometries=geojson`;
-      const resp = await fetch(osrmUrl);
+      const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const osrmTimer = ctrl ? setTimeout(() => ctrl.abort(), 7000) : null;
+      const resp = await fetch(osrmUrl, ctrl ? { signal: ctrl.signal } : undefined);
+      if (osrmTimer) clearTimeout(osrmTimer);
       const data = await resp.json();
 
       if (data && data.routes && data.routes.length > 0) {
@@ -1946,7 +1981,8 @@ const App = (() => {
   }
 
   function findPharmacy(id) {
-    return pharmaciesInRadius.find(p => p.id === id) || null;
+    const key = String(id);
+    return pharmaciesInRadius.find(p => String(p.id) === key) || null;
   }
 
   // ── Settings ───────────────────────────────────────────

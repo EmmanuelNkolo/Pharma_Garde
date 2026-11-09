@@ -3,7 +3,7 @@
  * afin que chaque mise à jour soit visible immédiatement. Le cache ne sert
  * qu'en mode hors-ligne. Les anciennes versions de cache sont supprimées.
  */
-const CACHE_NAME = 'pharma-garde-v9.8';
+const CACHE_NAME = 'pharma-garde-v10.0';
 const CORE = [
   '/',
   '/index.html',
@@ -14,7 +14,11 @@ const CORE = [
   '/css/design-system.css',
   '/css/pro.css',
   '/css/grossiste.css',
-  '/js/core.js',
+  '/js/core/core.js',
+  '/js/core/i18n.js',
+  '/js/core/geolocation.js',
+  '/js/client/location-intel.js',
+  '/js/client/pharmacy-service.js',
   '/icon.svg',
   '/icon-192.png',
   '/icon-512.png',
@@ -37,8 +41,8 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  // API & services externes temps réel : jamais de cache
-  if (url.hostname.includes('supabase.co') || url.hostname.includes('overpass') || url.hostname.includes('nominatim')) return;
+  // API & services externes temps réel : jamais de cache SW
+  if (url.hostname.includes('supabase.co') || url.hostname.includes('overpass') || url.hostname.includes('nominatim') || url.hostname.includes('project-osrm.org')) return;
   if (url.origin !== self.location.origin) return;
 
   event.respondWith(

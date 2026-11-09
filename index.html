@@ -31,15 +31,20 @@
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <!-- Pré-connexions : réduisent la latence des tuiles, du géocodage et de la base -->
+  <link rel="preconnect" href="https://kcbcvdinuhckrpotngbw.supabase.co" crossorigin>
+  <link rel="preconnect" href="https://a.tile.openstreetmap.org" crossorigin>
+  <link rel="dns-prefetch" href="https://nominatim.openstreetmap.org">
+  <link rel="dns-prefetch" href="https://overpass-api.de">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 
   <!-- Leaflet Map -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
   <!-- Design System & Modules -->
-  <link rel="stylesheet" href="css/design-system.css?v=9.8">
-  <link rel="stylesheet" href="css/pro.css?v=9.8">
-  <link rel="stylesheet" href="css/pg-share.css?v=9.8">
+  <link rel="stylesheet" href="css/design-system.css?v=10.0">
+  <link rel="stylesheet" href="css/pro.css?v=10.0">
+  <link rel="stylesheet" href="css/pg-share.css?v=10.0">
 </head>
 <body>
   <div class="app-container">
@@ -187,8 +192,8 @@
         </div>
       </div>
       <div class="app-header__actions">
-        <!-- Radius Selector (moved here) -->
-        <div class="radius-pills" style="margin-right: 8px; flex-shrink: 0; white-space: nowrap; overflow: visible;">
+        <!-- Sélecteur de rayon (piste défilante) -->
+        <div class="radius-pills client-radius" role="group" aria-label="Rayon de recherche">
           <button class="radius-pill" data-radius="2">2 km</button>
           <button class="radius-pill active" data-radius="5">5 km</button>
           <button class="radius-pill" data-radius="10">10 km</button>
@@ -199,8 +204,8 @@
           <button class="lang-switch__btn active" data-lang="fr">FR</button>
           <button class="lang-switch__btn" data-lang="en">EN</button>
         </div>
-        <span id="city-badge" class="badge badge--emerald" style="padding: 6px 12px; font-size: 12px;">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 4px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/></svg>
+        <span id="city-badge" class="badge badge--emerald client-city-badge" title="Votre position">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 4px; flex-shrink: 0;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/></svg>
           <span id="city-name">—</span>
         </span>
       </div>
@@ -238,22 +243,22 @@
       </div>
       <div class="bottom-sheet__content">
 
-        <!-- Action Buttons : Grille symétrique 3 colonnes parfaitement centrée -->
-        <div id="main-actions" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; align-items: stretch;">
-          <button id="search-btn" class="btn btn--primary btn--sm" style="width: 100%; min-height: 46px; padding: 10px 8px; display: inline-flex; align-items: center; justify-content: center; gap: 7px;">
+        <!-- Actions : Médicaments + Ordonnance (2 colonnes), Pharmacies de garde (pleine largeur) -->
+        <div id="main-actions" class="client-actions">
+          <button id="search-btn" class="btn btn--primary btn--sm client-actions__btn">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
             <span data-i18n="btn_medicines">Médicaments</span>
           </button>
           
-          <button id="btn-ordonnance" class="btn btn--secondary btn--sm" style="width: 100%; min-height: 46px; padding: 10px 8px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border-color: var(--emerald-500); color: var(--emerald-400);">
+          <button id="btn-ordonnance" class="btn btn--secondary btn--sm client-actions__btn">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
             <span data-i18n="btn_ordonnance">Ordonnance</span>
           </button>
           <input type="file" id="ocr-camera-input" accept="image/*" style="display: none;">
 
-          <button id="btn-garde" class="btn btn--sm" style="width: 100%; min-height: 46px; padding: 10px 8px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; background: rgba(245,158,11,0.12); color: var(--amber-400); border: 1px solid rgba(245,158,11,0.35);">
-            <span>🌙</span>
-            <span data-i18n="guard_pharmacies">Garde</span>
+          <button id="btn-garde" class="btn btn--sm client-actions__btn client-actions__btn--garde">
+            <span aria-hidden="true">🌙</span>
+            <span data-i18n="guard_pharmacies">Pharmacies de garde</span>
           </button>
         </div>
 
@@ -436,17 +441,19 @@
   <!-- Scripts (Versions CDN figées) -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
-  <script src="js/supabaseClient.js?v=4"></script>
-  <script src="js/shared/network.js?v=9.5"></script>
-  <script src="js/data/medicines.js?v=4"></script>
-  <script src="js/data/pharmacies.js?v=9.5"></script>
-  <script src="js/shared/pro-geolocation.js?v=9.5"></script>
-  <script src="js/core.js?v=4"></script>
-  <script src="js/i18n.js?v=9.5"></script>
-  <script src="js/geolocation.js?v=4"></script>
-  <script src="js/payment.js?v=9"></script>
-  <script src="js/pg-share.js?v=1.0"></script>
-  <script src="js/app.js?v=10.5"></script>
+  <!-- Tesseract (OCR ordonnance) est chargé à la demande par js/client/app.js -->
+  <script src="js/core/supabaseClient.js?v=10.0"></script>
+  <script src="js/shared/network.js?v=10.0"></script>
+  <script src="js/data/medicines.js?v=10.0"></script>
+  <script src="js/data/pharmacies.js?v=10.0"></script>
+  <script src="js/shared/pro-geolocation.js?v=10.0"></script>
+  <script src="js/core/core.js?v=10.0"></script>
+  <script src="js/core/i18n.js?v=10.0"></script>
+  <script src="js/core/geolocation.js?v=10.0"></script>
+  <script src="js/client/location-intel.js?v=10.0"></script>
+  <script src="js/client/pharmacy-service.js?v=10.0"></script>
+  <script src="js/client/payment.js?v=10.0"></script>
+  <script src="js/shared/pg-share.js?v=10.0"></script>
+  <script src="js/client/app.js?v=10.0"></script>
 </body>
 </html>

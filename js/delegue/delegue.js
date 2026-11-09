@@ -898,6 +898,7 @@
 
     // Draw spotlight circle
     drawRadiusCircle(lat, lng, currentRadius);
+    if (window.PGLocation) PGLocation.showAreaLabels(delegateMap, { lat, lng }, currentRadius);
 
     setTimeout(() => {
       if (delegateMap) delegateMap.invalidateSize();

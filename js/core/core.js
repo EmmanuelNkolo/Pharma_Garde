@@ -136,22 +136,62 @@
       }, { enableHighAccuracy: true, maximumAge: 0, timeout: o.maxWait });
     });
   }
+  const revMemo = new Map();
   async function reverse(lat, lng) {
+    if (window.PGLocation && typeof window.PGLocation.reverse === 'function') {
+      return window.PGLocation.reverse(lat, lng);
+    }
+    const key = Number(lat).toFixed(4) + '_' + Number(lng).toFixed(4);
+    if (revMemo.has(key)) return revMemo.get(key);
     try {
-      const r = await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=16&accept-language=fr&lat=' + lat + '&lon=' + lng);
+      const cached = sessionStorage.getItem('pg_rev_' + key);
+      if (cached) { const p = JSON.parse(cached); revMemo.set(key, p); return p; }
+    } catch (e) {}
+    try {
+      const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const t = ctrl ? setTimeout(() => ctrl.abort(), 6000) : null;
+      const r = await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&addressdetails=1&accept-language=fr&lat=' + lat + '&lon=' + lng, ctrl ? { signal: ctrl.signal } : undefined);
+      if (t) clearTimeout(t);
       const d = await r.json(); const a = d.address || {};
-      return {
-        city: a.city || a.town || a.village || a.municipality || a.county || a.state || '',
-        quarter: a.suburb || a.neighbourhood || a.quarter || a.city_district || '',
-        road: a.road || '', display: d.display_name || ''
+      const quarter = a.neighbourhood || a.quarter || a.suburb || a.hamlet || a.residential || a.city_district || '';
+      const district = a.city_district || a.municipality || a.county || '';
+      const city = a.city || a.town || a.village || a.municipality || a.county || a.state || '';
+      const res = {
+        city: city,
+        quarter: quarter,
+        district: district,
+        road: a.road || a.pedestrian || '',
+        display: d.display_name || '',
+        short: [quarter, district && district !== quarter ? district : (!district ? city : '')].filter(Boolean).join(' · ') || city
       };
-    } catch (e) { return { city: '', quarter: '', road: '', display: '' }; }
+      revMemo.set(key, res);
+      try { sessionStorage.setItem('pg_rev_' + key, JSON.stringify(res)); } catch (e) {}
+      return res;
+    } catch (e) { return { city: '', quarter: '', district: '', road: '', display: '', short: '' }; }
   }
+  const searchMemo = new Map();
   async function searchPlace(q) {
-    const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&accept-language=fr&countrycodes=cm&q=' + encodeURIComponent(q);
+    const query = String(q || '').trim();
+    if (!query) return [];
+    const k = query.toLowerCase();
+    if (searchMemo.has(k)) return searchMemo.get(k);
+    const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=6&accept-language=fr&countrycodes=cm&q=' + encodeURIComponent(query);
     let r = await fetch(url); let d = await r.json();
     if (!d || !d.length) { r = await fetch(url.replace('&countrycodes=cm', '')); d = await r.json(); }
-    return (d || []).map(x => ({ lat: parseFloat(x.lat), lng: parseFloat(x.lon), label: x.display_name }));
+    const out = (d || []).map(x => {
+      const a = x.address || {};
+      const qtr = a.neighbourhood || a.quarter || a.suburb || a.hamlet || '';
+      const cty = a.city || a.town || a.village || a.municipality || a.county || '';
+      return {
+        lat: parseFloat(x.lat),
+        lng: parseFloat(x.lon),
+        quarter: qtr,
+        city: cty,
+        label: [qtr, a.city_district, cty].filter((v, i, arr) => v && arr.indexOf(v) === i).join(' · ') || x.display_name
+      };
+    });
+    searchMemo.set(k, out);
+    return out;
   }
 
   // ── Base de données tolérante (fonctionne avant/après migration v6) ──

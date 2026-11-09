@@ -74,22 +74,40 @@ const Geolocation = (() => {
   }
 
   /**
-   * Reverse geocode to get city name
+   * Reverse geocode to get quarter, district, and city name (cached & low-latency)
    */
   async function reverseGeocode(lat, lng) {
+    if (window.PGLocation && typeof window.PGLocation.reverse === 'function') {
+      return window.PGLocation.reverse(lat, lng);
+    }
+    if (window.PG && typeof window.PG.reverse === 'function') {
+      const info = await window.PG.reverse(lat, lng);
+      return {
+        city: info.short || info.city || 'Position détectée',
+        quarter: info.quarter || '',
+        district: info.district || '',
+        display: info.display || '',
+        country: 'Cameroun'
+      };
+    }
     try {
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=fr`
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&addressdetails=1&lat=${lat}&lon=${lng}&accept-language=fr`
       );
       const data = await res.json();
+      const a = data.address || {};
+      const quarter = a.neighbourhood || a.quarter || a.suburb || a.hamlet || '';
+      const district = a.city_district || a.municipality || '';
+      const city = a.city || a.town || a.village || a.state || 'Position détectée';
       return {
-        city: data.address?.city || data.address?.town || data.address?.village || data.address?.state || 'Position détectée',
-        quarter: data.address?.suburb || data.address?.neighbourhood || '',
+        city: [quarter, district || city].filter(Boolean).join(' · ') || city,
+        quarter: quarter,
+        district: district,
         display: data.display_name || '',
-        country: data.address?.country || ''
+        country: a.country || ''
       };
     } catch (e) {
-      return { city: 'Position détectée', quarter: '', display: '', country: '' };
+      return { city: 'Position détectée', quarter: '', district: '', display: '', country: '' };
     }
   }
 

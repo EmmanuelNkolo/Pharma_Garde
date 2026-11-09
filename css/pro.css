@@ -1350,4 +1350,198 @@
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   ESPACE CLIENT v10 : DISPOSITION IDENTIQUE À LA CAPTURE & GPS QUARTIERS/ZONES
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* 1. Grille d'actions Client : 2 boutons en haut (Médicaments | Ordonnance)
+      + 1 bouton pleine largeur en bas (🌙 Pharmacies de garde) */
+.client-actions {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+  margin-bottom: 16px !important;
+  align-items: stretch !important;
+}
+
+.client-actions__btn {
+  width: 100% !important;
+  min-height: 46px !important;
+  padding: 10px 12px !important;
+  border-radius: 12px !important;
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  background: rgba(15, 23, 42, 0.85) !important;
+  color: var(--emerald-400, #34d399) !important;
+  border: 1.5px solid var(--emerald-500, #10b981) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.client-actions__btn:hover:not(:disabled) {
+  background: rgba(16, 185, 129, 0.14) !important;
+}
+
+.client-actions__btn--garde {
+  grid-column: 1 / -1 !important;
+  background: rgba(120, 83, 28, 0.34) !important;
+  color: #fbbf24 !important;
+  border: 1px solid rgba(245, 158, 11, 0.32) !important;
+}
+
+.client-actions__btn--garde:hover:not(:disabled),
+.client-actions__btn--garde.is-on {
+  background: rgba(217, 119, 6, 0.38) !important;
+  border-color: rgba(251, 191, 36, 0.75) !important;
+  color: #fde68a !important;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.25) !important;
+}
+
+/* 2. Poignée chevron (^) toujours visible en haut du panneau gauche / bottom-sheet */
+#bottom-sheet .bottom-sheet__handle {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  padding: 8px 0 6px !important;
+}
+
+/* 3. En-tête Espace Client : sélecteur de rayon fluide + badge quartier/ville */
+.client-radius {
+  margin-right: 6px;
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 260px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding: 2px 0;
+}
+
+.client-city-badge {
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  max-width: 190px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-flex !important;
+  align-items: center !important;
+  flex-shrink: 0;
+}
+
+/* 4. Alignement Panneau Gauche + Carte à droite en mode Paysage / Desktop
+      (centre parfaitement le cercle radar dans la zone carte de droite) */
+@media (min-width: 768px), (orientation: landscape) {
+  #bottom-sheet {
+    border-right: 1px solid rgba(148, 163, 184, 0.14);
+    background: #111827;
+  }
+  #client-map {
+    left: var(--sidebar-width, 320px) !important;
+    width: calc(100% - var(--sidebar-width, 320px)) !important;
+    top: var(--header-height, 56px) !important;
+    height: calc(100vh - var(--header-height, 56px)) !important;
+    height: calc(100dvh - var(--header-height, 56px)) !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  #client-map {
+    left: 380px !important;
+    width: calc(100% - 380px) !important;
+  }
+}
+
+/* 5. Étiquettes des Quartiers, Zones et Localités sur la carte GPS */
+.pg-area-label {
+  pointer-events: none !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translate(-50%, -50%);
+}
+
+.pg-area-label span {
+  display: inline-block;
+  white-space: nowrap;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  letter-spacing: 0.02em;
+  text-align: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  transition: opacity 0.2s ease;
+}
+
+.pg-area-label--city span {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1.5px solid rgba(15, 23, 42, 0.35);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
+  text-transform: uppercase;
+}
+
+.pg-area-label--zone span {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(37, 99, 235, 0.35);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+}
+
+.pg-area-label--quarter span {
+  font-size: 11px;
+  font-weight: 700;
+  color: #1e293b;
+  background: rgba(255, 255, 255, 0.80);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+/* 6. Info-bulle permanente sur le marqueur GPS de l'utilisateur */
+.leaflet-tooltip.pg-here-tip {
+  background: rgba(15, 23, 42, 0.92) !important;
+  color: #ffffff !important;
+  border: 1.5px solid rgba(59, 130, 246, 0.75) !important;
+  border-radius: 10px !important;
+  padding: 4px 10px !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4) !important;
+  font-family: 'Inter', system-ui, sans-serif !important;
+  pointer-events: none !important;
+}
+
+.leaflet-tooltip.pg-here-tip::before {
+  border-top-color: rgba(15, 23, 42, 0.92) !important;
+}
+
+.pg-here {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.25;
+}
+
+.pg-here strong {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #60a5fa;
+}
+
+.pg-here small {
+  font-size: 10px;
+  color: #cbd5e1;
+}
+
+.pg-here em {
+  font-style: normal;
+  color: #34d399;
+  font-weight: 700;
+}
+
+
 

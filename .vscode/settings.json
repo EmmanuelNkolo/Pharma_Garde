@@ -1,4 +1,7 @@
 {
   "typescript.validate.enable": true,
-  "javascript.validate.enable": true
+  "javascript.validate.enable": true,
+  "files.associations": {
+    "*.csv": "csv"
+  }
 }

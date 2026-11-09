@@ -487,6 +487,7 @@
           fillOpacity: 0.08
         }).addTo(networkMap);
       }
+      if (window.PGLocation) PGLocation.showAreaLabels(networkMap, center, currentRadiusKm || 10);
 
       // Marqueur Hub Grossiste
       L.circleMarker([center.lat, center.lng], {
