@@ -65,3 +65,4 @@ CREATE POLICY "admin_audit_insert" ON public.admin_audit_logs
 -- SELECT id, email, 'Administrateur Principal', 'super_admin'
 -- FROM auth.users WHERE email = 'VOTRE_EMAIL_ADMIN@exemple.com'
 -- ON CONFLICT (email) DO UPDATE SET is_active = true, role = 'super_admin';
+

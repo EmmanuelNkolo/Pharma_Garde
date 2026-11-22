@@ -3,7 +3,7 @@
  * afin que chaque mise à jour soit visible immédiatement. Le cache ne sert
  * qu'en mode hors-ligne. Les anciennes versions de cache sont supprimées.
  */
-const CACHE_NAME = 'pharma-garde-v10.1';
+const CACHE_NAME = 'pharma-garde-v11.0';
 const CORE = [
   '/',
   '/index.html',
@@ -20,6 +20,10 @@ const CORE = [
   '/js/core/geolocation.js',
   '/js/client/location-intel.js',
   '/js/client/pharmacy-service.js',
+  '/js/client/patient-pro.js',
+  '/js/pharmacie/pharmacy-pro.js',
+  '/js/delegue/delegate-pro.js',
+  '/js/grossiste/wholesaler-pro.js',
   '/js/shared/admin-portal.js',
   '/icon.svg',
   '/icon-192.png',

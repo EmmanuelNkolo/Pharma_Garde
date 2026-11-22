@@ -1,14 +1,15 @@
 /**
- * Pharma-Garde v10.0 — Portail Privilégié Super-Administrateur Plateforme
+ * Pharma-Garde v11.0 — Portail Privilégié Super-Administrateur Plateforme
  * ───────────────────────────────────────────────────────────────────────
- * • Accès privilégié sécurisé (empreinte SHA-256 + vérification optionnelle
- *   Supabase `platform_admins` + protection anti-bruteforce) dans les 4 espaces :
- *     1. Espace Patient (Pass 24h Admin illimité sans paiement)
- *     2. Espace Pharmacie (Connexion directe & inspection de toute officine)
- *     3. Espace Délégué Médical (Connexion directe & licence Pro Admin active)
- *     4. Espace Grossiste B2B (Connexion directe, bascule entre hubs & licence Admin)
- * • Barre flottante inter-espaces + Console Super-Admin temps réel (KPIs,
- *   modération des officines, gestion des abonnements, santé système & audit CSV).
+ * • Accès privilégié sécurisé (empreintes SHA-256 individuelles + Supabase
+ *   `platform_admins` + anti-bruteforce) dans les 4 espaces.
+ * • Gestion Multi-Super-Administrateurs : inscrire de nouveaux Super-Admins
+ *   (nom, email, rôle, code d'accès individuel SHA-256) et supprimer / révoquer
+ *   un administrateur (protection contre la suppression du dernier Super-Admin).
+ * • Workflow de Validation & Certification ONCP / DPML : file d'approbation
+ *   pour Officines, Délégués Médicaux et Grossistes-Répartiteurs (Badge Vérifié ✓).
+ * • Console Super-Admin (6 onglets) : Vue Globale, Validation ONCP/DPML,
+ *   Modération Officines, Abonnements, Super-Admins, Sécurité & Audit CSV.
  *
  * Expose : window.PGAdmin
  */
@@ -17,19 +18,19 @@
 
   const SESSION_KEY = 'pharmagarde_super_admin_session';
   const HASH_KEY = 'pharmagarde_super_admin_hash_v10';
+  const ADMINS_KEY = 'pharmagarde_super_admins_registry_v11';
+  const VERIFY_KEY = 'pharmagarde_oncp_verifications_v11';
   const AUDIT_KEY = 'pharmagarde_super_admin_audit';
   const LOCK_KEY = 'pharmagarde_super_admin_lock';
   const SESSION_TTL_MS = 4 * 60 * 60 * 1000; // 4 heures
   const SALT = 'PG_CM_SUPERADMIN_V10::';
 
-  // Empreinte SHA-256 salée du code maître initial (aucun secret en clair dans le bundle)
+  // Empreinte SHA-256 salée du code maître initial (PHARMA-ADMIN-2026)
   const DEFAULT_MASTER_HASH = '7ffec7cb477954650c215b3ef13ae2d04b15e7d70d25003096fe290a628f0c22';
 
-  function esc(v) {
-    return String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-    }[c]));
-  }
+  const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
 
   function currentPageSpace() {
     const p = (location.pathname || '').toLowerCase();
@@ -45,21 +46,57 @@
       const buf = await window.crypto.subtle.digest('SHA-256', data);
       return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
     }
-    // Fallback JS si contexte non sécurisé (local file://)
     let h = 2166136261;
-    for (let i = 0; i < data.length; i++) {
-      h ^= data[i];
-      h = Math.imul(h, 16777619);
-    }
+    for (let i = 0; i < data.length; i++) { h ^= data[i]; h = Math.imul(h, 16777619); }
     return ('00000000' + (h >>> 0).toString(16)).slice(-8);
   }
 
-  function getExpectedHash() {
+  function getExpectedMasterHash() {
+    try { return localStorage.getItem(HASH_KEY) || DEFAULT_MASTER_HASH; } catch (e) { return DEFAULT_MASTER_HASH; }
+  }
+
+  // ── Registre Multi-Super-Administrateurs ───────────────────────
+  function getAdminsRegistry() {
     try {
-      return localStorage.getItem(HASH_KEY) || DEFAULT_MASTER_HASH;
-    } catch (e) {
-      return DEFAULT_MASTER_HASH;
-    }
+      const saved = JSON.parse(localStorage.getItem(ADMINS_KEY) || 'null');
+      if (Array.isArray(saved) && saved.length > 0) return saved;
+    } catch (e) {}
+    const rootAdmin = [{
+      id: 'adm_founder',
+      full_name: 'Administrateur Principal (Fondateur)',
+      email: 'admin@pharmagarde.cm',
+      role: 'super_admin',
+      is_founder: true,
+      is_active: true,
+      access_code_hash: getExpectedMasterHash(),
+      created_at: '2026-01-01T00:00:00.000Z'
+    }];
+    saveAdminsRegistry(rootAdmin);
+    return rootAdmin;
+  }
+
+  function saveAdminsRegistry(list) {
+    try { localStorage.setItem(ADMINS_KEY, JSON.stringify(list)); } catch (e) {}
+  }
+
+  // ── Registre Certifications ONCP / DPML ────────────────────────
+  function getVerificationMap() {
+    try { return JSON.parse(localStorage.getItem(VERIFY_KEY) || '{}'); } catch (e) { return {}; }
+  }
+  function saveVerificationMap(map) {
+    try { localStorage.setItem(VERIFY_KEY, JSON.stringify(map)); } catch (e) {}
+  }
+  function getVerificationStatus(role, id) {
+    const map = getVerificationMap();
+    return map[`${role}:${id}`] || 'pending';
+  }
+  function isVerified(role, id) {
+    return getVerificationStatus(role, id) === 'verified';
+  }
+  function verifiedBadge(role, id) {
+    return isVerified(role, id)
+      ? '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:999px;background:rgba(16,185,129,0.18);border:1px solid #10b981;color:#34d399;font-size:10px;font-weight:800;">✓ Vérifié ONCP/DPML</span>'
+      : '';
   }
 
   function getSession() {
@@ -72,25 +109,23 @@
         return null;
       }
       return obj;
-    } catch (e) {
-      return null;
-    }
+    } catch (e) { return null; }
   }
 
-  function isAdmin() {
-    return !!getSession();
-  }
+  function isAdmin() { return !!getSession(); }
 
   function logAudit(action, details) {
     try {
+      const sess = getSession();
       const list = JSON.parse(localStorage.getItem(AUDIT_KEY) || '[]');
       list.unshift({
         ts: new Date().toISOString(),
+        actor: (sess && sess.email) || 'system',
         space: currentPageSpace(),
         action: String(action || ''),
         details: String(details || '')
       });
-      localStorage.setItem(AUDIT_KEY, JSON.stringify(list.slice(0, 120)));
+      localStorage.setItem(AUDIT_KEY, JSON.stringify(list.slice(0, 150)));
     } catch (e) {}
   }
 
@@ -99,15 +134,11 @@
   }
 
   function notify(msg, type) {
-    if (window.PG && typeof PG.toast === 'function') {
-      PG.toast(msg, type || 'success');
-      return;
-    }
-    const t = document.getElementById('toast');
-    const m = document.getElementById('toast-message');
+    if (window.PG && typeof PG.toast === 'function') { PG.toast(msg, type || 'success'); return; }
+    const t = document.getElementById('toast'), m = document.getElementById('toast-message');
     if (t && m) {
       t.className = 'toast toast--' + (type || 'success');
-      m.textContent = msg;
+      m.textContent = (window.I18n && I18n.translateText) ? I18n.translateText(String(msg || '')) : msg;
       t.classList.add('show');
       setTimeout(() => t.classList.remove('show'), 3600);
     }
@@ -116,9 +147,7 @@
   function checkBruteForceLock() {
     try {
       const state = JSON.parse(sessionStorage.getItem(LOCK_KEY) || '{"fails":0,"until":0}');
-      if (state.until && Date.now() < state.until) {
-        return Math.ceil((state.until - Date.now()) / 1000);
-      }
+      if (state.until && Date.now() < state.until) return Math.ceil((state.until - Date.now()) / 1000);
       return 0;
     } catch (e) { return 0; }
   }
@@ -127,68 +156,73 @@
     try {
       const state = JSON.parse(sessionStorage.getItem(LOCK_KEY) || '{"fails":0,"until":0}');
       state.fails = (state.fails || 0) + 1;
-      if (state.fails >= 5) {
-        state.until = Date.now() + 60000;
-        state.fails = 0;
-      }
+      if (state.fails >= 5) { state.until = Date.now() + 60000; state.fails = 0; }
       sessionStorage.setItem(LOCK_KEY, JSON.stringify(state));
     } catch (e) {}
   }
 
-  function clearAuthFailures() {
-    try { sessionStorage.removeItem(LOCK_KEY); } catch (e) {}
-  }
+  function clearAuthFailures() { try { sessionStorage.removeItem(LOCK_KEY); } catch (e) {} }
 
   async function authenticate(masterCode, adminEmail) {
     const lockedSec = checkBruteForceLock();
-    if (lockedSec > 0) {
-      throw new Error(`Trop de tentatives. Réessayez dans ${lockedSec}s.`);
-    }
+    if (lockedSec > 0) throw new Error(`Trop de tentatives. Réessayez dans ${lockedSec}s.`);
 
     const code = String(masterCode || '').trim();
     if (!code) throw new Error('Veuillez saisir le code maître Administrateur.');
 
+    const cleanEmail = String(adminEmail || '').trim().toLowerCase();
     const computed = await sha256Hex(code);
-    let verified = (computed === getExpectedHash());
 
-    // Vérification optionnelle côté Supabase (table `platform_admins` ou `app_metadata.role`)
-    if (!verified && window.supabase && adminEmail) {
+    // 1. Vérifier contre le code maître principal ou contre tout Super-Admin inscrit dans le registre
+    const registry = getAdminsRegistry();
+    let matchedAdmin = null;
+    if (computed === getExpectedMasterHash()) {
+      matchedAdmin = registry.find((a) => a.is_founder) || registry[0];
+    } else {
+      matchedAdmin = registry.find((a) =>
+        a.is_active !== false &&
+        a.access_code_hash === computed &&
+        (!cleanEmail || (a.email || '').toLowerCase() === cleanEmail)
+      );
+    }
+
+    // 2. Vérification Supabase (`platform_admins` ou `app_metadata.role`)
+    if (!matchedAdmin && window.supabase && cleanEmail) {
       try {
-        const { data: authData } = await window.supabase.auth.signInWithPassword({
-          email: adminEmail.trim().toLowerCase(),
-          password: code
-        });
+        const { data: authData } = await window.supabase.auth.signInWithPassword({ email: cleanEmail, password: code });
         if (authData && authData.user) {
           const role = authData.user.app_metadata && authData.user.app_metadata.role;
           if (role === 'super_admin' || role === 'admin') {
-            verified = true;
+            matchedAdmin = { full_name: authData.user.email, email: cleanEmail, role: 'super_admin' };
           } else {
             const { data: row } = await window.supabase
               .from('platform_admins')
-              .select('id, is_active')
-              .eq('email', adminEmail.trim().toLowerCase())
+              .select('*')
+              .eq('email', cleanEmail)
               .eq('is_active', true)
               .maybeSingle();
-            if (row) verified = true;
+            if (row) matchedAdmin = row;
           }
         }
       } catch (e) {}
     }
 
-    if (!verified) {
+    if (!matchedAdmin) {
       recordAuthFailure();
-      throw new Error('Code Administrateur invalide.');
+      throw new Error('Code ou identifiant Administrateur invalide.');
     }
 
     clearAuthFailures();
     const session = {
-      role: 'super_admin',
-      email: (adminEmail || 'admin@pharmagarde.cm').trim().toLowerCase(),
+      id: matchedAdmin.id || 'adm_session',
+      full_name: matchedAdmin.full_name || 'Super Administrateur',
+      role: matchedAdmin.role || 'super_admin',
+      email: cleanEmail || matchedAdmin.email || 'admin@pharmagarde.cm',
       startedAt: Date.now(),
       expiresAt: Date.now() + SESSION_TTL_MS
     };
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    logAudit('ADMIN_LOGIN', `Connexion privilégiée (${currentPageSpace()})`);
+    logAudit('ADMIN_LOGIN', `Connexion privilégiée (${session.email}) sur ${currentPageSpace()}`);
     renderFloatingBar();
     applySpacePrivileges();
     return session;
@@ -203,73 +237,47 @@
     notify('🔒 Session Administrateur verrouillée.', 'info');
   }
 
-  // ════════════════════════════════════════════════════════════════
-  // PRIVILÈGES AUTOMATIQUES DANS CHAQUE ESPACE
-  // ════════════════════════════════════════════════════════════════
+  // ── Privilèges automatiques dans chaque espace ──────────────────
   async function enterCurrentSpaceAsAdmin(customTarget) {
-    if (!isAdmin()) {
-      openUnlockModal(() => enterCurrentSpaceAsAdmin(customTarget));
-      return;
-    }
+    if (!isAdmin()) { openUnlockModal(() => enterCurrentSpaceAsAdmin(customTarget)); return; }
     const space = currentPageSpace();
     logAudit('ADMIN_ENTER_SPACE', space);
-
-    if (space === 'pharmacy') {
-      if (window.PharmDash && typeof window.PharmDash.adminEnter === 'function') {
-        await window.PharmDash.adminEnter(customTarget);
-        notify('👑 Accès Administrateur Espace Pharmacie activé', 'success');
-      }
-    } else if (space === 'delegate') {
-      if (window.DelegateApp && typeof window.DelegateApp.adminEnter === 'function') {
-        await window.DelegateApp.adminEnter();
-        notify('👑 Accès Administrateur Espace Délégué activé (Licence Illimitée)', 'success');
-      }
-    } else if (space === 'wholesaler') {
-      if (window.GrossisteApp && typeof window.GrossisteApp.adminEnter === 'function') {
-        await window.GrossisteApp.adminEnter(customTarget);
-        notify('👑 Accès Administrateur Espace Grossiste B2B activé', 'success');
-      }
+    if (space === 'pharmacy' && window.PharmDash && typeof PharmDash.adminEnter === 'function') {
+      await PharmDash.adminEnter(customTarget);
+      notify('👑 Accès Administrateur Espace Pharmacie activé', 'success');
+    } else if (space === 'delegate' && window.DelegateApp && typeof DelegateApp.adminEnter === 'function') {
+      await DelegateApp.adminEnter();
+      notify('👑 Accès Administrateur Espace Délégué activé (Licence Illimitée)', 'success');
+    } else if (space === 'wholesaler' && window.GrossisteApp && typeof GrossisteApp.adminEnter === 'function') {
+      await GrossisteApp.adminEnter(customTarget);
+      notify('👑 Accès Administrateur Espace Grossiste B2B activé', 'success');
     } else if (space === 'client') {
-      if (window.Payment && typeof window.Payment.createSession === 'function') {
-        window.Payment.createSession('ADMIN_PASS_' + Date.now(), '694929909');
-      }
+      if (window.Payment && typeof Payment.createSession === 'function') Payment.createSession('ADMIN_PASS_' + Date.now(), '694929909');
       const ws = document.getElementById('welcome-screen');
-      if (ws && !ws.classList.contains('hidden')) {
-        const btn = document.getElementById('btn-espace-client');
-        if (btn) btn.click();
-      }
-      if (window.App && typeof window.App.updateSessionUI === 'function') {
-        window.App.updateSessionUI();
-      }
+      if (ws && !ws.classList.contains('hidden')) { const btn = document.getElementById('btn-espace-client'); if (btn) btn.click(); }
+      if (window.App && typeof App.updateSessionUI === 'function') App.updateSessionUI();
       notify('👑 Pass Admin Illimité activé sur l\'Espace Patient (0 FCFA)', 'success');
     }
   }
 
   function applySpacePrivileges() {
     if (!isAdmin()) return;
-    // Sur l'Espace Patient, activer automatiquement le Pass 24h Admin
-    if (currentPageSpace() === 'client' && window.Payment && !window.Payment.hasActiveSession()) {
-      window.Payment.createSession('ADMIN_PASS_' + Date.now(), '694929909');
+    if (currentPageSpace() === 'client' && window.Payment && !Payment.hasActiveSession()) {
+      Payment.createSession('ADMIN_PASS_' + Date.now(), '694929909');
     }
   }
 
-  // ════════════════════════════════════════════════════════════════
-  // BARRE FLOTTANTE SUPER-ADMIN (INTER-ESPACES)
-  // ════════════════════════════════════════════════════════════════
+  // ── Barre flottante inter-espaces ──────────────────────────────
   function renderFloatingBar() {
     let bar = document.getElementById('pg-admin-floating-bar');
-    if (!isAdmin()) {
-      if (bar) bar.remove();
-      return;
-    }
+    if (!isAdmin()) { if (bar) bar.remove(); return; }
     if (bar) bar.remove();
-
     const space = currentPageSpace();
     bar = document.createElement('div');
     bar.id = 'pg-admin-floating-bar';
     bar.className = 'pg-admin-bar';
     bar.innerHTML = `
-      <span class="pg-admin-bar__badge">👑 ADMIN</span>
+      <span class="pg-admin-bar__badge">👑 SUPER-ADMIN</span>
       <a href="index.html" class="pg-admin-bar__btn ${space === 'client' ? 'active' : ''}">👤 Patient</a>
       <a href="pharmacien.html" class="pg-admin-bar__btn ${space === 'pharmacy' ? 'active' : ''}">🏥 Pharmacie</a>
       <a href="delegue.html" class="pg-admin-bar__btn ${space === 'delegate' ? 'active' : ''}">💼 Délégué</a>
@@ -279,16 +287,11 @@
       <button type="button" class="pg-admin-bar__btn pg-admin-bar__btn--danger" id="pg-admin-lock-btn" title="Verrouiller Admin">🔒</button>
     `;
     document.body.appendChild(bar);
-
     document.getElementById('pg-admin-open-console').addEventListener('click', openConsoleModal);
     document.getElementById('pg-admin-lock-btn').addEventListener('click', logout);
   }
 
-  // ════════════════════════════════════════════════════════════════
-  // MODALE DE DÉVERROUILLAGE ADMIN
-  // ════════════════════════════════════════════════════════════════
   let pendingSuccessCallback = null;
-
   function closeModals() {
     ['pg-admin-unlock-overlay', 'pg-admin-console-overlay'].forEach((id) => {
       const el = document.getElementById(id);
@@ -298,12 +301,10 @@
 
   function openUnlockModal(onSuccess) {
     if (isAdmin()) {
-      if (typeof onSuccess === 'function') onSuccess();
-      else openConsoleModal();
+      if (typeof onSuccess === 'function') onSuccess(); else openConsoleModal();
       return;
     }
     pendingSuccessCallback = typeof onSuccess === 'function' ? onSuccess : null;
-
     let overlay = document.getElementById('pg-admin-unlock-overlay');
     if (!overlay) {
       overlay = document.createElement('div');
@@ -317,14 +318,14 @@
           </div>
           <div class="pg-admin-modal__body">
             <p style="font-size:12.5px; color:#94a3b8; margin:0 0 14px; line-height:1.5;">
-              Identifiez-vous comme Administrateur de la plateforme Pharma-Garde pour accéder en mode privilégié aux 4 espaces et à la console globale.
+              Identifiez-vous comme Super-Administrateur Pharma-Garde pour accéder aux 4 espaces, valider les agréments ONCP/DPML et gérer l'équipe d'administrateurs.
             </p>
             <div class="form-group" style="margin-bottom:12px;">
               <label class="form-label" style="color:#fbbf24;">Email Administrateur (optionnel)</label>
               <input type="email" id="pg-admin-email-input" class="form-input" placeholder="admin@pharmagarde.cm" autocomplete="username">
             </div>
             <div class="form-group" style="margin-bottom:14px;">
-              <label class="form-label" style="color:#fbbf24;">Code Maître Administrateur *</label>
+              <label class="form-label" style="color:#fbbf24;">Code d'Accès Super-Admin *</label>
               <input type="password" id="pg-admin-code-input" class="form-input" placeholder="••••••••••••" autocomplete="current-password">
             </div>
             <div id="pg-admin-unlock-err" style="display:none; color:#f87171; font-size:12px; font-weight:700; margin-bottom:10px;"></div>
@@ -335,10 +336,8 @@
         </div>
       `;
       document.body.appendChild(overlay);
-
       overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModals(); });
       document.getElementById('pg-admin-unlock-close').addEventListener('click', closeModals);
-
       const submit = async () => {
         const errEl = document.getElementById('pg-admin-unlock-err');
         const email = (document.getElementById('pg-admin-email-input').value || '').trim();
@@ -349,42 +348,27 @@
           document.getElementById('pg-admin-code-input').value = '';
           closeModals();
           notify('👑 Mode Administrateur Plateforme activé (4h)', 'success');
-          if (pendingSuccessCallback) {
-            const cb = pendingSuccessCallback;
-            pendingSuccessCallback = null;
-            cb();
-          } else {
-            openConsoleModal();
-          }
+          if (pendingSuccessCallback) { const cb = pendingSuccessCallback; pendingSuccessCallback = null; cb(); }
+          else openConsoleModal();
         } catch (err) {
           errEl.textContent = '❌ ' + (err.message || 'Accès refusé');
           errEl.style.display = 'block';
         }
       };
-
       document.getElementById('pg-admin-unlock-submit').addEventListener('click', submit);
-      document.getElementById('pg-admin-code-input').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') submit();
-      });
+      document.getElementById('pg-admin-code-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
     }
-
     overlay.classList.add('active');
-    setTimeout(() => {
-      const inp = document.getElementById('pg-admin-code-input');
-      if (inp) inp.focus();
-    }, 80);
+    setTimeout(() => { const inp = document.getElementById('pg-admin-code-input'); if (inp) inp.focus(); }, 80);
   }
 
   // ════════════════════════════════════════════════════════════════
-  // CONSOLE SUPER-ADMIN GLOBALE (4 ONGLETS)
+  // CONSOLE SUPER-ADMIN GLOBALE (6 ONGLETS)
   // ════════════════════════════════════════════════════════════════
   let currentConsoleTab = 'overview';
 
   function openConsoleModal() {
-    if (!isAdmin()) {
-      openUnlockModal(openConsoleModal);
-      return;
-    }
+    if (!isAdmin()) { openUnlockModal(openConsoleModal); return; }
     let overlay = document.getElementById('pg-admin-console-overlay');
     if (!overlay) {
       overlay = document.createElement('div');
@@ -395,14 +379,16 @@
           <div class="pg-admin-modal__head">
             <div>
               <h3 class="pg-admin-modal__title">👑 Console Super-Administrateur Pharma-Garde</h3>
-              <div style="font-size:11.5px; color:#94a3b8; margin-top:2px;">Pilotage global temps réel · Modération · Licences · Sécurité</div>
+              <div style="font-size:11.5px; color:#94a3b8; margin-top:2px;">Pilotage global · Validation ONCP/DPML · Gestion Super-Admins · Sécurité</div>
             </div>
             <button type="button" class="btn btn--icon" id="pg-admin-console-close" style="color:#94a3b8;">✕</button>
           </div>
           <div class="pg-admin-modal__tabs">
             <button type="button" class="pg-admin-tab active" data-atab="overview">📊 Vue Globale</button>
+            <button type="button" class="pg-admin-tab" data-atab="verification">✅ Validation ONCP/DPML</button>
             <button type="button" class="pg-admin-tab" data-atab="pharmacies">🏥 Modération Officines</button>
-            <button type="button" class="pg-admin-tab" data-atab="subs">💳 Abonnements &amp; Accès</button>
+            <button type="button" class="pg-admin-tab" data-atab="admins">👑 Super-Admins</button>
+            <button type="button" class="pg-admin-tab" data-atab="subs">💳 Abonnements</button>
             <button type="button" class="pg-admin-tab" data-atab="security">🛡️ Sécurité &amp; Audit</button>
           </div>
           <div class="pg-admin-modal__body" id="pg-admin-console-body"></div>
@@ -429,15 +415,37 @@
       let q = window.supabase.from(table).select('id', { count: 'exact', head: true });
       if (filterFn) q = filterFn(q);
       const { count, error } = await q;
-      if (error) return '—';
-      return count != null ? count : 0;
+      return error ? '—' : (count != null ? count : 0);
     } catch (e) { return '—'; }
+  }
+
+  async function setActorVerification(role, id, name, newStatus) {
+    const map = getVerificationMap();
+    map[`${role}:${id}`] = newStatus;
+    saveVerificationMap(map);
+
+    const tableMap = { pharmacy: 'pharmacies', delegate: 'delegates', wholesaler: 'wholesalers' };
+    const sess = getSession();
+    if (window.supabase && tableMap[role]) {
+      try {
+        await window.supabase.from(tableMap[role]).update({
+          verification_status: newStatus,
+          verified_at: newStatus === 'verified' ? new Date().toISOString() : null,
+          verified_by: (sess && sess.email) || 'super_admin'
+        }).eq('id', id);
+      } catch (e) {}
+    }
+    logAudit('ONCP_VERIFICATION', `${role} ${name} (${id}) -> ${newStatus}`);
+    const labels = { verified: '✓ Certifié ONCP/DPML', pending: '⏳ Mis en attente', rejected: '🚫 Rejeté / Suspendu' };
+    notify(`${labels[newStatus] || newStatus} : ${name}`, newStatus === 'verified' ? 'success' : 'info');
+    renderConsoleTab();
   }
 
   async function renderConsoleTab() {
     const body = document.getElementById('pg-admin-console-body');
     if (!body) return;
 
+    // 1. VUE GLOBALE
     if (currentConsoleTab === 'overview') {
       body.innerHTML = '<div style="text-align:center; padding:28px; color:#94a3b8;">⏳ Chargement des indicateurs plateforme...</div>';
       const t0 = performance.now();
@@ -452,20 +460,22 @@
         safeCount('wholesaler_orders')
       ]);
       const pingMs = Math.round(performance.now() - t0);
+      const adminsCount = getAdminsRegistry().filter((a) => a.is_active !== false).length;
 
       body.innerHTML = `
         <div class="pg-admin-kpi-grid">
           <div class="pg-admin-kpi"><div class="pg-admin-kpi__label">🏥 Officines inscrites</div><div class="pg-admin-kpi__val">${esc(phTotal)}</div></div>
           <div class="pg-admin-kpi"><div class="pg-admin-kpi__label">🌙 Officines de garde</div><div class="pg-admin-kpi__val pg-admin-kpi__val--gold">${esc(phGuard)}</div></div>
           <div class="pg-admin-kpi"><div class="pg-admin-kpi__label">🔍 Demandes Patients</div><div class="pg-admin-kpi__val pg-admin-kpi__val--blue">${esc(reqTotal)}</div></div>
-          <div class="pg-admin-kpi"><div class="pg-admin-kpi__label">✅ Réponses &amp; Réservations</div><div class="pg-admin-kpi__val">${esc(respTotal)} / ${esc(resTotal)}</div></div>
+          <div class="pg-admin-kpi"><div class="pg-admin-kpi__label">✅ Réponses / Résa</div><div class="pg-admin-kpi__val">${esc(respTotal)} / ${esc(resTotal)}</div></div>
           <div class="pg-admin-kpi"><div class="pg-admin-kpi__label">💼 Délégués Médicaux</div><div class="pg-admin-kpi__val pg-admin-kpi__val--blue">${esc(delTotal)}</div></div>
           <div class="pg-admin-kpi"><div class="pg-admin-kpi__label">🏭 Grossistes / Cmd B2B</div><div class="pg-admin-kpi__val pg-admin-kpi__val--gold">${esc(wsTotal)} / ${esc(ordTotal)}</div></div>
+          <div class="pg-admin-kpi"><div class="pg-admin-kpi__label">👑 Super-Admins Actifs</div><div class="pg-admin-kpi__val pg-admin-kpi__val--gold">${adminsCount}</div></div>
         </div>
         <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; padding:14px; border-radius:14px; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.3);">
           <div>
             <div style="font-weight:800; color:#34d399; font-size:13.5px;">⚡ Accès Rapide Privilégié aux 4 Espaces</div>
-            <div style="font-size:12px; color:#94a3b8; margin-top:2px;">Latence Supabase mesurée : <strong style="color:#fff;">${pingMs} ms</strong> · Session Admin active</div>
+            <div style="font-size:12px; color:#94a3b8; margin-top:2px;">Latence Supabase : <strong style="color:#fff;">${pingMs} ms</strong> · Session Admin active</div>
           </div>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button type="button" class="btn btn--sm btn--primary" id="pg-adm-go-cur">👑 Ouvrir cet espace en Admin</button>
@@ -480,6 +490,80 @@
       return;
     }
 
+    // 2. WORKFLOW DE VALIDATION ONCP / DPML (Officines, Délégués, Grossistes)
+    if (currentConsoleTab === 'verification') {
+      body.innerHTML = '<div style="text-align:center; padding:24px; color:#94a3b8;">⏳ Chargement de la file de validation ONCP / DPML...</div>';
+      const queue = [];
+      if (window.supabase) {
+        try {
+          const [ph, del, ws] = await Promise.all([
+            window.supabase.from('pharmacies').select('id, name, city, license_number, phone, verification_status').limit(40),
+            window.supabase.from('delegates').select('id, first_name, last_name, pro_card_number, phone, verification_status').limit(40),
+            window.supabase.from('wholesalers').select('id, company_name, city, license_number, phone, verification_status').limit(40)
+          ]);
+          (ph.data || []).forEach((x) => queue.push({ role: 'pharmacy', roleLabel: '🏥 Officine', id: x.id, name: x.name, license: x.license_number || 'ONPC à vérifier', meta: x.city || x.phone || '', status: x.verification_status || getVerificationStatus('pharmacy', x.id) }));
+          (del.data || []).forEach((x) => queue.push({ role: 'delegate', roleLabel: '💼 Délégué', id: x.id, name: `${x.first_name || ''} ${x.last_name || ''}`.trim() || 'Délégué', license: x.pro_card_number || 'Carte Pro', meta: x.phone || '', status: x.verification_status || getVerificationStatus('delegate', x.id) }));
+          (ws.data || []).forEach((x) => queue.push({ role: 'wholesaler', roleLabel: '🏭 Grossiste', id: x.id, name: x.company_name, license: x.license_number || 'DPML', meta: x.city || '', status: x.verification_status || getVerificationStatus('wholesaler', x.id) }));
+        } catch (e) {}
+      }
+      if (window.GrossisteAuth && typeof GrossisteAuth.getDirectory === 'function') {
+        GrossisteAuth.getDirectory().forEach((w) => {
+          if (!queue.some((q) => q.role === 'wholesaler' && q.id === w.id)) {
+            queue.push({ role: 'wholesaler', roleLabel: '🏭 Grossiste', id: w.id, name: w.company_name, license: w.license_number || 'DPML', meta: w.city || '', status: getVerificationStatus('wholesaler', w.id) });
+          }
+        });
+      }
+
+      const verifiedCount = queue.filter((q) => q.status === 'verified').length;
+      const pendingCount = queue.filter((q) => q.status === 'pending').length;
+
+      body.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+          <div>
+            <div style="font-weight:800; color:#fbbf24; font-size:14px;">✅ Workflow de Certification ONCP / DPML</div>
+            <div style="font-size:12px; color:#94a3b8;">Vérifiez les agréments avant d'attribuer le badge public <strong>✓ Vérifié ONCP/DPML</strong>.</div>
+          </div>
+          <div style="display:flex; gap:8px; font-size:12px; font-weight:800;">
+            <span style="color:#fbbf24;">⏳ ${pendingCount} en attente</span>
+            <span style="color:#34d399;">✓ ${verifiedCount} certifié(s)</span>
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="pg-admin-table">
+            <thead><tr><th>Acteur</th><th>Nom &amp; Zone</th><th>Agrément ONCP / DPML</th><th>Statut</th><th>Décision Admin</th></tr></thead>
+            <tbody>
+              ${queue.length === 0 ? '<tr><td colspan="5" style="text-align:center;color:#94a3b8;">Aucun dossier trouvé.</td></tr>' : queue.map((q) => {
+                const stHtml = q.status === 'verified'
+                  ? '<span style="color:#34d399; font-weight:800;">✓ Certifié</span>'
+                  : (q.status === 'rejected' ? '<span style="color:#f87171; font-weight:800;">🚫 Rejeté</span>' : '<span style="color:#fbbf24; font-weight:800;">⏳ En attente</span>');
+                return `<tr>
+                  <td><strong>${q.roleLabel}</strong></td>
+                  <td><strong>${esc(q.name)}</strong><div style="font-size:11px;color:#94a3b8;">${esc(q.meta)}</div></td>
+                  <td style="font-family:monospace; color:#93c5fd;">${esc(q.license)}</td>
+                  <td>${stHtml}</td>
+                  <td>
+                    <div style="display:flex; gap:5px; flex-wrap:wrap;">
+                      <button type="button" class="btn btn--sm btn--primary" data-ver-act="verified" data-ver-role="${esc(q.role)}" data-ver-id="${esc(q.id)}" data-ver-name="${esc(q.name)}" style="padding:4px 8px; font-size:11px;">✓ Certifier</button>
+                      <button type="button" class="btn btn--sm btn--secondary" data-ver-act="pending" data-ver-role="${esc(q.role)}" data-ver-id="${esc(q.id)}" data-ver-name="${esc(q.name)}" style="padding:4px 8px; font-size:11px;">⏳</button>
+                      <button type="button" class="btn btn--sm" data-ver-act="rejected" data-ver-role="${esc(q.role)}" data-ver-id="${esc(q.id)}" data-ver-name="${esc(q.name)}" style="padding:4px 8px; font-size:11px; background:rgba(239,68,68,0.14); color:#f87171; border:1px solid rgba(239,68,68,0.35);">🚫</button>
+                    </div>
+                  </td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      body.querySelectorAll('[data-ver-act]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          setActorVerification(btn.dataset.verRole, btn.dataset.verId, btn.dataset.verName, btn.dataset.verAct);
+        });
+      });
+      return;
+    }
+
+    // 3. MODÉRATION OFFICINES
     if (currentConsoleTab === 'pharmacies') {
       body.innerHTML = '<div style="text-align:center; padding:24px; color:#94a3b8;">⏳ Chargement des officines Supabase...</div>';
       let rows = [];
@@ -489,120 +573,203 @@
           rows = data || [];
         } catch (e) {}
       }
-      if (!rows.length) {
-        body.innerHTML = '<div style="text-align:center; padding:24px; color:#94a3b8;">Aucune officine trouvée dans Supabase (ou table inaccessible).</div>';
-        return;
-      }
+      if (!rows.length) { body.innerHTML = '<div style="text-align:center; padding:24px; color:#94a3b8;">Aucune officine trouvée dans Supabase.</div>'; return; }
       body.innerHTML = `
-        <div style="margin-bottom:12px; display:flex; gap:8px;">
-          <input type="text" id="pg-adm-ph-filter" class="form-input" placeholder="🔍 Filtrer une officine par nom ou ville...">
-        </div>
+        <div style="margin-bottom:12px;"><input type="text" id="pg-adm-ph-filter" class="form-input" placeholder="🔍 Filtrer une officine par nom ou ville..."></div>
         <div style="overflow-x:auto;">
           <table class="pg-admin-table">
-            <thead>
-              <tr><th>Officine</th><th>Ville / Quartier</th><th>Statut</th><th>Actions Admin</th></tr>
-            </thead>
+            <thead><tr><th>Officine</th><th>Ville / Quartier</th><th>Statut</th><th>Actions Admin</th></tr></thead>
             <tbody id="pg-adm-ph-tbody">
               ${rows.map((p) => {
                 const st = p.is_on_duty ? '🌙 Garde' : (p.is_open !== false ? '🟢 Ouverte' : '🔴 Fermée');
-                return `
-                  <tr data-search="${esc((p.name + ' ' + (p.city || '') + ' ' + (p.quarter || '')).toLowerCase())}">
-                    <td><strong>${esc(p.name)}</strong><div style="font-size:11px; color:#94a3b8;">${esc(p.phone || '')}</div></td>
-                    <td>${esc(p.city || '—')} ${p.quarter ? '· ' + esc(p.quarter) : ''}</td>
-                    <td>${st}</td>
-                    <td>
-                      <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                        <button type="button" class="btn btn--sm" data-adm-status="open" data-pid="${esc(p.id)}" style="padding:4px 8px; font-size:11px;">🟢</button>
-                        <button type="button" class="btn btn--sm" data-adm-status="guard" data-pid="${esc(p.id)}" style="padding:4px 8px; font-size:11px;">🌙</button>
-                        <button type="button" class="btn btn--sm" data-adm-status="closed" data-pid="${esc(p.id)}" style="padding:4px 8px; font-size:11px;">🔴</button>
-                        ${currentPageSpace() === 'pharmacy' ? `<button type="button" class="btn btn--sm btn--primary" data-adm-impersonate="${esc(p.id)}" style="padding:4px 8px; font-size:11px;">👁️ Inspecter</button>` : ''}
-                      </div>
-                    </td>
-                  </tr>
-                `;
+                return `<tr data-search="${esc((p.name + ' ' + (p.city || '') + ' ' + (p.quarter || '')).toLowerCase())}">
+                  <td><strong>${esc(p.name)}</strong> ${verifiedBadge('pharmacy', p.id)}<div style="font-size:11px; color:#94a3b8;">${esc(p.phone || '')}</div></td>
+                  <td>${esc(p.city || '—')} ${p.quarter ? '· ' + esc(p.quarter) : ''}</td>
+                  <td>${st}</td>
+                  <td>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                      <button type="button" class="btn btn--sm" data-adm-status="open" data-pid="${esc(p.id)}" style="padding:4px 8px; font-size:11px;">🟢</button>
+                      <button type="button" class="btn btn--sm" data-adm-status="guard" data-pid="${esc(p.id)}" style="padding:4px 8px; font-size:11px;">🌙</button>
+                      <button type="button" class="btn btn--sm" data-adm-status="closed" data-pid="${esc(p.id)}" style="padding:4px 8px; font-size:11px;">🔴</button>
+                      ${currentPageSpace() === 'pharmacy' ? `<button type="button" class="btn btn--sm btn--primary" data-adm-impersonate="${esc(p.id)}" style="padding:4px 8px; font-size:11px;">👁️ Inspecter</button>` : ''}
+                    </div>
+                  </td>
+                </tr>`;
               }).join('')}
             </tbody>
           </table>
         </div>
       `;
-
       const filterInp = document.getElementById('pg-adm-ph-filter');
-      if (filterInp) {
-        filterInp.addEventListener('input', () => {
-          const q = filterInp.value.trim().toLowerCase();
-          body.querySelectorAll('#pg-adm-ph-tbody tr').forEach((tr) => {
-            tr.style.display = (!q || (tr.dataset.search || '').includes(q)) ? '' : 'none';
-          });
-        });
-      }
-
+      if (filterInp) filterInp.addEventListener('input', () => {
+        const q = filterInp.value.trim().toLowerCase();
+        body.querySelectorAll('#pg-adm-ph-tbody tr').forEach((tr) => { tr.style.display = (!q || (tr.dataset.search || '').includes(q)) ? '' : 'none'; });
+      });
       body.querySelectorAll('[data-adm-status]').forEach((btn) => {
         btn.addEventListener('click', async () => {
-          const pid = btn.dataset.pid;
-          const st = btn.dataset.admStatus;
+          const pid = btn.dataset.pid, st = btn.dataset.admStatus;
           try {
-            await window.supabase.from('pharmacies').update({
-              status: st,
-              is_open: st !== 'closed',
-              is_on_duty: st === 'guard'
-            }).eq('id', pid);
+            await window.supabase.from('pharmacies').update({ status: st, is_open: st !== 'closed', is_on_duty: st === 'guard' }).eq('id', pid);
             logAudit('ADMIN_PHARMACY_STATUS', `${pid} -> ${st}`);
-            if (window.PGPharmacyService) window.PGPharmacyService.invalidate();
+            if (window.PGPharmacyService) PGPharmacyService.invalidate();
             notify(`✅ Statut mis à jour : ${st}`, 'success');
             renderConsoleTab();
-          } catch (e) {
-            notify('❌ Erreur mise à jour statut : ' + e.message, 'error');
-          }
+          } catch (e) { notify('❌ Erreur mise à jour statut : ' + e.message, 'error'); }
         });
       });
-
       body.querySelectorAll('[data-adm-impersonate]').forEach((btn) => {
         btn.addEventListener('click', () => {
           const found = rows.find((x) => String(x.id) === btn.dataset.admImpersonate);
-          if (found) {
-            closeModals();
-            enterCurrentSpaceAsAdmin(found);
-          }
+          if (found) { closeModals(); enterCurrentSpaceAsAdmin(found); }
         });
       });
       return;
     }
 
+    // 4. GESTION DES SUPER-ADMINISTRATEURS (INSCRIRE / SUPPRIMER)
+    if (currentConsoleTab === 'admins') {
+      const admins = getAdminsRegistry();
+      body.innerHTML = `
+        <div class="pg-admin-kpi" style="margin-bottom:16px;">
+          <div style="font-weight:800; color:#fbbf24; margin-bottom:10px;">➕ Inscrire un Nouveau Super-Administrateur</div>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:8px; margin-bottom:10px;">
+            <input type="text" id="new-adm-name" class="form-input" placeholder="Nom complet *">
+            <input type="email" id="new-adm-email" class="form-input" placeholder="Email administrateur *">
+            <select id="new-adm-role" class="form-input form-select">
+              <option value="super_admin">👑 Super-Administrateur (Accès total)</option>
+              <option value="moderator">🛡️ Modérateur ONCP / DPML</option>
+            </select>
+            <input type="password" id="new-adm-code" class="form-input" placeholder="Code d'accès (8 car. min.) *">
+          </div>
+          <button type="button" class="btn btn--primary btn--sm" id="btn-create-super-admin">👑 Inscrire cet Administrateur</button>
+        </div>
+
+        <div class="pg-admin-kpi">
+          <div style="font-weight:800; color:#34d399; margin-bottom:10px;">👥 Liste des Super-Administrateurs (${admins.length})</div>
+          <div style="overflow-x:auto;">
+            <table class="pg-admin-table">
+              <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Créé le</th><th>Action</th></tr></thead>
+              <tbody>
+                ${admins.map((a) => `
+                  <tr>
+                    <td><strong>${esc(a.full_name)}</strong> ${a.is_founder ? '<span style="color:#fbbf24; font-size:10.5px;">(Fondateur)</span>' : ''}</td>
+                    <td>${esc(a.email)}</td>
+                    <td><span style="color:${a.role === 'super_admin' ? '#fbbf24' : '#60a5fa'}; font-weight:800;">${a.role === 'super_admin' ? '👑 Super-Admin' : '🛡️ Modérateur'}</span></td>
+                    <td style="font-size:11px; color:#94a3b8;">${esc(new Date(a.created_at || Date.now()).toLocaleDateString('fr-FR'))}</td>
+                    <td>
+                      ${a.is_founder
+                        ? '<span style="font-size:11px; color:#64748b;">Protégé</span>'
+                        : `<button type="button" class="btn btn--sm" data-del-adm="${esc(a.id)}" style="padding:4px 9px; font-size:11px; background:rgba(239,68,68,0.14); color:#f87171; border:1px solid rgba(239,68,68,0.35);">🗑️ Supprimer</button>`}
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('btn-create-super-admin').addEventListener('click', async () => {
+        const name = (document.getElementById('new-adm-name').value || '').trim();
+        const email = (document.getElementById('new-adm-email').value || '').trim().toLowerCase();
+        const role = document.getElementById('new-adm-role').value || 'super_admin';
+        const code = (document.getElementById('new-adm-code').value || '').trim();
+        if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) || code.length < 8) {
+          notify('⚠️ Nom, email valide et code d\'accès (8 caractères min.) requis.', 'error');
+          return;
+        }
+        const list = getAdminsRegistry();
+        if (list.some((x) => (x.email || '').toLowerCase() === email)) {
+          notify('⚠️ Un administrateur existe déjà avec cet email.', 'error');
+          return;
+        }
+        const hash = await sha256Hex(code);
+        const sess = getSession();
+        const entry = {
+          id: 'adm_' + Date.now(),
+          full_name: name,
+          email,
+          role,
+          is_founder: false,
+          is_active: true,
+          access_code_hash: hash,
+          added_by: (sess && sess.email) || 'super_admin',
+          created_at: new Date().toISOString()
+        };
+        list.push(entry);
+        saveAdminsRegistry(list);
+
+        if (window.supabase) {
+          try {
+            await window.supabase.from('platform_admins').upsert([{
+              email: entry.email,
+              full_name: entry.full_name,
+              role: entry.role,
+              is_active: true,
+              access_code_hash: entry.access_code_hash,
+              added_by: entry.added_by
+            }], { onConflict: 'email' });
+          } catch (e) {}
+        }
+
+        logAudit('ADMIN_ADDED', `${name} <${email}> (${role})`);
+        notify(`👑 Administrateur ${name} inscrit avec succès !`, 'success');
+        renderConsoleTab();
+      });
+
+      body.querySelectorAll('[data-del-adm]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const targetId = btn.dataset.delAdm;
+          const list = getAdminsRegistry();
+          const target = list.find((a) => a.id === targetId);
+          if (!target) return;
+          const superAdminsLeft = list.filter((a) => a.role === 'super_admin' && a.is_active !== false && a.id !== targetId).length;
+          if (target.role === 'super_admin' && superAdminsLeft < 1) {
+            notify('⚠️ Impossible de supprimer le dernier Super-Administrateur actif.', 'error');
+            return;
+          }
+          const ok = (window.PG && PG.confirmModal)
+            ? await PG.confirmModal('Supprimer cet administrateur', `Révoquer définitivement l'accès de ${target.full_name} (${target.email}) ?`)
+            : true;
+          if (!ok) return;
+
+          saveAdminsRegistry(list.filter((a) => a.id !== targetId));
+          if (window.supabase) {
+            try { await window.supabase.from('platform_admins').delete().eq('email', target.email); } catch (e) {}
+          }
+          logAudit('ADMIN_DELETED', `${target.full_name} <${target.email}>`);
+          notify(`🗑️ Accès administrateur de ${target.full_name} supprimé.`, 'info');
+          renderConsoleTab();
+        });
+      });
+      return;
+    }
+
+    // 5. ABONNEMENTS
     if (currentConsoleTab === 'subs') {
       body.innerHTML = `
-        <div style="display:grid; gap:14px;">
-          <div class="pg-admin-kpi">
-            <div style="font-weight:800; color:#fbbf24; margin-bottom:6px;">👑 Privilèges Abonnements &amp; Paywalls</div>
-            <p style="font-size:12.5px; color:#cbd5e1; margin:0 0 12px;">
-              Tant que la session Administrateur est active, tous les paywalls (Pass Patient 100 FCFA, Abonnement Délégué, Licence Officine et Licence Grossiste B2B) sont automatiquement débloqués pour vos tests et supervisions.
-            </p>
-            <div style="display:flex; gap:8px; flex-wrap:wrap;">
-              <button type="button" class="btn btn--sm btn--primary" data-grant-role="delegate" data-grant-days="365">💼 Activer Pro Délégué (+365j)</button>
-              <button type="button" class="btn btn--sm btn--primary" data-grant-role="wholesaler" data-grant-days="365">🏭 Activer Pro Grossiste (+365j)</button>
-              <button type="button" class="btn btn--sm btn--primary" data-grant-role="pharmacy" data-grant-days="365">🏥 Activer Pro Officine (+365j)</button>
-            </div>
+        <div class="pg-admin-kpi">
+          <div style="font-weight:800; color:#fbbf24; margin-bottom:6px;">👑 Privilèges Abonnements &amp; Paywalls</div>
+          <p style="font-size:12.5px; color:#cbd5e1; margin:0 0 12px;">
+            Tant que la session Administrateur est active, tous les paywalls (Pass Patient 100 FCFA, Abonnement Délégué, Licence Officine et Grossiste B2B) sont automatiquement débloqués.
+          </p>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button type="button" class="btn btn--sm btn--primary" data-grant-role="delegate" data-grant-days="365">💼 Activer Pro Délégué (+365j)</button>
+            <button type="button" class="btn btn--sm btn--primary" data-grant-role="wholesaler" data-grant-days="365">🏭 Activer Pro Grossiste (+365j)</button>
+            <button type="button" class="btn btn--sm btn--primary" data-grant-role="pharmacy" data-grant-days="365">🏥 Activer Pro Officine (+365j)</button>
           </div>
         </div>
       `;
       body.querySelectorAll('[data-grant-role]').forEach((btn) => {
         btn.addEventListener('click', () => {
-          const role = btn.dataset.grantRole;
-          const days = Number(btn.dataset.grantDays) || 365;
+          const role = btn.dataset.grantRole, days = Number(btn.dataset.grantDays) || 365;
           const exp = Date.now() + days * 24 * 3600 * 1000;
           const keys = Object.keys(localStorage).filter((k) => k.startsWith('pharmagarde_sub_' + role + '_'));
           if (!keys.length) keys.push('pharmagarde_sub_' + role + '_admin_' + role);
-          keys.forEach((k) => {
-            localStorage.setItem(k, JSON.stringify({
-              subscriberId: k.replace('pharmagarde_sub_' + role + '_', ''),
-              role,
-              status: 'active',
-              planId: 'annual',
-              planLabel: 'Licence Admin Pro (365j)',
-              startsAt: Date.now(),
-              expiresAt: exp,
-              reference: 'ADMIN_GRANT_' + Date.now()
-            }));
-          });
+          keys.forEach((k) => localStorage.setItem(k, JSON.stringify({
+            subscriberId: k.replace('pharmagarde_sub_' + role + '_', ''), role, status: 'active',
+            planId: 'annual', planLabel: 'Licence Admin Pro (365j)', startsAt: Date.now(), expiresAt: exp, reference: 'ADMIN_GRANT_' + Date.now()
+          })));
           logAudit('ADMIN_GRANT_SUB', `${role} +${days}j`);
           notify(`✅ Licence Pro ${role} activée pour ${days} jours.`, 'success');
         });
@@ -610,12 +777,13 @@
       return;
     }
 
+    // 6. SÉCURITÉ & AUDIT
     if (currentConsoleTab === 'security') {
       const logs = getAuditLogs();
       body.innerHTML = `
         <div style="display:grid; gap:16px;">
           <div class="pg-admin-kpi">
-            <div style="font-weight:800; color:#fbbf24; margin-bottom:8px;">🔑 Modifier le Code Maître Administrateur (SHA-256)</div>
+            <div style="font-weight:800; color:#fbbf24; margin-bottom:8px;">🔑 Modifier votre Code Maître Administrateur (SHA-256)</div>
             <div style="display:flex; gap:8px; flex-wrap:wrap;">
               <input type="password" id="pg-adm-new-code" class="form-input" placeholder="Nouveau code maître (min. 8 caractères)" style="flex:1; min-width:220px;">
               <button type="button" class="btn btn--primary btn--sm" id="pg-adm-save-code">💾 Mettre à jour le Code</button>
@@ -631,104 +799,75 @@
             </div>
             <div style="max-height:220px; overflow-y:auto;">
               <table class="pg-admin-table">
-                <thead><tr><th>Date</th><th>Espace</th><th>Action</th><th>Détails</th></tr></thead>
+                <thead><tr><th>Date</th><th>Admin</th><th>Espace</th><th>Action</th><th>Détails</th></tr></thead>
                 <tbody>
-                  ${logs.slice(0, 30).map((l) => `<tr><td>${esc(new Date(l.ts).toLocaleString('fr-FR'))}</td><td>${esc(l.space)}</td><td><strong>${esc(l.action)}</strong></td><td>${esc(l.details)}</td></tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:#94a3b8;">Aucune entrée</td></tr>'}
+                  ${logs.slice(0, 35).map((l) => `<tr><td>${esc(new Date(l.ts).toLocaleString('fr-FR'))}</td><td>${esc(l.actor || 'admin')}</td><td>${esc(l.space)}</td><td><strong>${esc(l.action)}</strong></td><td>${esc(l.details)}</td></tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:#94a3b8;">Aucune entrée</td></tr>'}
                 </tbody>
               </table>
             </div>
           </div>
         </div>
       `;
-
       document.getElementById('pg-adm-save-code').addEventListener('click', async () => {
         const val = (document.getElementById('pg-adm-new-code').value || '').trim();
-        if (val.length < 8) {
-          notify('⚠️ Le code maître doit contenir au moins 8 caractères.', 'error');
-          return;
-        }
+        if (val.length < 8) { notify('⚠️ Le code maître doit contenir au moins 8 caractères.', 'error'); return; }
         const h = await sha256Hex(val);
         localStorage.setItem(HASH_KEY, h);
+        const list = getAdminsRegistry();
+        const founder = list.find((a) => a.is_founder);
+        if (founder) { founder.access_code_hash = h; saveAdminsRegistry(list); }
         document.getElementById('pg-adm-new-code').value = '';
         logAudit('ADMIN_CODE_CHANGED', 'Mise à jour de l\'empreinte SHA-256');
         notify('✅ Code Maître Administrateur mis à jour avec succès.', 'success');
       });
-
       document.getElementById('pg-adm-clear-cache').addEventListener('click', async () => {
-        Object.keys(localStorage).forEach((k) => {
-          if (k.startsWith('pg_osm_') || k.startsWith('pg_loc_') || k.startsWith('pg_reg_')) {
-            localStorage.removeItem(k);
-          }
-        });
-        if ('caches' in window) {
-          const names = await caches.keys();
-          await Promise.all(names.map((n) => caches.delete(n)));
-        }
+        Object.keys(localStorage).forEach((k) => { if (k.startsWith('pg_osm_') || k.startsWith('pg_loc_') || k.startsWith('pg_reg_')) localStorage.removeItem(k); });
+        if ('caches' in window) { const names = await caches.keys(); await Promise.all(names.map((n) => caches.delete(n))); }
         logAudit('ADMIN_CLEAR_CACHE', 'Caches GPS/OSM/SW purgés');
         notify('🧹 Caches locaux et Service Worker purgés.', 'success');
       });
-
       document.getElementById('pg-adm-export-audit').addEventListener('click', () => {
-        if (window.PG && typeof PG.exportCSV === 'function') {
-          PG.exportCSV('pharmagarde_admin_audit.csv', ['Date', 'Espace', 'Action', 'Details'],
-            logs.map((l) => [l.ts, l.space, l.action, l.details]));
+        if (window.PG && PG.exportCSV) {
+          PG.exportCSV('pharmagarde_admin_audit.csv', ['Date', 'Admin', 'Espace', 'Action', 'Details'],
+            logs.map((l) => [l.ts, l.actor || 'admin', l.space, l.action, l.details]));
         }
       });
     }
   }
 
-  // ════════════════════════════════════════════════════════════════
-  // INJECTION DES BOUTONS D'ACCÈS ADMIN + RACCOURCI CTRL+SHIFT+A
-  // ════════════════════════════════════════════════════════════════
   function injectTriggers() {
     const space = currentPageSpace();
-
-    // 1. Page d'accueil (index.html) : bouton discret dans quick-actions
     const quick = document.querySelector('.welcome-screen__quick-actions');
     if (quick && !document.getElementById('btn-welcome-admin')) {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.id = 'btn-welcome-admin';
       btn.className = 'welcome-quick-btn';
-      btn.style.cssText = 'border-color:rgba(251,191,36,0.55)!important; color:#fbbf24!important; background:rgba(251,191,36,0.10)!important;';
+      btn.style.cssText = 'border-color:rgba(251,191,36,0.55)!important; color:#fbbf24!important; background:rgba(251,191,36,0.10)!important; max-width:320px; margin:6px auto 4px; display:flex;';
       btn.innerHTML = '<span>👑</span> <span>Accès Administrateur</span>';
       btn.addEventListener('click', () => openUnlockModal(openConsoleModal));
       quick.parentElement.insertBefore(btn, quick.nextSibling);
-      btn.style.maxWidth = '320px';
-      btn.style.margin = '6px auto 4px';
-      btn.style.display = 'flex';
     }
-
-    // 2. Formulaires de connexion des 3 espaces pro (Pharmacie, Délégué, Grossiste)
-    const loginTargets = [
-      { id: 'login-form', label: '👑 Accès Privilégié Administrateur' },
-      { id: 'g-login-form', label: '👑 Accès Privilégié Administrateur' }
-    ];
-    loginTargets.forEach((t) => {
-      const form = document.getElementById(t.id);
+    ['login-form', 'g-login-form'].forEach((id) => {
+      const form = document.getElementById(id);
       if (form && !form.querySelector('.pg-admin-trigger')) {
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'pg-admin-trigger';
-        b.textContent = t.label;
+        b.textContent = '👑 Accès Privilégié Administrateur';
         b.addEventListener('click', () => enterCurrentSpaceAsAdmin());
         form.appendChild(b);
       }
     });
-
-    // 3. Auto-ouverture si ?admin=1 et session Admin déjà active
     if (isAdmin()) {
       renderFloatingBar();
       applySpacePrivileges();
-      if (location.search.includes('admin=1') && space !== 'client') {
-        setTimeout(() => enterCurrentSpaceAsAdmin(), 250);
-      }
+      if (location.search.includes('admin=1') && space !== 'client') setTimeout(() => enterCurrentSpaceAsAdmin(), 250);
     }
   }
 
   function init() {
     injectTriggers();
-    // Raccourci clavier universel Ctrl + Shift + A
     document.addEventListener('keydown', (e) => {
       if (e.ctrlKey && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
         e.preventDefault();
@@ -745,12 +884,12 @@
     openUnlockModal,
     openConsoleModal,
     enterCurrentSpaceAsAdmin,
-    logAudit
+    logAudit,
+    isVerified,
+    verifiedBadge,
+    getVerificationStatus
   };
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })(window);

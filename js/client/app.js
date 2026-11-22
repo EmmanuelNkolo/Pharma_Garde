@@ -737,7 +737,7 @@ const App = (() => {
 <div class="pharma-card ${p.isOnDuty ? 'pharma-card--guard' : ''}" data-pharma-id="${escapeHtml(p.id)}">
   <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; gap:10px;">
     <div style="min-width:0;">
-      <div style="font-weight:700; font-size:16px; color:#fff; margin-bottom:4px;">${escapeHtml(p.name)}</div>
+      <div style="font-weight:700; font-size:16px; color:#fff; margin-bottom:4px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${escapeHtml(p.name)} ${window.PGAdmin && PGAdmin.verifiedBadge ? PGAdmin.verifiedBadge('pharmacy', p.id) : ''}</div>
       <div style="font-size:13px; color:#94a3b8; display:flex; align-items:center; gap:4px;">${ICON_PIN} ${escapeHtml(p.address || 'Adresse inconnue')}</div>
     </div>
     <div style="text-align:right; flex-shrink:0;">
@@ -1190,6 +1190,11 @@ const App = (() => {
         return;
       }
 
+      // Sauvegarde privée locale dans le Carnet d'ordonnances du patient
+      if (window.PGPatientPro && typeof PGPatientPro.recordPrescriptionSearch === 'function') {
+        PGPatientPro.recordPrescriptionSearch(selectedMedicines, insuranceName);
+      }
+
       // Store in localStorage
       let storedIds = JSON.parse(localStorage.getItem('pharma_active_requests') || '[]');
       storedIds.push(data.id);
@@ -1332,14 +1337,19 @@ const App = (() => {
       '<button class="btn btn-primary btn-block" onclick="App.confirmAllReservations()">✅ Confirmer les réservations</button></div>';
 
     // Sort responses: newer requests first, then by creation date of the response
-    const sortedResponses = [...realResponses].sort((a, b) => {
-      const aReqIdx = activeRequestIds.indexOf(a.request_id);
-      const bReqIdx = activeRequestIds.indexOf(b.request_id);
-      if (aReqIdx !== bReqIdx) {
-        return bReqIdx - aReqIdx; // Newer requests (higher index) first
-      }
-      return new Date(b.created_at) - new Date(a.created_at); // Newer responses first if same request
-    });
+    const userPosNow = Geolocation.getPosition();
+    const decoratedResponses = (window.PGPatientPro && typeof PGPatientPro.sortResponses === 'function')
+      ? PGPatientPro.sortResponses(realResponses, userPosNow, findPharmacy)
+      : [...realResponses].sort((a, b) => {
+          const aReqIdx = activeRequestIds.indexOf(a.request_id);
+          const bReqIdx = activeRequestIds.indexOf(b.request_id);
+          if (aReqIdx !== bReqIdx) return bReqIdx - aReqIdx;
+          return new Date(b.created_at) - new Date(a.created_at);
+        }).map(r => ({ resp: r, meta: null }));
+
+    const comparatorBar = (window.PGPatientPro && typeof PGPatientPro.renderComparatorBar === 'function' && decoratedResponses.length > 0)
+      ? PGPatientPro.renderComparatorBar(decoratedResponses.length)
+      : '';
 
     // Multi-request header bar if more than 1 search request active
     let multiReqBar = '';
@@ -1350,13 +1360,15 @@ const App = (() => {
       </div>`;
     }
 
-    listEl.innerHTML = multiReqBar + confirmBtnHtml + sortedResponses.map(resp => {
-      const pos = Geolocation.getPosition();
+    listEl.innerHTML = multiReqBar + comparatorBar + confirmBtnHtml + decoratedResponses.map(({ resp, meta }) => {
+      const pos = userPosNow;
       let distance = '—';
       const p = findPharmacy(resp.pharmacy_id);
       if (pos && p) {
         distance = parseFloat(Geolocation.haversine(pos.lat, pos.lng, p.lat, p.lng).toFixed(1)) + ' km';
       }
+      const scoreBadgeHtml = (meta && window.PGPatientPro && PGPatientPro.renderScoreBadge) ? PGPatientPro.renderScoreBadge(meta) : '';
+      const verBadgeHtml = (window.PGAdmin && PGAdmin.verifiedBadge) ? PGAdmin.verifiedBadge('pharmacy', resp.pharmacy_id) : '';
 
       let medsHtml = '';
       if (resp.medicines_status) {
@@ -1385,8 +1397,9 @@ const App = (() => {
         <div class="pharma-card" data-pharmacy-id="${escapeHtml(resp.pharmacy_id)}">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; cursor:pointer;" data-pid="${escapeHtml(resp.pharmacy_id)}" onclick="App.openDetail(App.findPharmacy(this.dataset.pid))">
             <div>
-              <div style="font-weight:700; font-size:16px; color:#fff; margin-bottom:4px;">${escapeHtml(resp.pharmacy_name || 'Pharmacie')}</div>
-              <div style="font-size: 11px; color: #10b981; margin: 2px 0 4px; font-weight: 600;">ID Session : ${escapeHtml(sessionId)}</div>
+              <div style="font-weight:700; font-size:16px; color:#fff; margin-bottom:4px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${escapeHtml(resp.pharmacy_name || 'Pharmacie')} ${verBadgeHtml}</div>
+              ${scoreBadgeHtml}
+              <div style="font-size: 11px; color: #10b981; margin: 4px 0 4px; font-weight: 600;">ID Session : ${escapeHtml(sessionId)}</div>
               <div style="font-size:13px; color:#94a3b8; display:flex; align-items:center; gap:4px;">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
                 ${escapeHtml(resp.pharmacy_address || 'Adresse inconnue')}
@@ -2157,6 +2170,7 @@ const App = (() => {
     resetAfterReservation,
     openNewSearchWithoutCancel,
     updateSessionUI,
+    renderPatientResponses,
   };
 
   // ── Start ──────────────────────────────────────────────
