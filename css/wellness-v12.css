@@ -1,0 +1,313 @@
+/* ═══════════════════════════════════════════════════════════════════
+   PHARMA-GARDE v12.0 — DESIGN BIEN-ÊTRE, DYNAMIQUE & MULTI-PLATEFORME
+   Harmonie Océan Profond · Émeraude Vitalité · Turquoise Sérénité · Or Doux
+   Ergonomie vérifiée : Mobile Portrait, Mobile Paysage, Tablette & Desktop
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  --pg-well-bg: radial-gradient(120% 90% at 15% 0%, #0d2b36 0%, #07141f 48%, #050b14 100%);
+  --pg-well-teal: #14b8a6;
+  --pg-well-mint: #2dd4bf;
+  --pg-well-emerald: #10b981;
+  --pg-well-gold: #fbbf24;
+  --pg-well-coral: #fb7185;
+  --pg-well-violet: #a78bfa;
+  --pg-well-glass: rgba(12, 27, 40, 0.78);
+  --pg-well-border: rgba(45, 212, 191, 0.22);
+}
+
+html, body {
+  background: #06111b !important;
+  background-image: var(--pg-well-bg) !important;
+  background-attachment: fixed;
+  color: #f1f5f9;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── Page d'accueil : 6 Espaces en grille rectangulaire 3x2 ultra-équilibrée ── */
+.welcome-screen-overlay {
+  background: var(--pg-well-bg) !important;
+  padding: max(16px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(22px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)) !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+.welcome-screen__inner {
+  max-width: 1120px !important;
+  width: 100% !important;
+  margin: auto !important;
+}
+
+.welcome-screen__title-main {
+  background: linear-gradient(135deg, #34d399 0%, #2dd4bf 50%, #fbbf24 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  filter: drop-shadow(0 6px 24px rgba(20, 184, 166, 0.28));
+}
+
+.welcome-screen__spaces.welcome-screen__spaces--6 {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 14px !important;
+  width: 100% !important;
+  max-width: 1080px !important;
+  margin: 14px auto 16px !important;
+}
+
+.welcome-screen__spaces--6 .welcome-screen__btn {
+  background: linear-gradient(160deg, rgba(16, 37, 52, 0.88), rgba(8, 20, 32, 0.94)) !important;
+  border: 1.5px solid rgba(45, 212, 191, 0.26) !important;
+  border-radius: 18px !important;
+  padding: 18px 16px !important;
+  min-height: 176px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  gap: 8px !important;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease !important;
+}
+
+.welcome-screen__spaces--6 .welcome-screen__btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 0%, rgba(45, 212, 191, 0.14), transparent 68%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+
+.welcome-screen__spaces--6 .welcome-screen__btn:hover {
+  transform: translateY(-3px) !important;
+  border-color: rgba(52, 211, 153, 0.72) !important;
+  box-shadow: 0 14px 34px rgba(6, 182, 212, 0.16), 0 0 24px rgba(16, 185, 129, 0.18) !important;
+}
+
+.welcome-screen__spaces--6 .welcome-screen__btn:hover::after {
+  opacity: 1;
+}
+
+.welcome-screen__btn--doctor {
+  border-color: rgba(56, 189, 248, 0.35) !important;
+}
+.welcome-screen__btn--doctor .welcome-screen__btn-icon {
+  background: rgba(56, 189, 248, 0.15) !important;
+  color: #38bdf8 !important;
+}
+
+.welcome-screen__btn--facility {
+  border-color: rgba(167, 139, 250, 0.38) !important;
+}
+.welcome-screen__btn--facility .welcome-screen__btn-icon {
+  background: rgba(167, 139, 250, 0.16) !important;
+  color: #c4b5fd !important;
+}
+
+/* ── Sélecteur Multi-Santé dans l'Espace Patient (Pharmacies | Médecins | Labos | Hôpitaux) ── */
+.patient-hub-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 5px;
+  background: rgba(7, 20, 31, 0.85);
+  border: 1px solid rgba(45, 212, 191, 0.24);
+  border-radius: 14px;
+}
+
+.patient-hub-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 7px 4px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 10.5px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 46px;
+}
+
+.patient-hub-tab span:first-child {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.patient-hub-tab.active,
+.patient-hub-tab:hover {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.22), rgba(20, 184, 166, 0.16));
+  border-color: rgba(45, 212, 191, 0.55);
+  color: #2dd4bf;
+  box-shadow: 0 4px 12px rgba(20, 184, 166, 0.16);
+}
+
+/* ── Canvas Signature Manuscrite Médecin ── */
+.pg-sig-wrap {
+  background: #ffffff;
+  border: 2px dashed rgba(20, 184, 166, 0.65);
+  border-radius: 14px;
+  overflow: hidden;
+  position: relative;
+  touch-action: none;
+}
+
+.pg-sig-canvas {
+  display: block;
+  width: 100%;
+  height: 150px;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+/* ── Chat Téléconsultation 48h ── */
+.pg-consult-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(5, 13, 22, 0.8);
+  border: 1px solid rgba(45, 212, 191, 0.2);
+}
+
+.pg-chat-msg {
+  max-width: 84%;
+  padding: 9px 13px;
+  border-radius: 14px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.pg-chat-msg--doctor {
+  align-self: flex-start;
+  background: rgba(56, 189, 248, 0.16);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #e0f2fe;
+}
+
+.pg-chat-msg--patient {
+  align-self: flex-end;
+  background: rgba(16, 185, 129, 0.22);
+  border: 1px solid rgba(52, 211, 153, 0.4);
+  color: #ecfdf5;
+}
+
+/* ── Ordonnance Officielle Signée (Preview & PDF) ── */
+.pg-rx-sheet {
+  background: #ffffff;
+  color: #0f172a;
+  border-radius: 14px;
+  padding: 20px;
+  border-top: 6px solid #0d9488;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ERGONOMIE MULTI-PLATEFORME : PORTRAIT, PAYSAGE, TABLETTE & MOBILE
+   Garantit que TOUS les boutons et contenus restent visibles sans coupure
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Tablette : grille 2x3 */
+@media (max-width: 960px) {
+  .welcome-screen__spaces.welcome-screen__spaces--6 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+  }
+}
+
+/* Mobile Portrait : grille 1 colonne confortable ou 2 compacte */
+@media (max-width: 560px) {
+  .welcome-screen__spaces.welcome-screen__spaces--6 {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+  .welcome-screen__spaces--6 .welcome-screen__btn {
+    min-height: 132px !important;
+    padding: 14px 12px !important;
+  }
+  .app-header {
+    padding: 0 8px !important;
+    gap: 6px !important;
+  }
+  .app-header__actions {
+    overflow-x: auto !important;
+    scrollbar-width: none;
+    max-width: 68vw;
+    gap: 6px !important;
+  }
+  .app-header__actions::-webkit-scrollbar { display: none; }
+  .grossiste-header, .pharm-header {
+    flex-wrap: wrap !important;
+    height: auto !important;
+    min-height: 58px;
+    padding: 8px 10px !important;
+    gap: 8px !important;
+  }
+  .grossiste-nav, .pharm-spaces-nav {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    gap: 8px !important;
+    padding-bottom: 6px !important;
+  }
+  .grossiste-tab, .pharm-space-tab {
+    flex: 0 0 auto !important;
+    min-width: 155px !important;
+  }
+}
+
+/* Mobile Paysage (hauteur réduite <= 500px) : aucun élément coupé, tout reste accessible */
+@media (orientation: landscape) and (max-height: 520px) {
+  .welcome-screen__spaces.welcome-screen__spaces--6 {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+  .welcome-screen__spaces--6 .welcome-screen__btn {
+    min-height: 118px !important;
+    padding: 10px 8px !important;
+    gap: 4px !important;
+  }
+  .welcome-screen__btn-sub {
+    font-size: 10.5px !important;
+    line-height: 1.25 !important;
+  }
+  .bottom-sheet {
+    width: 300px !important;
+    overflow-y: auto !important;
+    padding-bottom: 64px !important;
+  }
+  #client-map {
+    left: 300px !important;
+    width: calc(100% - 300px) !important;
+  }
+  .map-controls {
+    gap: 4px !important;
+    top: calc(var(--header-height, 52px) + 6px) !important;
+  }
+  .map-control-btn {
+    width: 34px !important;
+    height: 34px !important;
+  }
+  .modal-content, .pg-admin-modal {
+    max-height: 92vh !important;
+    overflow-y: auto !important;
+  }
+}
+
+/* Espace suffisant en bas quand la barre Admin est ouverte */
+body:has(#pg-admin-floating-bar) .app-container {
+  padding-bottom: 68px;
+}

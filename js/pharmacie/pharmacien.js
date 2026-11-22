@@ -996,6 +996,37 @@
   // ═══════════════════════════════════════════════════════
   //  SPECIAL ACTION 1: STOCK HUB & ALERTE RUPTURE (2 RÔLES)
   // ═══════════════════════════════════════════════════════
+  function defaultCatalogPrice(name, idx) {
+    const n = String(name || '').toLowerCase();
+    if (n.includes('coartem') || n.includes('artem')) return 3800;
+    if (n.includes('augmentin') || n.includes('ceftriaxone')) return 4500;
+    if (n.includes('ventoline')) return 4200;
+    if (n.includes('azithromycine')) return 3200;
+    if (n.includes('amoxicilline')) return 2400;
+    if (n.includes('doliprane') || n.includes('efferalgan')) return 1800;
+    if (n.includes('paracétamol') || n.includes('paracetamol')) return 900;
+    if (n.includes('ibuprof')) return 1500;
+    if (n.includes('oméprazole') || n.includes('omeprazole')) return 2200;
+    if (n.includes('spasfon') || n.includes('smecta')) return 2600;
+    if (n.includes('metformine') || n.includes('atorvastatine')) return 3500;
+    return 1500 + ((Number(idx) || 0) % 6) * 500;
+  }
+
+  // Extraction du prix catalogue public uniquement (les quantités de stock restent strictement confidentielles)
+  function lookupCatalogPrice(medName) {
+    const list = (window.pharmacyStock && window.pharmacyStock.length ? window.pharmacyStock : pharmacyStock) || [];
+    const target = String(medName || '').toLowerCase().trim();
+    if (!target) return 0;
+    const exact = list.find(p => String(p.name || '').toLowerCase().trim() === target);
+    if (exact && Number(exact.price) > 0) return Number(exact.price);
+    const fuzzy = list.find(p => {
+      const pn = String(p.name || '').toLowerCase().trim();
+      return pn && (pn.includes(target) || target.includes(pn));
+    });
+    if (fuzzy && Number(fuzzy.price) > 0) return Number(fuzzy.price);
+    return defaultCatalogPrice(medName, 0);
+  }
+
   function initStockDatabase() {
     const stored = localStorage.getItem('pharmagarde_stock_' + (currentPharmacy ? currentPharmacy.id : 'default'));
     if (stored) {
@@ -1016,10 +1047,17 @@
       pharmacyStock = base.map((med, idx) => ({
         id: 'stock_' + idx,
         name: med,
+        price: defaultCatalogPrice(med, idx),
         status: (idx % 7 === 0) ? 'rupture' : 'en_stock',
         last_updated: new Date().toISOString()
       }));
       saveStockDatabase();
+    } else {
+      let patched = false;
+      pharmacyStock.forEach((p, idx) => {
+        if (!Number(p.price)) { p.price = defaultCatalogPrice(p.name, idx); patched = true; }
+      });
+      if (patched) saveStockDatabase();
     }
     renderStockTable(pharmacyStock);
   }
@@ -1085,9 +1123,18 @@
            </div>`
         : `<span style="color:var(--text-muted); font-size:12px;">—</span>`;
 
+      const catalogPrice = Number(prod.price) || defaultCatalogPrice(prod.name, 0);
       return `
         <tr>
-          <td style="font-weight:700; color:#fff;">💊 ${escapeHtml(prod.name)}</td>
+          <td style="font-weight:700; color:#fff;">
+            <div>💊 ${escapeHtml(prod.name)}</div>
+            <div style="display:flex; align-items:center; gap:6px; margin-top:4px; flex-wrap:wrap;">
+              <label style="font-size:10.5px; color:#fbbf24; font-weight:700;">Prix catalogue :</label>
+              <input type="number" min="50" step="50" value="${catalogPrice}" onchange="PharmDash.updateProductPrice('${safeAttrName}', this.value)" style="width:86px; padding:2px 6px; border-radius:6px; background:rgba(15,23,42,0.85); border:1px solid rgba(251,191,36,0.35); color:#fbbf24; font-size:11.5px; font-weight:800;" title="Prix public transmis au patient (stock quantité strictement confidentiel)">
+              <span style="font-size:10.5px; color:#94a3b8;">FCFA</span>
+              <span style="font-size:10px; color:#64748b;" title="Seul le prix public est transmis au patient, jamais vos quantités en stock">🔒 Qté privée</span>
+            </div>
+          </td>
           <td>${statusBadge}</td>
           <td>${toggleBtn}</td>
           <td>${alertDelegateBtn}</td>
@@ -1096,6 +1143,19 @@
     }).join('');
 
     tbodies.forEach(tb => { tb.innerHTML = html; });
+  }
+
+  function updateProductPrice(productName, newPrice) {
+    const val = Math.max(0, parseInt(newPrice, 10) || 0);
+    const list = (window.pharmacyStock && window.pharmacyStock.length ? window.pharmacyStock : pharmacyStock) || [];
+    const item = list.find(p => p.name === productName);
+    if (item && val > 0) {
+      item.price = val;
+      item.last_updated = new Date().toISOString();
+      pharmacyStock = list;
+      saveStockDatabase();
+      showToast(`🏷️ Prix catalogue "${productName}" mis à jour : ${val.toLocaleString('fr-FR')} FCFA`, 'success');
+    }
   }
 
   function filterStockProducts(query) {
@@ -1133,6 +1193,7 @@
     pharmacyStock.unshift({
       id: 'stock_' + Date.now(),
       name: cleanName,
+      price: defaultCatalogPrice(cleanName, 0),
       status: 'en_stock',
       last_updated: new Date().toISOString()
     });
@@ -1521,6 +1582,8 @@
     if (!card) return;
 
     const medicinesStatus = {};
+    const medicinesPrices = {};
+    let estimatedPrice = 0;
     const medCards = card.querySelectorAll('.med-item-card');
 
     medCards.forEach(mc => {
@@ -1528,20 +1591,34 @@
       const activeBtn = mc.querySelector('.med-opt-btn.active');
       const status = activeBtn ? activeBtn.getAttribute('data-status') : 'en_stock_assure';
       medicinesStatus[name] = status;
+      if (status.startsWith('en_stock')) {
+        const unitPrice = lookupCatalogPrice(name);
+        if (unitPrice > 0) {
+          medicinesPrices[name] = unitPrice;
+          estimatedPrice += unitPrice;
+        }
+      }
     });
 
-    pendingConfirmData = { requestId, medicinesStatus };
+    pendingConfirmData = { requestId, medicinesStatus, medicinesPrices, estimatedPrice };
 
     const body = document.getElementById('confirm-response-body');
     if (body) {
-      body.innerHTML = Object.entries(medicinesStatus).map(([med, st]) => {
+      const rows = Object.entries(medicinesStatus).map(([med, st]) => {
         const badge = st === 'en_stock_assure'
           ? '<span class="chip chip--green">✅ En stock assuré</span>'
           : st === 'en_stock_non_assure'
           ? '<span class="chip chip--gold">⚠️ En stock non assuré</span>'
           : '<span class="chip chip--red">❌ En rupture</span>';
-        return `<div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.06); font-size:13px;"><span>💊 ${escapeHtml(med)}</span>${badge}</div>`;
+        const priceHtml = medicinesPrices[med]
+          ? `<span style="color:#fbbf24; font-weight:800; font-size:12px;">${Number(medicinesPrices[med]).toLocaleString('fr-FR')} F</span>`
+          : '';
+        return `<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.06); font-size:13px;"><span style="flex:1;">💊 ${escapeHtml(med)}</span>${priceHtml}${badge}</div>`;
       }).join('');
+      const totalBar = estimatedPrice > 0
+        ? `<div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; padding:8px 10px; border-radius:10px; background:rgba(251,191,36,0.1); border:1px solid rgba(251,191,36,0.35); font-size:12.5px;"><span style="color:#cbd5e1;">🏷️ Total catalogue transmis (quantités 🔒 confidentielles)</span><strong style="color:#fbbf24;">${estimatedPrice.toLocaleString('fr-FR')} FCFA</strong></div>`
+        : '';
+      body.innerHTML = rows + totalBar;
     }
 
     const modal = document.getElementById('confirm-response-modal');
@@ -1550,7 +1627,7 @@
 
   async function executeSendResponse() {
     if (!pendingConfirmData || !currentPharmacy) return;
-    const { requestId, medicinesStatus } = pendingConfirmData;
+    const { requestId, medicinesStatus, medicinesPrices, estimatedPrice } = pendingConfirmData;
     const modal = document.getElementById('confirm-response-modal');
     if (modal) modal.style.display = 'none';
 
@@ -1558,19 +1635,30 @@
     const responseStatus = hasAnyStock ? 'accepted' : 'out_of_stock';
     const reservationCode = 'PG-' + Math.floor(1000 + Math.random() * 9000);
 
+    // Payload strictement confidentiel : JAMAIS de quantités de stock, uniquement disponibilité + prix public catalogue
+    const basePayload = {
+      request_id: requestId,
+      pharmacy_id: currentPharmacy.id,
+      pharmacy_name: currentPharmacy.name,
+      pharmacy_phone: currentPharmacy.phone,
+      pharmacy_address: currentPharmacy.address,
+      status: responseStatus,
+      reservation_code: reservationCode,
+      medicines_status: medicinesStatus,
+      responded_at: new Date().toISOString(),
+      created_at: new Date().toISOString()
+    };
+
     try {
-      await supabase.from('responses').insert([{
-        request_id: requestId,
-        pharmacy_id: currentPharmacy.id,
-        pharmacy_name: currentPharmacy.name,
-        pharmacy_phone: currentPharmacy.phone,
-        pharmacy_address: currentPharmacy.address,
-        status: responseStatus,
-        reservation_code: reservationCode,
-        medicines_status: medicinesStatus,
-        responded_at: new Date().toISOString(),
-        created_at: new Date().toISOString()
-      }]);
+      const fullPayload = Object.assign({}, basePayload, {
+        medicines_prices: medicinesPrices || {},
+        estimated_price: estimatedPrice || 0
+      });
+      const { error } = await supabase.from('responses').insert([fullPayload]);
+      if (error) {
+        // Fallback transparent si les colonnes v12 ne sont pas encore migrées dans Supabase
+        await supabase.from('responses').insert([basePayload]);
+      }
 
       activeRequests = activeRequests.filter(r => r.id !== requestId);
       renderActiveRequests();
@@ -2580,6 +2668,8 @@
     switchHubTab,
     filterStockProducts,
     toggleProductStock,
+    updateProductPrice,
+    lookupCatalogPrice,
     quickAddStockProduct,
     prepareStockAlert,
     sendStockAlert,

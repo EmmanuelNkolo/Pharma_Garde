@@ -603,10 +603,13 @@ const App = (() => {
     drawRadiusCircle(pos, currentRadius);
     fitRadius();
 
-    // En parallèle (non bloquant) : liste des pharmacies, quartier exact, noms des zones
+    // En parallèle (non bloquant) : liste des pharmacies, quartier exact, noms des zones, labos/hôpitaux
     updatePharmacies();
     refreshLocationLabels(pos, { force: true });
     if (window.PGLocation) PGLocation.showAreaLabels(leafletMap, pos, currentRadius);
+    if (window.PGPatientCare && typeof PGPatientCare.updateFacilityMarkersOnMap === 'function') {
+      PGPatientCare.updateFacilityMarkersOnMap();
+    }
   }
 
   // ── Pharmacy Data (service + rendu progressif) ─────────
@@ -1371,6 +1374,8 @@ const App = (() => {
       const verBadgeHtml = (window.PGAdmin && PGAdmin.verifiedBadge) ? PGAdmin.verifiedBadge('pharmacy', resp.pharmacy_id) : '';
 
       let medsHtml = '';
+      const catalogPrices = (resp.medicines_prices && typeof resp.medicines_prices === 'object') ? resp.medicines_prices : {};
+      let computedCatalogTotal = 0;
       if (resp.medicines_status) {
         medsHtml = Object.entries(resp.medicines_status).map(([med, status]) => {
           const isInStock = status.startsWith('en_stock');
@@ -1379,16 +1384,31 @@ const App = (() => {
           else if (status === 'en_stock_non_assure') badge = '<span style="color:var(--gold-500)">⚠️ En stock non assuré</span>';
           else if (status === 'en_stock') badge = '<span style="color:var(--green-500)">✅ En stock</span>';
           else badge = '<span style="color:var(--red-500)">❌ Rupture</span>';
+
+          const unitPrice = isInStock ? Number(catalogPrices[med] || 0) : 0;
+          if (unitPrice > 0) computedCatalogTotal += unitPrice;
+          const priceTag = unitPrice > 0
+            ? `<span style="padding:2px 7px; border-radius:999px; background:rgba(251,191,36,0.14); border:1px solid rgba(251,191,36,0.4); color:#fbbf24; font-size:11px; font-weight:800; white-space:nowrap;">${unitPrice.toLocaleString('fr-FR')} F</span>`
+            : '';
+
           const reserveBtn = isInStock
             ? `<button class="btn btn-sm reserve-med-btn" data-request-id="${escapeHtml(resp.request_id)}" data-pharmacy-id="${escapeHtml(resp.pharmacy_id)}" data-med="${escapeHtml(med)}" data-pharmacy-name="${escapeHtml(resp.pharmacy_name || '')}" data-pharmacy-phone="${escapeHtml(resp.pharmacy_phone || '')}" data-pharmacy-address="${escapeHtml(resp.pharmacy_address || '')}" onclick="App.toggleReserveMedicine(this)">Réserver</button>`
             : '';
 
-          return `<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 13px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
-            <span style="font-weight: 500; flex: 1;">💊 ${escapeHtml(med)}</span>
+          return `<div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; font-size: 13px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+            <span style="font-weight: 500; flex: 1; min-width: 120px;">💊 ${escapeHtml(med)}</span>
+            ${priceTag}
             ${badge}
             ${reserveBtn}
           </div>`;
         }).join('');
+      }
+      const catalogTotal = Number(resp.estimated_price || computedCatalogTotal || 0);
+      if (catalogTotal > 0) {
+        medsHtml += `<div style="display:flex; justify-content:space-between; align-items:center; padding-top:6px; font-size:12px;">
+          <span style="color:#94a3b8;">🏷️ Tarif catalogue officine</span>
+          <strong style="color:#fbbf24; font-size:13.5px;">${catalogTotal.toLocaleString('fr-FR')} FCFA</strong>
+        </div>`;
       }
 
       const sessionId = sessionStorage.getItem('pharma_session_id') || 'INCONNU';
@@ -2171,6 +2191,7 @@ const App = (() => {
     openNewSearchWithoutCancel,
     updateSessionUI,
     renderPatientResponses,
+    getMap: () => leafletMap,
   };
 
   // ── Start ──────────────────────────────────────────────

@@ -100,3 +100,4 @@ CREATE POLICY "del_samples_rw" ON public.delegate_samples
   FOR ALL TO authenticated
   USING (delegate_id IS NULL OR delegate_id = (select auth.uid())::text)
   WITH CHECK (delegate_id IS NULL OR delegate_id = (select auth.uid())::text);
+

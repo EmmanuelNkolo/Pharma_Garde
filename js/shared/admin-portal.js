@@ -35,6 +35,8 @@
   function currentPageSpace() {
     const p = (location.pathname || '').toLowerCase();
     if (p.includes('pharmacien')) return 'pharmacy';
+    if (p.includes('medecin')) return 'doctor';
+    if (p.includes('etablissement')) return 'facility';
     if (p.includes('delegue')) return 'delegate';
     if (p.includes('grossiste')) return 'wholesaler';
     return 'client';
@@ -245,6 +247,12 @@
     if (space === 'pharmacy' && window.PharmDash && typeof PharmDash.adminEnter === 'function') {
       await PharmDash.adminEnter(customTarget);
       notify('👑 Accès Administrateur Espace Pharmacie activé', 'success');
+    } else if (space === 'doctor' && window.MedecinApp && typeof MedecinApp.adminEnter === 'function') {
+      await MedecinApp.adminEnter(customTarget);
+      notify('👑 Accès Administrateur Espace Médecin ONMC activé', 'success');
+    } else if (space === 'facility' && window.FacilityApp && typeof FacilityApp.adminEnter === 'function') {
+      await FacilityApp.adminEnter(customTarget);
+      notify('👑 Accès Administrateur Espace Labo / Hôpital activé', 'success');
     } else if (space === 'delegate' && window.DelegateApp && typeof DelegateApp.adminEnter === 'function') {
       await DelegateApp.adminEnter();
       notify('👑 Accès Administrateur Espace Délégué activé (Licence Illimitée)', 'success');
@@ -280,6 +288,8 @@
       <span class="pg-admin-bar__badge">👑 SUPER-ADMIN</span>
       <a href="index.html" class="pg-admin-bar__btn ${space === 'client' ? 'active' : ''}">👤 Patient</a>
       <a href="pharmacien.html" class="pg-admin-bar__btn ${space === 'pharmacy' ? 'active' : ''}">🏥 Pharmacie</a>
+      <a href="medecin.html" class="pg-admin-bar__btn ${space === 'doctor' ? 'active' : ''}">🩺 Médecin</a>
+      <a href="etablissement.html" class="pg-admin-bar__btn ${space === 'facility' ? 'active' : ''}">🔬 Labo/Hôp.</a>
       <a href="delegue.html" class="pg-admin-bar__btn ${space === 'delegate' ? 'active' : ''}">💼 Délégué</a>
       <a href="grossiste.html" class="pg-admin-bar__btn ${space === 'wholesaler' ? 'active' : ''}">🏭 Grossiste</a>
       <span class="pg-admin-bar__sep"></span>
@@ -318,7 +328,7 @@
           </div>
           <div class="pg-admin-modal__body">
             <p style="font-size:12.5px; color:#94a3b8; margin:0 0 14px; line-height:1.5;">
-              Identifiez-vous comme Super-Administrateur Pharma-Garde pour accéder aux 4 espaces, valider les agréments ONCP/DPML et gérer l'équipe d'administrateurs.
+              Identifiez-vous comme Super-Administrateur Pharma-Garde pour accéder aux 6 espaces, valider les agréments ONCP/ONMC/DPML/MINSANTE et gérer l'équipe d'administrateurs.
             </p>
             <div class="form-group" style="margin-bottom:12px;">
               <label class="form-label" style="color:#fbbf24;">Email Administrateur (optionnel)</label>
@@ -424,7 +434,7 @@
     map[`${role}:${id}`] = newStatus;
     saveVerificationMap(map);
 
-    const tableMap = { pharmacy: 'pharmacies', delegate: 'delegates', wholesaler: 'wholesalers' };
+    const tableMap = { pharmacy: 'pharmacies', doctor: 'doctors', facility: 'health_facilities', delegate: 'delegates', wholesaler: 'wholesalers' };
     const sess = getSession();
     if (window.supabase && tableMap[role]) {
       try {
@@ -435,8 +445,15 @@
         }).eq('id', id);
       } catch (e) {}
     }
-    logAudit('ONCP_VERIFICATION', `${role} ${name} (${id}) -> ${newStatus}`);
-    const labels = { verified: '✓ Certifié ONCP/DPML', pending: '⏳ Mis en attente', rejected: '🚫 Rejeté / Suspendu' };
+    // Synchroniser aussi les registres locaux Médecins & Établissements
+    if (role === 'doctor' && window.MedecinStore && typeof MedecinStore.saveDoctorInDirectory === 'function') {
+      try { MedecinStore.saveDoctorInDirectory({ id, verification_status: newStatus }); } catch (e) {}
+    }
+    if (role === 'facility' && window.FacilityStore && typeof FacilityStore.saveFacilityInDir === 'function') {
+      try { FacilityStore.saveFacilityInDir({ id, verification_status: newStatus }); } catch (e) {}
+    }
+    logAudit('ONCP_ONMC_VERIFICATION', `${role} ${name} (${id}) -> ${newStatus}`);
+    const labels = { verified: '✓ Certifié ONCP/ONMC/DPML', pending: '⏳ Mis en attente', rejected: '🚫 Rejeté / Suspendu' };
     notify(`${labels[newStatus] || newStatus} : ${name}`, newStatus === 'verified' ? 'success' : 'info');
     renderConsoleTab();
   }
@@ -449,23 +466,29 @@
     if (currentConsoleTab === 'overview') {
       body.innerHTML = '<div style="text-align:center; padding:28px; color:#94a3b8;">⏳ Chargement des indicateurs plateforme...</div>';
       const t0 = performance.now();
-      const [phTotal, phGuard, reqTotal, respTotal, resTotal, delTotal, wsTotal, ordTotal] = await Promise.all([
+      const [phTotal, phGuard, reqTotal, respTotal, resTotal, docTotal, facTotal, delTotal, wsTotal, ordTotal] = await Promise.all([
         safeCount('pharmacies'),
         safeCount('pharmacies', (q) => q.eq('is_on_duty', true)),
         safeCount('requests'),
         safeCount('responses'),
         safeCount('reservations'),
+        safeCount('doctors'),
+        safeCount('health_facilities'),
         safeCount('delegates'),
         safeCount('wholesalers'),
         safeCount('wholesaler_orders')
       ]);
       const pingMs = Math.round(performance.now() - t0);
       const adminsCount = getAdminsRegistry().filter((a) => a.is_active !== false).length;
+      const localDocs = (window.MedecinStore && typeof MedecinStore.getDoctors === 'function') ? MedecinStore.getDoctors().length : docTotal;
+      const localFacs = (window.FacilityStore && typeof FacilityStore.getFacilities === 'function') ? FacilityStore.getFacilities().length : facTotal;
 
       body.innerHTML = `
         <div class="pg-admin-kpi-grid">
           <div class="pg-admin-kpi"><div class="pg-admin-kpi__label">🏥 Officines inscrites</div><div class="pg-admin-kpi__val">${esc(phTotal)}</div></div>
           <div class="pg-admin-kpi"><div class="pg-admin-kpi__label">🌙 Officines de garde</div><div class="pg-admin-kpi__val pg-admin-kpi__val--gold">${esc(phGuard)}</div></div>
+          <div class="pg-admin-kpi"><div class="pg-admin-kpi__label">🩺 Médecins ONMC</div><div class="pg-admin-kpi__val pg-admin-kpi__val--blue">${esc(docTotal === '—' ? localDocs : docTotal)}</div></div>
+          <div class="pg-admin-kpi"><div class="pg-admin-kpi__label">🔬 Labos &amp; Hôpitaux</div><div class="pg-admin-kpi__val pg-admin-kpi__val--gold">${esc(facTotal === '—' ? localFacs : facTotal)}</div></div>
           <div class="pg-admin-kpi"><div class="pg-admin-kpi__label">🔍 Demandes Patients</div><div class="pg-admin-kpi__val pg-admin-kpi__val--blue">${esc(reqTotal)}</div></div>
           <div class="pg-admin-kpi"><div class="pg-admin-kpi__label">✅ Réponses / Résa</div><div class="pg-admin-kpi__val">${esc(respTotal)} / ${esc(resTotal)}</div></div>
           <div class="pg-admin-kpi"><div class="pg-admin-kpi__label">💼 Délégués Médicaux</div><div class="pg-admin-kpi__val pg-admin-kpi__val--blue">${esc(delTotal)}</div></div>
@@ -474,12 +497,14 @@
         </div>
         <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; padding:14px; border-radius:14px; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.3);">
           <div>
-            <div style="font-weight:800; color:#34d399; font-size:13.5px;">⚡ Accès Rapide Privilégié aux 4 Espaces</div>
+            <div style="font-weight:800; color:#34d399; font-size:13.5px;">⚡ Accès Rapide Privilégié aux 6 Espaces</div>
             <div style="font-size:12px; color:#94a3b8; margin-top:2px;">Latence Supabase : <strong style="color:#fff;">${pingMs} ms</strong> · Session Admin active</div>
           </div>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button type="button" class="btn btn--sm btn--primary" id="pg-adm-go-cur">👑 Ouvrir cet espace en Admin</button>
             <a href="pharmacien.html?admin=1" class="btn btn--sm btn--secondary">🏥 Pharmacie</a>
+            <a href="medecin.html?admin=1" class="btn btn--sm btn--secondary">🩺 Médecin</a>
+            <a href="etablissement.html?admin=1" class="btn btn--sm btn--secondary">🔬 Labo/Hôp.</a>
             <a href="delegue.html?admin=1" class="btn btn--sm btn--secondary">💼 Délégué</a>
             <a href="grossiste.html?admin=1" class="btn btn--sm btn--secondary">🏭 Grossiste</a>
           </div>
@@ -490,21 +515,39 @@
       return;
     }
 
-    // 2. WORKFLOW DE VALIDATION ONCP / DPML (Officines, Délégués, Grossistes)
+    // 2. WORKFLOW DE VALIDATION ONCP / ONMC / DPML / MINSANTE (Officines, Médecins, Labos/Hôpitaux, Délégués, Grossistes)
     if (currentConsoleTab === 'verification') {
-      body.innerHTML = '<div style="text-align:center; padding:24px; color:#94a3b8;">⏳ Chargement de la file de validation ONCP / DPML...</div>';
+      body.innerHTML = '<div style="text-align:center; padding:24px; color:#94a3b8;">⏳ Chargement de la file de validation ONCP / ONMC / DPML...</div>';
       const queue = [];
       if (window.supabase) {
         try {
-          const [ph, del, ws] = await Promise.all([
+          const [ph, doc, fac, del, ws] = await Promise.all([
             window.supabase.from('pharmacies').select('id, name, city, license_number, phone, verification_status').limit(40),
+            window.supabase.from('doctors').select('id, title, full_name, specialty, onmc_number, city, phone, verification_status').limit(40),
+            window.supabase.from('health_facilities').select('id, name, facility_type, authorization_number, city, phone, verification_status').limit(40),
             window.supabase.from('delegates').select('id, first_name, last_name, pro_card_number, phone, verification_status').limit(40),
             window.supabase.from('wholesalers').select('id, company_name, city, license_number, phone, verification_status').limit(40)
           ]);
           (ph.data || []).forEach((x) => queue.push({ role: 'pharmacy', roleLabel: '🏥 Officine', id: x.id, name: x.name, license: x.license_number || 'ONPC à vérifier', meta: x.city || x.phone || '', status: x.verification_status || getVerificationStatus('pharmacy', x.id) }));
+          (doc.data || []).forEach((x) => queue.push({ role: 'doctor', roleLabel: '🩺 Médecin', id: x.id, name: `${x.title || 'Dr.'} ${x.full_name || ''}`.trim(), license: x.onmc_number || 'ONMC à vérifier', meta: `${x.specialty || ''} · ${x.city || ''}`, status: x.verification_status || getVerificationStatus('doctor', x.id) }));
+          (fac.data || []).forEach((x) => queue.push({ role: 'facility', roleLabel: x.facility_type === 'laboratory' ? '🔬 Labo' : '🏥 Hôpital', id: x.id, name: x.name, license: x.authorization_number || 'MINSANTE', meta: x.city || '', status: x.verification_status || getVerificationStatus('facility', x.id) }));
           (del.data || []).forEach((x) => queue.push({ role: 'delegate', roleLabel: '💼 Délégué', id: x.id, name: `${x.first_name || ''} ${x.last_name || ''}`.trim() || 'Délégué', license: x.pro_card_number || 'Carte Pro', meta: x.phone || '', status: x.verification_status || getVerificationStatus('delegate', x.id) }));
           (ws.data || []).forEach((x) => queue.push({ role: 'wholesaler', roleLabel: '🏭 Grossiste', id: x.id, name: x.company_name, license: x.license_number || 'DPML', meta: x.city || '', status: x.verification_status || getVerificationStatus('wholesaler', x.id) }));
         } catch (e) {}
+      }
+      if (window.MedecinStore && typeof MedecinStore.getDoctors === 'function') {
+        MedecinStore.getDoctors().forEach((d) => {
+          if (!queue.some((q) => q.role === 'doctor' && q.id === d.id)) {
+            queue.push({ role: 'doctor', roleLabel: '🩺 Médecin', id: d.id, name: `${d.title || 'Dr.'} ${d.full_name}`, license: d.onmc_number || 'ONMC', meta: `${d.specialty || ''} · ${d.city || ''}`, status: d.verification_status || getVerificationStatus('doctor', d.id) });
+          }
+        });
+      }
+      if (window.FacilityStore && typeof FacilityStore.getFacilities === 'function') {
+        FacilityStore.getFacilities().forEach((f) => {
+          if (!queue.some((q) => q.role === 'facility' && q.id === f.id)) {
+            queue.push({ role: 'facility', roleLabel: f.facility_type === 'laboratory' ? '🔬 Labo' : '🏥 Hôpital', id: f.id, name: f.name, license: f.authorization_number || 'MINSANTE', meta: f.city || '', status: f.verification_status || getVerificationStatus('facility', f.id) });
+          }
+        });
       }
       if (window.GrossisteAuth && typeof GrossisteAuth.getDirectory === 'function') {
         GrossisteAuth.getDirectory().forEach((w) => {
@@ -754,6 +797,8 @@
             Tant que la session Administrateur est active, tous les paywalls (Pass Patient 100 FCFA, Abonnement Délégué, Licence Officine et Grossiste B2B) sont automatiquement débloqués.
           </p>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button type="button" class="btn btn--sm btn--primary" data-grant-role="doctor" data-grant-days="365">🩺 Activer Pro Médecin (+365j)</button>
+            <button type="button" class="btn btn--sm btn--primary" data-grant-role="facility" data-grant-days="365">🔬 Activer Pro Labo/Hôp. (+365j)</button>
             <button type="button" class="btn btn--sm btn--primary" data-grant-role="delegate" data-grant-days="365">💼 Activer Pro Délégué (+365j)</button>
             <button type="button" class="btn btn--sm btn--primary" data-grant-role="wholesaler" data-grant-days="365">🏭 Activer Pro Grossiste (+365j)</button>
             <button type="button" class="btn btn--sm btn--primary" data-grant-role="pharmacy" data-grant-days="365">🏥 Activer Pro Officine (+365j)</button>
@@ -848,7 +893,7 @@
       btn.addEventListener('click', () => openUnlockModal(openConsoleModal));
       quick.parentElement.insertBefore(btn, quick.nextSibling);
     }
-    ['login-form', 'g-login-form'].forEach((id) => {
+    ['login-form', 'g-login-form', 'doc-login-form', 'fac-login-form'].forEach((id) => {
       const form = document.getElementById(id);
       if (form && !form.querySelector('.pg-admin-trigger')) {
         const b = document.createElement('button');

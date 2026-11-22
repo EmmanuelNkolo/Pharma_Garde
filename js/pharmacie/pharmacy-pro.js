@@ -473,3 +473,4 @@
     mountPharmacyPro();
   }
 })(window);
+

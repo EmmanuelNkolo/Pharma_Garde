@@ -22,6 +22,14 @@ const SUBSCRIPTION_PLANS: Record<string, Record<string, { amount: number; days: 
     monthly:   { amount: 10000, days: 30,  label: 'Pack Officine Connectée — Mensuel (30 jours)' },
     quarterly: { amount: 25000, days: 90,  label: 'Pack Officine Connectée — Trimestriel (90 jours, -17%)' },
     annual:    { amount: 90000, days: 365, label: 'Pack Officine Connectée — Annuel (365 jours, -25%)' },
+  },
+  doctor: {
+    monthly:   { amount: 5000,  days: 30,  label: 'Abonnement Médecin ONMC — Mensuel (30 jours)' },
+    annual:    { amount: 50000, days: 365, label: 'Abonnement Médecin ONMC — Annuel (365 jours, 2 mois offerts)' },
+  },
+  facility: {
+    monthly:   { amount: 15000,  days: 30,  label: 'Licence Laboratoire / Hôpital / Clinique — Mensuel (30 jours)' },
+    annual:    { amount: 150000, days: 365, label: 'Licence Laboratoire / Hôpital / Clinique — Annuel (365 jours)' },
   }
 };
 

@@ -40,6 +40,22 @@
         { id: 'quarterly', label: 'Trimestriel (90 jours)', amount: 25000, days: 90, badge: 'Avantage (-17%)', perMonth: '8 333 FCFA / mois', recommended: true },
         { id: 'annual', label: 'Annuel (365 jours)', amount: 90000, days: 365, badge: 'Sérénité (-25%)', perMonth: '7 500 FCFA / mois' }
       ]
+    },
+    doctor: {
+      title: 'Abonnement Médecin Téléconsultation & Ordonnances ONMC',
+      subtitle: 'Recevez des téléconsultations rémunérées (2 500 FCFA versés directement OM/MoMo), prescrivez avec signature numérique et gérez vos RDV (14 jours d\'essai gratuit).',
+      plans: [
+        { id: 'monthly', label: 'Mensuel (30 jours)', amount: 5000, days: 30, badge: 'Flexible', perMonth: '5 000 FCFA / mois' },
+        { id: 'annual', label: 'Annuel (365 jours)', amount: 50000, days: 365, badge: '2 Mois Offerts (-17%)', perMonth: '4 166 FCFA / mois', recommended: true }
+      ]
+    },
+    facility: {
+      title: 'Abonnement Laboratoire d\'Analyses, Hôpital & Clinique',
+      subtitle: 'Géolocalisation patient temps réel, promotion de vos examens et services médicaux, prise de RDV et prélèvements à domicile.',
+      plans: [
+        { id: 'monthly', label: 'Mensuel (30 jours)', amount: 15000, days: 30, badge: 'Établissement', perMonth: '15 000 FCFA / mois' },
+        { id: 'annual', label: 'Annuel (365 jours)', amount: 150000, days: 365, badge: '2 Mois Offerts (-17%)', perMonth: '12 500 FCFA / mois', recommended: true }
+      ]
     }
   };
 

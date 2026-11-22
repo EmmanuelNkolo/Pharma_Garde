@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="description" content="Pharma-Garde — Espace Médecins & Téléconsultation ONMC au Cameroun. Consultations 48h rémunérées 2 500 FCFA direct OM/MoMo et ordonnances signées.">
+  <meta name="theme-color" content="#07141f">
+  <title>Pharma-Garde — Espace Médecins &amp; Téléconsultation</title>
+
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/design-system.css?v=12.0">
+  <link rel="stylesheet" href="css/pro.css?v=12.0">
+  <link rel="stylesheet" href="css/pharma-auth.css?v=12.0">
+  <link rel="stylesheet" href="css/espace-pharmacie-v2.css?v=12.0">
+  <link rel="stylesheet" href="css/grossiste.css?v=12.0">
+  <link rel="stylesheet" href="css/admin-portal.css?v=12.0">
+  <link rel="stylesheet" href="css/wellness-v12.css?v=12.0">
+</head>
+<body>
+  <div class="app-container">
+
+    <!-- ════════════════════ AUTHENTIFICATION & INSCRIPTION MÉDECIN ONMC ════════════════════ -->
+    <div id="doc-login-screen" class="pa-screen">
+      <div class="lang-switch pa-lang">
+        <button type="button" class="lang-switch__btn active" data-lang="fr">FR</button>
+        <button type="button" class="lang-switch__btn" data-lang="en">EN</button>
+      </div>
+
+      <div class="pa-wrap" style="max-width:600px;">
+        <a href="index.html" class="btn btn--ghost" style="margin-bottom:14px;" onclick="try{sessionStorage.removeItem('pharmagarde_doctor_session_v12');localStorage.removeItem('pharmagarde_doctor_session_v12');}catch(e){}">
+          ← <span data-i18n="back">Retour à l'accueil</span>
+        </a>
+
+        <!-- Connexion Médecin -->
+        <form id="doc-login-form" class="glass-card pa-card" novalidate onsubmit="return false;">
+          <div class="pa-head">
+            <div class="pa-icon" style="font-size:32px;">🩺</div>
+            <h1 class="pa-title" style="color:#fbbf24;">Connexion Médecin (ONMC)</h1>
+            <p class="pa-subtitle">Téléconsultations 48h (2 500 FCFA versés directement OM/MoMo), ordonnances signées &amp; rendez-vous.</p>
+          </div>
+          <div class="form-group">
+            <label class="pa-label" for="doc-login-email">Email professionnel <span class="req">*</span></label>
+            <input type="email" id="doc-login-email" class="form-input" placeholder="Ex : dr.kamga@pharmagarde.cm" autocomplete="email">
+          </div>
+          <div class="form-group">
+            <label class="pa-label" for="doc-login-password">Mot de passe <span class="req">*</span></label>
+            <input type="password" id="doc-login-password" class="form-input" placeholder="••••••••" autocomplete="current-password">
+          </div>
+          <button type="button" id="btn-doc-login" class="btn btn--primary btn--block" style="margin-top:12px;">Se connecter à l'Espace Médecin</button>
+
+          <!-- Accès Rapide Médecins Certifiés Démo -->
+          <div style="margin-top:16px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.08);">
+            <div style="font-size:11px; font-weight:800; color:#94a3b8; text-transform:uppercase; margin-bottom:8px; text-align:center;">
+              ⚡ Accès Rapide Médecins Certifiés ONMC (Démo / Test)
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <button type="button" class="btn btn--secondary btn--sm" data-demo-doc="doc_kamga_dla" style="justify-content:space-between;">
+                <span>🩺 Dr Hervé Kamga (Médecine Générale · Douala)</span>
+                <span style="color:#34d399;">ONMC ✓ →</span>
+              </button>
+              <button type="button" class="btn btn--secondary btn--sm" data-demo-doc="doc_mbarga_yde" style="justify-content:space-between;">
+                <span>🩺 Dr Clarisse Mbarga (Pédiatrie · Yaoundé)</span>
+                <span style="color:#38bdf8;">ONMC ✓ →</span>
+              </button>
+              <button type="button" class="btn btn--secondary btn--sm" data-demo-doc="doc_nguefack_dla" style="justify-content:space-between;">
+                <span>🩺 Pr Alain Nguefack (Cardiologie · Douala)</span>
+                <span style="color:#fbbf24;">ONMC ✓ →</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="pa-switch-link" style="margin-top:16px;">
+            <span style="font-size:13px; color:var(--text-muted);">Nouveau praticien ?</span>
+            <button type="button" class="btn btn--ghost" data-doc-view="register" style="font-size:14px; color:var(--emerald-400); font-weight:700;">
+              Inscription &amp; Vérification ONMC →
+            </button>
+          </div>
+        </form>
+
+        <!-- Inscription Complète & Vérification ONMC + Signature Manuscrite -->
+        <form id="doc-register-form" class="glass-card pa-card hidden" novalidate onsubmit="return false;">
+          <div class="pa-head">
+            <div class="pa-icon" style="font-size:32px;">🎓</div>
+            <h2 class="pa-title" style="color:#fbbf24;">Inscription &amp; Vérification Médecin ONMC</h2>
+            <p class="pa-subtitle">14 jours d'essai gratuit · Puis 5 000 FCFA/mois ou 50 000 FCFA/an · 2 500 FCFA versés directement par téléconsultation.</p>
+          </div>
+
+          <div class="pa-section">
+            <div class="pa-section__title"><span class="pa-section__num">1</span> Identité Médicale &amp; Agrément ONMC (Vérifiable)</div>
+            <div class="pa-grid-2">
+              <div class="form-group">
+                <label class="pa-label">Titre <span class="req">*</span></label>
+                <select id="doc-reg-title" class="form-input form-select">
+                  <option value="Dr" selected>Dr (Docteur en Médecine)</option>
+                  <option value="Pr">Pr (Professeur Agrégé)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="pa-label">Nom &amp; Prénom complets <span class="req">*</span></label>
+                <input type="text" id="doc-reg-name" class="form-input" placeholder="Ex : Hervé Kamga Fotso">
+              </div>
+            </div>
+            <div class="pa-grid-2">
+              <div class="form-group">
+                <label class="pa-label">Spécialité Médicale <span class="req">*</span></label>
+                <select id="doc-reg-specialty" class="form-input form-select">
+                  <option value="Médecine Générale">Médecine Générale</option>
+                  <option value="Pédiatrie">Pédiatrie</option>
+                  <option value="Gynécologie-Obstétrique">Gynécologie-Obstétrique</option>
+                  <option value="Cardiologie">Cardiologie</option>
+                  <option value="Dermatologie">Dermatologie</option>
+                  <option value="Médecine Interne">Médecine Interne</option>
+                  <option value="Ophtalmologie">Ophtalmologie</option>
+                  <option value="Neurologie">Neurologie</option>
+                  <option value="Pneumologie">Pneumologie</option>
+                  <option value="Gastro-entérologie">Gastro-entérologie</option>
+                  <option value="Endocrinologie / Diabétologie">Endocrinologie / Diabétologie</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="pa-label">N° Ordre National Médecins (ONMC) <span class="req">*</span></label>
+                <input type="text" id="doc-reg-onmc" class="form-input" placeholder="Ex : ONMC-2021-4580" style="text-transform:uppercase;">
+              </div>
+            </div>
+            <div class="pa-grid-2">
+              <div class="form-group">
+                <label class="pa-label">N° CNI / Passeport <span class="req">*</span></label>
+                <input type="text" id="doc-reg-cni" class="form-input" placeholder="Ex : 114288901">
+              </div>
+              <div class="form-group">
+                <label class="pa-label">Année d'obtention du Doctorat <span class="req">*</span></label>
+                <input type="number" id="doc-reg-year" class="form-input" value="2018" min="1970" max="2026">
+              </div>
+            </div>
+            <div class="pa-grid-2">
+              <div class="form-group">
+                <label class="pa-label">Diplôme &amp; Qualification <span class="req">*</span></label>
+                <input type="text" id="doc-reg-diploma" class="form-input" placeholder="Ex : Doctorat d'État en Médecine (FMSB)">
+              </div>
+              <div class="form-group">
+                <label class="pa-label">Faculté / Université</label>
+                <input type="text" id="doc-reg-univ" class="form-input" placeholder="Ex : Université de Yaoundé I">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="pa-label">Pièce justificative ONMC / Diplôme (Photo ou PDF)</label>
+              <input type="file" id="doc-reg-license-file" accept="image/*,application/pdf" class="form-input">
+            </div>
+          </div>
+
+          <div class="pa-section">
+            <div class="pa-section__title"><span class="pa-section__num">2</span> Cabinet, Téléphone &amp; Compte de Versement Direct (2 500 FCFA)</div>
+            <div class="pa-grid-2">
+              <div class="form-group"><label class="pa-label">Cabinet / Hôpital d'attache</label><input type="text" id="doc-reg-clinic" class="form-input" placeholder="Ex : Clinique Bonapriso"></div>
+              <div class="form-group"><label class="pa-label">Ville (Cameroun) <span class="req">*</span></label><input type="text" id="doc-reg-city" class="form-input" value="Douala"></div>
+            </div>
+            <div class="pa-grid-2">
+              <div class="form-group"><label class="pa-label">Quartier</label><input type="text" id="doc-reg-quarter" class="form-input" placeholder="Ex : Bonapriso"></div>
+              <div class="form-group"><label class="pa-label">Téléphone professionnel <span class="req">*</span></label><input type="tel" id="doc-reg-phone" class="form-input" placeholder="699 41 25 80"></div>
+            </div>
+            <div class="pa-grid-2">
+              <div class="form-group"><label class="pa-label">Numéro OM / MoMo (Honoraires 2 500 F) <span class="req">*</span></label><input type="tel" id="doc-reg-payout-phone" class="form-input" placeholder="6XX XXX XXX"></div>
+              <div class="form-group"><label class="pa-label">Opérateur Mobile Money <span class="req">*</span></label>
+                <select id="doc-reg-payout-op" class="form-input form-select">
+                  <option value="momo">MTN Mobile Money (MoMo)</option>
+                  <option value="om">Orange Money (OM)</option>
+                </select>
+              </div>
+            </div>
+            <div class="pa-grid-2">
+              <div class="form-group"><label class="pa-label">Email professionnel <span class="req">*</span></label><input type="email" id="doc-reg-email" class="form-input" placeholder="dr.nom@clinique.cm"></div>
+              <div class="form-group"><label class="pa-label">Mot de passe (8 car. min.) <span class="req">*</span></label><input type="password" id="doc-reg-password" class="form-input" placeholder="••••••••"></div>
+            </div>
+          </div>
+
+          <div class="pa-section">
+            <div class="pa-section__title"><span class="pa-section__num">3</span> Signature Manuscrite Numérique (Obligatoire pour les Ordonnances)</div>
+            <p style="font-size:12px; color:#94a3b8; margin-bottom:8px;">Signez dans le cadre blanc avec votre doigt ou la souris, ou importez votre signature scannée.</p>
+            <div class="pg-sig-wrap" style="margin-bottom:8px;">
+              <canvas id="doc-reg-sig-canvas" class="pg-sig-canvas"></canvas>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+              <button type="button" id="btn-doc-sig-clear" class="btn btn--secondary btn--sm">🧹 Effacer</button>
+              <label class="btn btn--secondary btn--sm" style="cursor:pointer;">
+                📁 Importer Signature PNG
+                <input type="file" id="doc-sig-file" accept="image/*" style="display:none;">
+              </label>
+            </div>
+          </div>
+
+          <button type="button" id="btn-doc-register" class="btn btn--primary btn--block" style="margin-top:12px;">
+            🎓 Soumettre mon Dossier Médical &amp; Démarrer l'Essai 14j
+          </button>
+          <div class="pa-switch-link" style="margin-top:12px;">
+            <button type="button" class="btn btn--ghost" data-doc-view="login" style="font-size:13px;">Déjà inscrit ? <span style="color:var(--emerald-400); font-weight:700;">Se connecter</span></button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ════════════════════ TABLEAU DE BORD MÉDECIN ════════════════════ -->
+    <div id="doc-dashboard" class="hidden" style="min-height:100vh; padding-top:72px;">
+      <header class="grossiste-header">
+        <div class="grossiste-header__left">
+          <a href="index.html" class="pg-home" title="Retour à l'accueil">←</a>
+          <div class="pg-logo"><div class="cross"></div></div>
+          <div class="pg-brand">
+            <span class="pg-brand__name">Pharma-Garde</span>
+            <span class="pg-brand__space" style="color:#38bdf8;">Espace Médecins ONMC</span>
+          </div>
+        </div>
+
+        <div class="grossiste-header__center">
+          <span id="doc-header-name" class="grossiste-gold-title">DR MÉDECIN</span>
+          <span id="doc-header-meta" class="grossiste-code-pill">ONMC</span>
+          <span id="doc-verif-pill"></span>
+        </div>
+
+        <div class="pharm-header__status-group">
+          <button type="button" id="doc-st-available" class="header-status-btn status-open active" onclick="MedecinApp.toggleStatus('available')"><span class="dot-status dot-open"></span> <span>Disponible</span></button>
+          <button type="button" id="doc-st-busy" class="header-status-btn status-guard" onclick="MedecinApp.toggleStatus('busy')"><span class="dot-status dot-guard"></span> <span>En consult.</span></button>
+          <button type="button" id="doc-st-offline" class="header-status-btn status-closed" onclick="MedecinApp.toggleStatus('offline')"><span class="dot-status dot-closed"></span> <span>Hors ligne</span></button>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div id="doc-sub-badge-slot" data-pg-sub-badge="true"></div>
+          <div class="lang-switch">
+            <button type="button" class="lang-switch__btn active" data-lang="fr">FR</button>
+            <button type="button" class="lang-switch__btn" data-lang="en">EN</button>
+          </div>
+          <button type="button" class="btn btn--icon" id="btn-doc-fullscreen" title="Plein écran">⛶</button>
+          <button type="button" class="btn btn--secondary btn--sm" id="btn-doc-logout" style="color:#f87171;">Déconnexion</button>
+        </div>
+      </header>
+
+      <nav class="grossiste-nav" aria-label="Pôles Médecin">
+        <button type="button" class="grossiste-tab active" id="dtab-consults" onclick="MedecinApp.switchTab('consults')">
+          <span class="grossiste-tab__icon">🩺</span>
+          <div><div>Téléconsultations 48h</div><div style="font-size:10.5px;opacity:0.75;">Requêtes &amp; Chat 48h</div></div>
+          <span class="grossiste-tab__badge" id="doc-badge-consults">0</span>
+        </button>
+        <button type="button" class="grossiste-tab" id="dtab-prescriptions" onclick="MedecinApp.switchTab('prescriptions')">
+          <span class="grossiste-tab__icon">📝</span>
+          <div><div>Ordonnances Signées</div><div style="font-size:10.5px;opacity:0.75;">PDF &amp; Lien Pharmacies</div></div>
+        </button>
+        <button type="button" class="grossiste-tab" id="dtab-schedule" onclick="MedecinApp.switchTab('schedule')">
+          <span class="grossiste-tab__icon">📅</span>
+          <div><div>Horaires &amp; RDV</div><div style="font-size:10.5px;opacity:0.75;">Planning Automatisé</div></div>
+        </button>
+        <button type="button" class="grossiste-tab" id="dtab-finance" onclick="MedecinApp.switchTab('finance')">
+          <span class="grossiste-tab__icon">💰</span>
+          <div><div>Revenus OM/MoMo</div><div style="font-size:10.5px;opacity:0.75;">2 500 F/acte &amp; Abonnement</div></div>
+        </button>
+        <button type="button" class="grossiste-tab" id="dtab-profile" onclick="MedecinApp.switchTab('profile')">
+          <span class="grossiste-tab__icon">✍️</span>
+          <div><div>Profil &amp; Signature</div><div style="font-size:10.5px;opacity:0.75;">ONMC &amp; Compte Payout</div></div>
+        </button>
+      </nav>
+
+      <main class="grossiste-main">
+        <div id="doc-reminder-banner"></div>
+        <section id="dpanel-consults"></section>
+        <section id="dpanel-prescriptions" style="display:none;"></section>
+        <section id="dpanel-schedule" style="display:none;"></section>
+        <section id="dpanel-finance" style="display:none;"></section>
+        <section id="dpanel-profile" style="display:none;"></section>
+      </main>
+    </div>
+
+    <div class="toast-container">
+      <div id="toast" class="toast toast--success"><span id="toast-message"></span></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="js/core/supabaseClient.js?v=12.0"></script>
+  <script src="js/data/pharmacies.js?v=12.0"></script>
+  <script src="js/core/core.js?v=12.0"></script>
+  <script src="js/core/i18n.js?v=12.0"></script>
+  <script src="js/shared/network.js?v=12.0"></script>
+  <script src="js/shared/subscription.js?v=12.0"></script>
+  <script src="js/shared/pro-geolocation.js?v=12.0"></script>
+  <script src="js/shared/admin-portal.js?v=12.0"></script>
+  <script src="js/medecin/store.js?v=12.0"></script>
+  <script src="js/medecin/app.js?v=12.0"></script>
+</body>
+</html>
