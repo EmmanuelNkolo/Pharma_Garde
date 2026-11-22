@@ -39,8 +39,8 @@ serve(async (req: Request) => {
       doctor_payout_operator = "cm.mtn",
     } = body || {};
 
-    const notchPub = Deno.env.get("NOTCHPAY_PUBLIC_KEY") || "";
-    const notchPriv = Deno.env.get("NOTCHPAY_PRIVATE_KEY") || "";
+    const notchPub = (Deno.env.get("NOTCHPAY_PUBLIC_KEY") || "").replace(/^["']|["']$/g, "").trim();
+    const notchPriv = (Deno.env.get("NOTCHPAY_PRIVATE_KEY") || Deno.env.get("NOTCHPAY_SECRET_KEY") || "").replace(/^["']|["']$/g, "").trim();
     const sbUrl = Deno.env.get("SUPABASE_URL") || "";
     const sbKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
     const sb = sbUrl && sbKey ? createClient(sbUrl, sbKey) : null;
