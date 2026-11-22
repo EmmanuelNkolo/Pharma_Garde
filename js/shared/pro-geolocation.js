@@ -420,7 +420,7 @@
     const modal = document.createElement('div');
     modal.id = 'pg-pro-geo-modal';
     modal.className = 'modal-overlay active';
-    modal.style.zIndex = '3500';
+    modal.style.zIndex = '9600';
 
     // Cas particulier : Protection stricte de l'anonymat des Clients / Patients
     if (actor.role === 'client' || actor.role === 'patient') {
@@ -454,16 +454,16 @@
     const gmapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${actor.lat},${actor.lng}`;
 
     modal.innerHTML = `
-      <div class="modal-content" style="max-width:640px;padding:0;overflow:hidden;border:1px solid rgba(16,185,129,0.45);box-shadow:0 24px 60px rgba(0,0,0,0.75);">
+      <div class="modal-content" style="max-width:640px;padding:0;border:1px solid rgba(16,185,129,0.45);box-shadow:0 24px 60px rgba(0,0,0,0.75);">
         <!-- Entête Identité Certifiée -->
-        <div style="background:linear-gradient(135deg,#0f172a,#064e3b);padding:18px 22px;border-bottom:1px solid rgba(16,185,129,0.3);display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+        <div class="modal-header" style="background:linear-gradient(135deg,#0f172a,#064e3b);padding:16px 20px;border-bottom:1px solid rgba(16,185,129,0.3);display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
           <div>
             <div style="display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:rgba(16,185,129,0.2);border:1px solid rgba(16,185,129,0.45);color:#34d399;font-size:11px;font-weight:800;margin-bottom:6px;">
               <span>✔️ IDENTITÉ &amp; POSITION GPS VÉRIFIÉES</span>
               <span>•</span>
               <span>${esc(actor.roleBadge)}</span>
             </div>
-            <h3 style="font-size:18px;font-weight:900;color:#ffffff;margin:0;">${esc(actor.name)}</h3>
+            <h3 style="font-size:17px;font-weight:900;color:#ffffff;margin:0;">${esc(actor.name)}</h3>
             <div style="font-size:12.5px;color:#fbbf24;font-weight:700;margin-top:3px;">
               👤 Responsable / Titulaire : ${esc(actor.manager_name)}
             </div>
@@ -471,7 +471,7 @@
           <button type="button" class="btn btn--icon" onclick="document.getElementById('pg-pro-geo-modal').remove()" style="color:#fff;">✕</button>
         </div>
 
-        <div style="padding:18px 22px;max-height:80vh;overflow-y:auto;">
+        <div class="modal-body" style="padding:18px 20px 26px;">
           <!-- Grille Fiche d'Identité Professionnelle -->
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-bottom:14px;">
             <div style="background:rgba(15,23,42,0.8);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px 12px;">

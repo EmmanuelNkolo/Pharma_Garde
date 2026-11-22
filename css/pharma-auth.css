@@ -2,7 +2,7 @@
    Pharma-Garde — Pharmacy Auth (Login / Register / Reset)
    ================================================================ */
 
-#login-screen.pa-screen {
+.pa-screen {
   position: fixed;
   inset: 0;
   z-index: 9000;
@@ -13,7 +13,7 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  padding: 72px 16px 48px;
+  padding: 72px 16px 64px;
 }
 
 .pa-wrap {

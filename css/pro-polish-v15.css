@@ -259,7 +259,7 @@
   -webkit-backdrop-filter: blur(18px) saturate(160%) !important;
   border-bottom: 1px solid rgba(45, 212, 191, 0.22) !important;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.32) !important;
-  z-index: 1200 !important;
+  z-index: 800 !important;
 }
 
 .grossiste-header__left,
@@ -635,4 +635,229 @@
     flex: 1 1 45% !important;
     min-height: 38px !important;
   }
+}
+
+/* ── 8. Z-INDEX & SCROLLING UNIVERSEL DES FENÊTRES MODALES & FORMULAIRES ──
+   Corrige définitivement les fenêtres coupées en haut ou en bas sur tous les
+   écrans (Desktop 1366x768, Zoom Windows 125/150%, Tablette, Mobile Portrait
+   & Paysage) dans les 6 espaces de l'application.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Hiérarchie z-index stricte : aucune barre ne passe devant une modale */
+.app-header,
+.pg-header,
+.pharm-header,
+.grossiste-header {
+  z-index: 800 !important;
+}
+
+.pg-admin-bar {
+  z-index: 4000 !important;
+}
+
+.modal-overlay,
+.pg-modal,
+.pg-cam {
+  z-index: 9500 !important;
+}
+
+#pg-paywall-modal {
+  z-index: 9800 !important;
+}
+
+.pg-admin-modal-overlay {
+  z-index: 10050 !important;
+}
+
+.pg-dialog-overlay {
+  z-index: 10100 !important;
+}
+
+.pg-share-overlay {
+  z-index: 15000 !important;
+}
+
+.toast-container,
+.pg-toast-stack {
+  z-index: 20000 !important;
+}
+
+/* Overlays toujours défilables : align-items: flex-start + margin: auto évite
+   toute coupure du haut de la fenêtre quand le contenu dépasse la hauteur */
+.modal-overlay,
+.pg-admin-modal-overlay,
+.pg-share-overlay,
+.pg-modal,
+.pg-dialog-overlay,
+.pg-cam {
+  align-items: flex-start !important;
+  justify-content: center !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior: contain !important;
+  padding: max(14px, env(safe-area-inset-top)) 12px max(24px, env(safe-area-inset-bottom)) 12px !important;
+}
+
+/* Conteneurs de fenêtres : centrés par margin: auto, flex-column propre */
+.modal-content,
+.pg-admin-modal,
+.pg-share-modal,
+.pg-modal__box,
+.pg-dialog-box,
+.pg-cam__box {
+  margin: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  max-height: calc(100vh - 32px) !important;
+  max-height: calc(100dvh - 32px) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior: contain !important;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(45, 212, 191, 0.5) rgba(15, 23, 42, 0.35);
+}
+
+/* Empêche les champs et boutons des modales plates d'être écrasés au lieu de scroller */
+.modal-content:not(:has(> .modal-body)) > *,
+.pg-modal__box > *,
+.pg-dialog-box > *,
+.pg-cam__box > * {
+  flex-shrink: 0 !important;
+}
+
+/* Modales structurées (En-tête fixe + Corps 100 % défilable sur toute la hauteur restante) */
+.modal-content:has(> .modal-body),
+.pg-admin-modal,
+.pg-share-modal {
+  overflow: hidden !important;
+}
+
+.modal-content:has(> .modal-body) > :not(.modal-body),
+.pg-admin-modal > :not(.pg-admin-modal__body),
+.pg-share-modal > :not(.pg-share-body) {
+  flex-shrink: 0 !important;
+}
+
+.modal-content > .modal-header {
+  padding: 14px 18px !important;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.modal-content > .modal-body,
+.pg-admin-modal__body,
+.pg-share-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior: contain !important;
+  padding-top: 16px !important;
+  padding-bottom: 28px !important;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(45, 212, 191, 0.5) rgba(15, 23, 42, 0.35);
+}
+
+/* Barres de défilement nettement visibles dans les fenêtres et tiroirs */
+.modal-content::-webkit-scrollbar,
+.modal-body::-webkit-scrollbar,
+.pg-admin-modal__body::-webkit-scrollbar,
+.pg-share-body::-webkit-scrollbar,
+.pg-modal__box::-webkit-scrollbar,
+.bottom-sheet::-webkit-scrollbar,
+.delegate-sidebar__content::-webkit-scrollbar,
+#settings-panel::-webkit-scrollbar,
+#g-settings-panel::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+.modal-content::-webkit-scrollbar-thumb,
+.modal-body::-webkit-scrollbar-thumb,
+.pg-admin-modal__body::-webkit-scrollbar-thumb,
+.pg-share-body::-webkit-scrollbar-thumb,
+.pg-modal__box::-webkit-scrollbar-thumb,
+.bottom-sheet::-webkit-scrollbar-thumb,
+.delegate-sidebar__content::-webkit-scrollbar-thumb,
+#settings-panel::-webkit-scrollbar-thumb,
+#g-settings-panel::-webkit-scrollbar-thumb {
+  background: rgba(45, 212, 191, 0.45);
+  border-radius: 999px;
+}
+
+.modal-content::-webkit-scrollbar-thumb:hover,
+.modal-body::-webkit-scrollbar-thumb:hover,
+.pg-admin-modal__body::-webkit-scrollbar-thumb:hover,
+.pg-share-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(52, 211, 153, 0.75);
+}
+
+/* Écrans très courts / Mobile paysage : tout le bloc défile via l'overlay */
+@media (max-height: 520px) {
+  .modal-content,
+  .modal-content:has(> .modal-body),
+  .pg-admin-modal,
+  .pg-share-modal,
+  .pg-modal__box,
+  .pg-dialog-box,
+  .pg-cam__box {
+    max-height: none !important;
+    overflow: visible !important;
+    margin: 0 auto 16px !important;
+  }
+  .modal-content > .modal-body,
+  .pg-admin-modal__body,
+  .pg-share-body {
+    overflow: visible !important;
+    flex: none !important;
+  }
+}
+
+/* Écrans d'authentification & inscription sur les 5 espaces pro : 100 % défilables */
+.pa-screen {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9000 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior: contain !important;
+  padding: 64px 16px 64px !important;
+}
+
+.pa-wrap {
+  margin: auto !important;
+  flex-shrink: 0 !important;
+  width: 100%;
+}
+
+/* Tiroirs paramètres & panneaux latéraux : bas jamais coupé */
+#settings-panel,
+#g-settings-panel {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior: contain !important;
+  padding-bottom: 64px !important;
+}
+
+.bottom-sheet {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+.bottom-sheet__content,
+.delegate-sidebar__content {
+  padding-bottom: 64px !important;
+}
+
+.delegate-sidebar__content {
+  min-height: 0 !important;
+  overflow-y: auto !important;
 }

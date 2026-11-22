@@ -344,7 +344,7 @@
       modal.id = 'patient-teleconsult-modal';
       modal.className = 'modal-overlay';
       modal.innerHTML = `
-        <div class="modal-content" style="max-width:480px; max-height:90vh; overflow-y:auto;">
+        <div class="modal-content" style="max-width:480px;">
           <div class="modal-header">
             <h3 style="margin:0; font-size:16.5px; font-weight:900; color:#38bdf8;">🩺 Nouvelle Téléconsultation Médecin (48h)</h3>
             <button type="button" class="btn btn--icon" onclick="document.getElementById('patient-teleconsult-modal').classList.remove('active')">✕</button>

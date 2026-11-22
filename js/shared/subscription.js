@@ -349,19 +349,19 @@
     modal.style.zIndex = '9800';
 
     modal.innerHTML = `
-      <div class="modal-content" style="max-width:560px;background:#0f172a;border:1px solid rgba(251,191,36,0.35);border-radius:18px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.75);">
-        <div style="background:linear-gradient(135deg,rgba(16,185,129,0.2),rgba(251,191,36,0.12));padding:20px 24px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+      <div class="modal-content" style="max-width:560px;background:#0f172a;border:1px solid rgba(251,191,36,0.35);border-radius:18px;box-shadow:0 24px 60px rgba(0,0,0,0.75);">
+        <div class="modal-header" style="background:linear-gradient(135deg,rgba(16,185,129,0.2),rgba(251,191,36,0.12));padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
           <div>
             <div style="display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:rgba(251,191,36,0.18);color:#fbbf24;font-size:11px;font-weight:800;margin-bottom:6px;">
               💎 PHARMA-GARDE PRO · CAMEROUN
             </div>
-            <h3 style="font-size:18px;font-weight:900;color:#fff;margin:0;">${esc(roleConfig.title)}</h3>
-            <p style="font-size:12.5px;color:#94a3b8;margin:4px 0 0;line-height:1.45;">${esc(roleConfig.subtitle)}</p>
+            <h3 style="font-size:17px;font-weight:900;color:#fff;margin:0;line-height:1.25;">${esc(roleConfig.title)}</h3>
+            <p style="font-size:12px;color:#94a3b8;margin:4px 0 0;line-height:1.4;">${esc(roleConfig.subtitle)}</p>
           </div>
           <button type="button" id="pg-paywall-close" class="btn btn--icon" style="color:#94a3b8;flex-shrink:0;">✕</button>
         </div>
 
-        <div style="padding:20px 24px;max-height:78vh;overflow-y:auto;">
+        <div class="modal-body" style="padding:18px 20px 28px;">
           ${opts.blockedFeature ? `
             <div style="background:rgba(239,68,68,0.14);border:1px solid rgba(239,68,68,0.4);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12.5px;color:#fca5a5;">
               🔒 <strong>Accès réservé aux comptes actifs :</strong> Souscrivez ou renouvelez votre abonnement pour utiliser <em>${esc(opts.blockedFeature)}</em>.

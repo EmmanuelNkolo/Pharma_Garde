@@ -100,7 +100,7 @@
       modal.id = 'delegate-pro-modal';
       modal.className = 'modal-overlay';
       modal.innerHTML = `
-        <div class="modal-content" style="max-width:760px; max-height:92vh; overflow-y:auto;">
+        <div class="modal-content" style="max-width:760px;">
           <div class="modal-header">
             <div>
               <h3 style="margin:0; font-size:17px; font-weight:900; color:#fbbf24;">🗺️ Tournée Optimisée, Compte-Rendu Vocal &amp; Échantillons</h3>

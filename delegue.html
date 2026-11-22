@@ -26,20 +26,20 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="css/design-system.css?v=12.0">
   <link rel="stylesheet" href="css/pro.css?v=12.0">
-  <link rel="stylesheet" href="css/pharma-auth.css?v=12.0">
+  <link rel="stylesheet" href="css/pharma-auth.css?v=15.1">
   <link rel="stylesheet" href="css/delegue-theme.css?v=12.0">
   <link rel="stylesheet" href="css/pg-connect.css?v=12.0">
   <link rel="stylesheet" href="css/pg-share.css?v=12.0">
   <link rel="stylesheet" href="css/admin-portal.css?v=12.0">
   <link rel="stylesheet" href="css/wellness-v12.css?v=12.0">
-  <link rel="stylesheet" href="css/pro-polish-v15.css?v=15.0">
+  <link rel="stylesheet" href="css/pro-polish-v15.css?v=15.1">
 </head>
 <body>
   <div class="app-container">
 
     <!-- ════════════════════ LOGIN SCREEN ════════════════════ -->
-    <div id="login-screen" style="position: fixed; inset: 0; z-index: 9000; background: var(--bg-primary); display: flex; align-items: center; justify-content: center; padding: 24px 16px; overflow-y: auto; -webkit-overflow-scrolling: touch;">
-      <div style="width: 100%; max-width: 420px; margin: auto;">
+    <div id="login-screen" class="pa-screen" style="position: fixed; inset: 0; z-index: 9000; background: var(--bg-primary); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 60px 16px 56px; overflow-y: auto; -webkit-overflow-scrolling: touch;">
+      <div class="pa-wrap" style="width: 100%; max-width: 440px; margin: auto;">
 
         <!-- Language -->
         <div class="lang-switch" style="position: fixed; top: 16px; right: 16px;">
@@ -101,7 +101,7 @@
         </div>
 
         <!-- Register Form -->
-        <div id="register-form" class="glass-card hidden" style="padding: 32px; max-height: 80vh; overflow-y: auto;">
+        <div id="register-form" class="glass-card hidden" style="padding: 28px 24px;">
           <div style="text-align: center; margin-bottom: 24px;">
             <h2 style="font-size: 22px; font-weight: 800; color: var(--amber-400); text-shadow: 0 0 10px rgba(251,191,36,0.3);" data-i18n="del_register_title">Inscription Délégué Médical</h2>
           </div>
@@ -809,17 +809,17 @@
   <script src="js/core/geolocation.js?v=12.0"></script>
   <script src="js/client/location-intel.js?v=12.0"></script>
   <script src="js/shared/network.js?v=12.0"></script>
-  <script src="js/shared/subscription.js?v=15.0"></script>
+  <script src="js/shared/subscription.js?v=15.1"></script>
   <script src="js/shared/charts.js?v=12.0"></script>
   <script src="js/shared/reports.js?v=12.0"></script>
-  <script src="js/shared/pro-geolocation.js?v=12.0"></script>
+  <script src="js/shared/pro-geolocation.js?v=15.1"></script>
   <script src="js/grossiste/auth.js?v=12.0"></script>
   <script src="js/grossiste/catalog.js?v=12.0"></script>
   <script src="js/grossiste/campaigns.js?v=12.0"></script>
   <script src="js/shared/pg-connect.js?v=12.0"></script>
   <script src="js/shared/pg-share.js?v=12.0"></script>
   <script src="js/shared/admin-portal.js?v=15.0"></script>
-  <script src="js/delegue/delegate-pro.js?v=12.0"></script>
+  <script src="js/delegue/delegate-pro.js?v=15.1"></script>
   <script src="js/delegue/delegue.js?v=12.0"></script>
 </body>
 </html>
