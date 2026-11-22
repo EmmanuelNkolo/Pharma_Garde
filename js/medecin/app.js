@@ -412,7 +412,11 @@
           </div>
           <div class="pa-grid-2" style="margin-bottom:10px;">
             <div class="form-group"><label class="form-label">Nom du Patient</label><input type="text" id="rx-patient-name" class="form-input" placeholder="Ex: M. Jean Paul" value="${esc((consults.find((c) => c.id === selectedConsultId) || {}).patient_alias || '')}"></div>
-            <div class="form-group"><label class="form-label">Diagnostic confidentiel</label><input type="text" id="rx-diagnosis" class="form-input" placeholder="Ex: Accès palustre simple"></div>
+            <div class="form-group"><label class="form-label">Code Carnet Patient (DMP Auto)</label><input type="text" id="rx-patient-code" class="form-input" placeholder="Ex : PG-PAT-237890" value="${esc((window.PGPatientDMP && PGPatientDMP.getCurrentPatient() && PGPatientDMP.getCurrentPatient().patient_code) || 'PG-PAT-237890')}" style="text-transform:uppercase; font-family:monospace;"></div>
+          </div>
+          <div class="form-group" style="margin-bottom:10px;">
+            <label class="form-label">Diagnostic confidentiel</label>
+            <input type="text" id="rx-diagnosis" class="form-input" placeholder="Ex: Accès palustre simple">
           </div>
 
           <div style="font-size:12px; font-weight:800; color:#34d399; margin-bottom:6px;">💊 Médicaments prescrits (transmis directement aux pharmacies par le patient)</div>
@@ -490,7 +494,21 @@
         advice: document.getElementById('rx-advice')?.value || '',
         medications: meds
       });
-      toast(`✅ Ordonnance ${rx.rx_code} signée et envoyée au patient !`, 'success');
+      // Téléversement instantané et horodaté dans le Carnet Médical Numérique (DMP) du patient
+      if (window.PGPatientDMP && typeof PGPatientDMP.pushMedicalRecord === 'function') {
+        const targetCode = (document.getElementById('rx-patient-code')?.value || '').trim().toUpperCase() || 'PG-PAT-237890';
+        await PGPatientDMP.pushMedicalRecord({ patient_code: targetCode }, {
+          category: 'prescription',
+          title: `Ordonnance Signée ${rx.rx_code} (${meds.length} médicament(s))`,
+          summary: meds.map((m) => `${m.name}${m.dosage ? ' — ' + m.dosage : ''}${m.duration ? ' (' + m.duration + ')' : ''}`).join(' · '),
+          issuer_type: 'doctor',
+          issuer_id: currentDoctor.id,
+          issuer_name: `${currentDoctor.title} ${currentDoctor.full_name} (${currentDoctor.onmc_number})`,
+          external_ref: rx.rx_code,
+          content_json: { rx_id: rx.id, rx_code: rx.rx_code, diagnosis: rx.diagnosis, advice: rx.advice, medications: meds }
+        });
+      }
+      toast(`✅ Ordonnance ${rx.rx_code} signée et déposée dans le Carnet Médical du patient !`, 'success');
       renderPrescriptionsPanel();
     } catch (err) {
       toast('❌ ' + err.message, 'error');
@@ -625,6 +643,7 @@
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
           <button type="button" class="btn btn--secondary btn--sm" id="btn-prof-sig-clear">🧹 Effacer Signature</button>
           <button type="button" class="btn btn--primary btn--sm" onclick="MedecinApp.saveProfileAndSignature()">💾 Enregistrer Profil &amp; Signature</button>
+          <button type="button" class="btn btn--secondary btn--sm" onclick="MedecinApp.exportFhirCabinetBundle()" style="border-color:rgba(56,189,248,0.45); color:#38bdf8;">🔗 Export FHIR R4 (DPI Cabinet)</button>
         </div>
       </div>
     `;
@@ -645,6 +664,38 @@
     }
     MedecinStore.saveSession(currentDoctor);
     toast('✅ Profil médical et signature manuscrite mis à jour !', 'success');
+  }
+
+  function openPatientDmp() {
+    if (!currentDoctor || !window.PGPatientDMP) return;
+    PGPatientDMP.openProfessionalDmpViewer('doctor', `${currentDoctor.title || 'Dr'} ${currentDoctor.full_name} (${currentDoctor.onmc_number})`);
+  }
+
+  function exportFhirCabinetBundle() {
+    if (!currentDoctor) return;
+    const rxs = MedecinStore.getPrescriptions().filter((r) => r.doctor_id === currentDoctor.id);
+    const bundle = {
+      resourceType: 'Bundle',
+      type: 'collection',
+      timestamp: new Date().toISOString(),
+      practitioner: { name: `${currentDoctor.title} ${currentDoctor.full_name}`, onmc: currentDoctor.onmc_number, specialty: currentDoctor.specialty },
+      entry: rxs.map((r) => ({
+        resource: {
+          resourceType: 'MedicationRequest',
+          id: r.rx_code,
+          status: 'active',
+          authoredOn: r.created_at,
+          subject: { display: r.patient_alias },
+          dosageInstruction: (r.medications || []).map((m) => ({ text: `${m.name} ${m.dosage || ''} ${m.duration || ''}`.trim() }))
+        }
+      }))
+    };
+    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/fhir+json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `PharmaGarde_DPI_FHIR_${currentDoctor.onmc_number}.json`;
+    a.click();
+    toast('🔗 Export HL7 FHIR R4 téléchargé pour votre logiciel de cabinet médical !', 'success');
   }
 
   async function adminEnter() {
@@ -668,7 +719,10 @@
     saveSchedule,
     setApptStatus,
     saveProfileAndSignature,
+    openPatientDmp,
+    exportFhirCabinetBundle,
     adminEnter,
     getCurrentDoctor: () => currentDoctor
   };
 })(window);
+

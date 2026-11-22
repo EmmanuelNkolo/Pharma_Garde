@@ -145,7 +145,8 @@
           <span id="fac-header-name" class="grossiste-gold-title">ÉTABLISSEMENT</span>
           <span id="fac-header-meta" class="grossiste-code-pill">MINSANTE</span>
         </div>
-        <div style="display:flex; align-items:center; gap:8px;">
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <button type="button" class="btn btn--secondary btn--sm" onclick="FacilityApp.openPatientDmp()" style="border-color:rgba(45,212,191,0.5); color:#2dd4bf; font-weight:800;">📂 Carnet Patient</button>
           <div id="fac-sub-badge-slot" data-pg-sub-badge="true"></div>
           <div class="lang-switch">
             <button type="button" class="lang-switch__btn active" data-lang="fr">FR</button>
@@ -156,7 +157,15 @@
       </header>
 
       <nav class="grossiste-nav" aria-label="Pôles Établissement">
-        <button type="button" class="grossiste-tab active" id="ftab-services" onclick="FacilityApp.switchTab('services')">
+        <button type="button" class="grossiste-tab active" id="ftab-analyses" onclick="FacilityApp.switchTab('analyses')">
+          <span class="grossiste-tab__icon">🧪</span>
+          <div><div>Analyses &amp; Résultats</div><div style="font-size:10.5px;opacity:0.75;">SIL/SIH &amp; Dépôt DMP</div></div>
+        </button>
+        <button type="button" class="grossiste-tab" id="ftab-connector" onclick="FacilityApp.switchTab('connector')">
+          <span class="grossiste-tab__icon">🔌</span>
+          <div><div>Connecteur SIL / SIH</div><div style="font-size:10.5px;opacity:0.75;">HL7 · FHIR · API Auto</div></div>
+        </button>
+        <button type="button" class="grossiste-tab" id="ftab-services" onclick="FacilityApp.switchTab('services')">
           <span class="grossiste-tab__icon">🔬</span>
           <div><div>Services &amp; Examens</div><div style="font-size:10.5px;opacity:0.75;">Catalogue &amp; Tarifs</div></div>
         </button>
@@ -176,7 +185,9 @@
 
       <main class="grossiste-main">
         <div id="fac-reminder-banner"></div>
-        <section id="fpanel-services"></section>
+        <section id="fpanel-analyses"></section>
+        <section id="fpanel-connector" style="display:none;"></section>
+        <section id="fpanel-services" style="display:none;"></section>
         <section id="fpanel-promos" style="display:none;"></section>
         <section id="fpanel-bookings" style="display:none;"></section>
         <section id="fpanel-profile" style="display:none;"></section>
@@ -189,15 +200,19 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-  <script src="js/core/supabaseClient.js?v=12.0"></script>
-  <script src="js/data/pharmacies.js?v=12.0"></script>
-  <script src="js/core/core.js?v=12.0"></script>
-  <script src="js/core/i18n.js?v=12.0"></script>
-  <script src="js/shared/network.js?v=12.0"></script>
-  <script src="js/shared/subscription.js?v=12.0"></script>
-  <script src="js/shared/pro-geolocation.js?v=12.0"></script>
-  <script src="js/shared/admin-portal.js?v=12.0"></script>
-  <script src="js/etablissement/store.js?v=12.0"></script>
-  <script src="js/etablissement/app.js?v=12.0"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="js/core/supabaseClient.js?v=13.0"></script>
+  <script src="js/data/pharmacies.js?v=13.0"></script>
+  <script src="js/core/core.js?v=13.0"></script>
+  <script src="js/core/i18n.js?v=13.0"></script>
+  <script src="js/shared/network.js?v=13.0"></script>
+  <script src="js/shared/subscription.js?v=13.0"></script>
+  <script src="js/shared/pro-geolocation.js?v=13.0"></script>
+  <script src="js/shared/admin-portal.js?v=13.0"></script>
+  <script src="js/shared/patient-dmp.js?v=13.0"></script>
+  <script src="js/etablissement/store.js?v=13.0"></script>
+  <script src="js/etablissement/lab-results-module.js?v=13.0"></script>
+  <script src="js/etablissement/app.js?v=13.0"></script>
 </body>
 </html>
+

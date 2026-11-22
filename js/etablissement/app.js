@@ -110,20 +110,27 @@
       PGSubscription.renderHeaderBadge('fac-sub-badge-slot', currentFacility, 'facility');
       PGSubscription.checkAndShowReminders(currentFacility, 'facility', 'fac-reminder-banner');
     }
-    switchTab('services');
+    switchTab('analyses');
   }
 
   function switchTab(tab) {
     activeTab = tab;
-    ['services', 'promos', 'bookings', 'profile'].forEach((t) => {
+    ['analyses', 'connector', 'services', 'promos', 'bookings', 'profile'].forEach((t) => {
       document.getElementById('ftab-' + t)?.classList.toggle('active', t === tab);
       const p = document.getElementById('fpanel-' + t);
       if (p) p.style.display = (t === tab) ? 'block' : 'none';
     });
-    if (tab === 'services') renderServicesPanel();
+    if (tab === 'analyses' && window.PGLabManager) PGLabManager.renderAnalysesPanel(document.getElementById('fpanel-analyses'), currentFacility);
+    else if (tab === 'connector' && window.PGLabManager) PGLabManager.renderConnectorPanel(document.getElementById('fpanel-connector'), currentFacility);
+    else if (tab === 'services') renderServicesPanel();
     else if (tab === 'promos') renderPromosPanel();
     else if (tab === 'bookings') renderBookingsPanel();
     else renderProfilePanel();
+  }
+
+  function openPatientDmp() {
+    if (!currentFacility || !window.PGPatientDMP) return;
+    PGPatientDMP.openProfessionalDmpViewer(currentFacility.facility_type || 'laboratory', currentFacility.name);
   }
 
   function persistFacility() {
@@ -270,8 +277,9 @@
               <div style="font-weight:800; color:#fff;">👤 ${esc(b.patient_name)} · 📞 ${esc(b.patient_phone || '—')}</div>
               <div style="font-size:12px; color:#2dd4bf;">🔬 ${esc(b.service_name)} · 📅 ${esc(b.preferred_date)} ${b.home_sampling ? '· 🏠 Prélèvement à domicile' : ''}</div>
             </div>
-            <div style="display:flex; gap:6px;">
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
               <button type="button" class="btn btn--primary btn--sm" onclick="FacilityApp.setBookingStatus('${esc(b.id)}','confirmed')">✅ Confirmer</button>
+              <button type="button" class="btn btn--secondary btn--sm" onclick="PGLabManager && PGLabManager.prefillFromBooking('${esc(b.patient_name).replace(/'/g, "\\'")}','${esc(b.patient_phone || '')}','${esc(b.service_name).replace(/'/g, "\\'")}')" style="color:#c4b5fd; border-color:rgba(167,139,250,0.45);">🧪 Créer Analyse</button>
               <button type="button" class="btn btn--secondary btn--sm" onclick="FacilityApp.setBookingStatus('${esc(b.id)}','completed')">🏁 Réalisé</button>
             </div>
           </div>
@@ -337,7 +345,9 @@
     removePromo,
     setBookingStatus,
     saveProfile,
+    openPatientDmp,
     adminEnter,
     getCurrentFacility: () => currentFacility
   };
 })(window);
+

@@ -211,3 +211,4 @@ CREATE POLICY "pharmacy_stocks_owner_only" ON public.pharmacy_confidential_stock
 ALTER TABLE IF EXISTS public.responses
   ADD COLUMN IF NOT EXISTS medicines_prices jsonb DEFAULT '{}'::jsonb,
   ADD COLUMN IF NOT EXISTS estimated_price integer DEFAULT 0;
+

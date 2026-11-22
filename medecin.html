@@ -228,7 +228,8 @@
           <button type="button" id="doc-st-offline" class="header-status-btn status-closed" onclick="MedecinApp.toggleStatus('offline')"><span class="dot-status dot-closed"></span> <span>Hors ligne</span></button>
         </div>
 
-        <div style="display:flex; align-items:center; gap:8px;">
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <button type="button" class="btn btn--secondary btn--sm" onclick="MedecinApp.openPatientDmp()" style="border-color:rgba(45,212,191,0.5); color:#2dd4bf; font-weight:800;">📂 Carnet Patient</button>
           <div id="doc-sub-badge-slot" data-pg-sub-badge="true"></div>
           <div class="lang-switch">
             <button type="button" class="lang-switch__btn active" data-lang="fr">FR</button>
@@ -286,9 +287,11 @@
   <script src="js/core/i18n.js?v=12.0"></script>
   <script src="js/shared/network.js?v=12.0"></script>
   <script src="js/shared/subscription.js?v=12.0"></script>
-  <script src="js/shared/pro-geolocation.js?v=12.0"></script>
-  <script src="js/shared/admin-portal.js?v=12.0"></script>
-  <script src="js/medecin/store.js?v=12.0"></script>
-  <script src="js/medecin/app.js?v=12.0"></script>
+  <script src="js/shared/pro-geolocation.js?v=13.0"></script>
+  <script src="js/shared/admin-portal.js?v=13.0"></script>
+  <script src="js/shared/patient-dmp.js?v=13.0"></script>
+  <script src="js/medecin/store.js?v=13.0"></script>
+  <script src="js/medecin/app.js?v=13.0"></script>
 </body>
 </html>
+

@@ -413,9 +413,14 @@
                 Traitement des demandes en direct, réservations 60 min, et vérification des codes de retrait patient.
               </p>
             </div>
-            <button type="button" class="btn btn--secondary" onclick="PharmDash.openUniversalVerification('patient')" style="border-color:rgba(16,185,129,0.5); color:#34d399; font-weight:800; gap:8px;">
-              <span>🔍</span> <span>Vérifier Code Patient (PG-XXXX)</span>
-            </button>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button type="button" class="btn btn--secondary" onclick="PharmDash.openPatientDmp()" style="border-color:rgba(45,212,191,0.5); color:#2dd4bf; font-weight:800; gap:8px;">
+                <span>📂</span> <span>Carnet Patient (Code Partage)</span>
+              </button>
+              <button type="button" class="btn btn--secondary" onclick="PharmDash.openUniversalVerification('patient')" style="border-color:rgba(16,185,129,0.5); color:#34d399; font-weight:800; gap:8px;">
+                <span>🔍</span> <span>Vérifier Code Patient (PG-XXXX)</span>
+              </button>
+            </div>
           </div>
 
           <!-- Barre de Sélection : Mode Manuel vs Réponse Automatisée (Connecteur Officine) -->
@@ -1196,9 +1201,10 @@
   <script src="js/grossiste/catalog.js?v=12.0"></script>
   <script src="js/grossiste/orders.js?v=12.0"></script>
   <script src="js/grossiste/campaigns.js?v=12.0"></script>
-  <script src="js/pharmacie/pharmacien.js?v=12.0"></script>
-  <script src="js/pharmacie/pharmacie-spaces-controller.js?v=12.0"></script>
-  <script src="js/pharmacie/pharmacy-pro.js?v=12.0"></script>
-  <script src="js/shared/admin-portal.js?v=12.0"></script>
+  <script src="js/pharmacie/pharmacien.js?v=13.0"></script>
+  <script src="js/pharmacie/pharmacie-spaces-controller.js?v=13.0"></script>
+  <script src="js/pharmacie/pharmacy-pro.js?v=13.0"></script>
+  <script src="js/shared/patient-dmp.js?v=13.0"></script>
+  <script src="js/shared/admin-portal.js?v=13.0"></script>
 </body>
 </html>

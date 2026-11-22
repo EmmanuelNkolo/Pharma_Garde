@@ -107,6 +107,8 @@
       renderFacilitiesView(host, ['laboratory', 'imaging'], '🔬 Laboratoires d\'Analyses & Imagerie');
     } else if (currentMode === 'hospitals') {
       renderFacilitiesView(host, ['hospital', 'clinic'], '🏥 Hôpitaux & Cliniques');
+    } else if (currentMode === 'dmp' && window.PGPatientDmpUI) {
+      PGPatientDmpUI.renderDmpView(host);
     }
   }
 
@@ -417,8 +419,10 @@
       <button type="button" class="patient-hub-tab" data-hub-mode="doctors" onclick="PGPatientCare.switchMode('doctors')"><span>🩺</span><span>Médecins</span></button>
       <button type="button" class="patient-hub-tab" data-hub-mode="labs" onclick="PGPatientCare.switchMode('labs')"><span>🔬</span><span>Labos</span></button>
       <button type="button" class="patient-hub-tab" data-hub-mode="hospitals" onclick="PGPatientCare.switchMode('hospitals')"><span>🏥</span><span>Hôpitaux</span></button>
+      <button type="button" class="patient-hub-tab" data-hub-mode="dmp" onclick="PGPatientCare.switchMode('dmp')" style="position:relative;"><span>📁</span><span>Carnet</span><span id="patient-dmp-unread-badge" class="dmp-unread-pill" style="display:none;"></span></button>
     `;
     content.insertBefore(tabs, mainActions);
+    if (window.PGPatientDmpUI) PGPatientDmpUI.updateUnreadBadge();
 
     const panel = document.createElement('div');
     panel.id = 'patient-care-panel';
@@ -438,6 +442,7 @@
 
   window.PGPatientCare = {
     switchMode,
+    getMode: () => currentMode,
     openTeleconsultModal,
     submitTeleconsult,
     sendPatientMessage,
@@ -450,3 +455,4 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountPatientHub);
   else mountPatientHub();
 })(window);
+

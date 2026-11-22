@@ -1193,9 +1193,20 @@ const App = (() => {
         return;
       }
 
-      // Sauvegarde privée locale dans le Carnet d'ordonnances du patient
+      // Sauvegarde privée locale dans le Carnet d'ordonnances + Carnet Médical Numérique Souverain (DMP)
       if (window.PGPatientPro && typeof PGPatientPro.recordPrescriptionSearch === 'function') {
         PGPatientPro.recordPrescriptionSearch(selectedMedicines, insuranceName);
+      }
+      if (window.PGPatientDMP && PGPatientDMP.getCurrentPatient()) {
+        const curPat = PGPatientDMP.getCurrentPatient();
+        PGPatientDMP.pushMedicalRecord({ patient_code: curPat.patient_code }, {
+          category: 'pharmacy_dispensation',
+          title: `Recherche Médicaments en Pharmacie (${selectedMedicines.length})`,
+          summary: selectedMedicines.join(', ') + (insuranceName ? ` · Assurance : ${insuranceName}` : ''),
+          issuer_type: 'pharmacy',
+          issuer_name: 'Réseau Officines Pharma-Garde',
+          content_json: { medicines: selectedMedicines, insurance: insuranceName, radius: currentRadius }
+        });
       }
 
       // Store in localStorage

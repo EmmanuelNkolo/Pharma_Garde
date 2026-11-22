@@ -2699,6 +2699,11 @@
     // Statistics 4 Subsections
     showStatSubSection,
     renderTopMeds,
+    openPatientDmp: () => {
+      if (window.PGPatientDMP && typeof PGPatientDMP.openProfessionalDmpViewer === 'function') {
+        PGPatientDMP.openProfessionalDmpViewer('pharmacy', currentPharmacy ? currentPharmacy.name : 'Officine Pharma-Garde');
+      }
+    },
     getCurrentPharmacy: () => currentPharmacy
   };
 
