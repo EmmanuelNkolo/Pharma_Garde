@@ -622,10 +622,12 @@
     }
   }
 
-  // Back from the email link: let the user choose a new password
+  // Back from the email link: let the user choose a new password (non-blocking modal)
   async function handleRecoveryReturn() {
     showAuthView('login');
-    const pwd = window.prompt('Choisissez votre nouveau mot de passe (8 caractères min., 1 majuscule, 1 minuscule, 1 chiffre) :');
+    const pwd = (window.PG && PG.promptModal)
+      ? await PG.promptModal('Nouveau mot de passe', '8 caractères min., 1 majuscule, 1 minuscule, 1 chiffre :', { type: 'password', placeholder: '••••••••' })
+      : null;
     if (!pwd) return;
     const c = passwordChecks(pwd);
     if (!(c.len && c.upper && c.digit && c.lower)) { showToast('Mot de passe trop faible. Recommencez depuis le lien reçu.', 'error'); return; }
@@ -792,7 +794,7 @@
     const msgEl = document.getElementById('toast-message');
     if (!toast || !msgEl) return;
     toast.className = 'toast toast--' + type;
-    msgEl.textContent = message;
+    msgEl.textContent = (window.I18n && typeof I18n.translateText === 'function') ? I18n.translateText(String(message || '')) : message;
     toast.classList.add('show');
     clearTimeout(toast._timer);
     toast._timer = setTimeout(() => toast.classList.remove('show'), 3800);
@@ -1056,7 +1058,7 @@
 
   function renderStockTable(products) {
     window.pharmacyStock = pharmacyStock;
-    const tbodies = document.querySelectorAll('#stock-table-body');
+    const tbodies = document.querySelectorAll('.js-stock-table-body, #stock-table-body');
     if (!tbodies || tbodies.length === 0) return;
 
     if (!products || products.length === 0) {
@@ -1118,8 +1120,10 @@
     }
   }
 
-  function quickAddStockProduct() {
-    const name = window.prompt("Nom du produit à ajouter à l'inventaire :");
+  async function quickAddStockProduct() {
+    const name = (window.PG && PG.promptModal)
+      ? await PG.promptModal('Ajouter un médicament au stock', "Saisissez le nom du produit à ajouter à l'inventaire :", { placeholder: 'Ex: Doliprane 1000mg' })
+      : null;
     if (!name || !name.trim()) return;
     const cleanName = name.trim();
     if (pharmacyStock.some(p => p.name.toLowerCase() === cleanName.toLowerCase())) {
@@ -1673,8 +1677,11 @@
     }).join('');
   }
 
-  function cancelReservation(reservationId) {
-    if (!confirm('Voulez-vous vraiment annuler cette réservation de 60 minutes ?')) return;
+  async function cancelReservation(reservationId) {
+    const ok = (window.PG && PG.confirmModal)
+      ? await PG.confirmModal('Annuler la réservation', 'Voulez-vous vraiment annuler cette réservation de 60 minutes ?')
+      : true;
+    if (!ok) return;
     activeReservationsList = activeReservationsList.filter(r => r.id !== reservationId);
     renderActiveReservations();
     try {
@@ -2427,8 +2434,10 @@
     } catch (e) {}
   }
 
+  let expirationCheckTimer = null;
   function startExpirationChecker() {
-    setInterval(() => {
+    if (expirationCheckTimer) clearInterval(expirationCheckTimer);
+    expirationCheckTimer = setInterval(() => {
       // Re-render active reservations countdowns
       renderActiveReservations();
     }, 15000);
@@ -2520,12 +2529,46 @@
     }
   }
 
+  async function adminEnter(customPharmacy) {
+    let target = customPharmacy || null;
+    if (!target && window.supabase) {
+      try {
+        const { data } = await supabase.from('pharmacies').select('*').order('created_at', { ascending: false }).limit(1);
+        if (data && data.length > 0) target = data[0];
+      } catch (e) {}
+    }
+    if (!target) {
+      target = {
+        id: 'admin_pharmacy_master',
+        name: 'ADMINISTRATION OFFICINE (SUPER-ADMIN)',
+        manager_name: 'Super Administrateur Pharma-Garde',
+        license_number: 'ONPC-ADMIN-237',
+        city: 'Douala',
+        quarter: 'Akwa',
+        address: 'Douala, Cameroun',
+        phone: '694929909',
+        whatsapp: '694929909',
+        email: 'admin@pharmagarde.cm',
+        lat: 4.0511,
+        lng: 9.7085,
+        status: 'guard',
+        is_open: true,
+        is_on_duty: true,
+        hours: '24h/24'
+      };
+    }
+    currentPharmacy = Object.assign({}, target, { _isAdminPreview: true });
+    saveSession(currentPharmacy);
+    showDashboard();
+  }
+
   // ═══════════════════════════════════════════════════════
   //  PUBLIC INTERFACE (WINDOW.PHARMDASH)
   // ═══════════════════════════════════════════════════════
   window.PharmDash = {
     clearSession,
     handleLogout,
+    adminEnter,
     // Navigation & Tabs
     switchMainTab,
     toggleStatus: togglePharmacyStatus,

@@ -142,84 +142,72 @@
     return s;
   }
 
+  async function hashPassword(pwd) {
+    const data = new TextEncoder().encode('PG_WS_AUTH::' + String(pwd || ''));
+    if (window.crypto && window.crypto.subtle) {
+      const buf = await window.crypto.subtle.digest('SHA-256', data);
+      return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+    }
+    return String(pwd || '');
+  }
+
   async function login(email, password) {
     const cleanEmail = String(email || '').trim().toLowerCase();
     if (!cleanEmail || !password) {
       throw new Error('Veuillez renseigner votre email professionnel et votre mot de passe.');
     }
 
-    // 1. Tenter l'authentification Supabase si disponible
+    // 1. Authentification Supabase sécurisée (vérification réelle du mot de passe)
     if (window.supabase && window.supabase.auth) {
-      try {
-        const { data: authData, error: authErr } = await window.supabase.auth.signInWithPassword({
-          email: cleanEmail,
-          password
-        });
-        if (!authErr && authData && authData.user) {
-          const { data: wsRow } = await window.supabase
-            .from('wholesalers')
-            .select('*')
-            .or(`id.eq.${authData.user.id},email.eq.${cleanEmail}`)
-            .maybeSingle();
-
-          if (wsRow) {
-            saveSession(wsRow);
-            return wsRow;
-          }
-        }
-
-        // Recherche directe dans la table wholesalers (mode hybride)
-        const { data: directRow } = await window.supabase
+      const { data: authData, error: authErr } = await window.supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password
+      });
+      if (!authErr && authData && authData.user) {
+        const { data: wsRow } = await window.supabase
           .from('wholesalers')
           .select('*')
-          .eq('email', cleanEmail)
+          .or(`id.eq.${authData.user.id},email.eq.${cleanEmail}`)
           .maybeSingle();
 
-        if (directRow) {
-          saveSession(directRow);
-          return directRow;
+        if (wsRow) {
+          saveSession(wsRow);
+          return wsRow;
         }
-      } catch (e) {}
+      } else if (authErr && /invalid login/i.test(authErr.message || '')) {
+        // Ne pas contourner un mot de passe erroné sur un compte Supabase existant,
+        // vérifier uniquement les comptes locaux inscrits avec empreinte SHA-256.
+      }
     }
 
-    // 2. Recherche dans l'annuaire local ou connexion démo rapide
+    // 2. Vérification sécurisée pour les comptes inscrits localement (hors-ligne)
     const dir = getDirectory();
     const found = dir.find(w => (w.email || '').toLowerCase() === cleanEmail);
-    if (found) {
-      saveSession(found);
-      return found;
+    if (found && found._local_pwd_hash) {
+      const hashed = await hashPassword(password);
+      if (hashed === found._local_pwd_hash) {
+        saveSession(found);
+        return found;
+      }
+      throw new Error('Mot de passe incorrect.');
     }
 
-    // Si email inconnu mais format valide, créer ou connecter un profil grossiste
-    if (/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(cleanEmail) && password.length >= 6) {
-      const namePart = cleanEmail.split('@')[0].replace(/[._-]/g, ' ').toUpperCase();
-      const autoWs = {
-        id: 'ws_' + Date.now(),
-        wholesaler_code: generateCode(),
-        company_name: namePart.includes('GROSSISTE') ? namePart : ('GROSSISTE ' + namePart),
-        manager_name: 'Dr. ' + namePart,
-        license_number: 'DPML-GR-2026-' + Math.floor(100 + Math.random() * 900),
-        email: cleanEmail,
-        phone: '699001122',
-        whatsapp: '699001122',
-        city: 'Douala',
-        quarter: 'Akwa',
-        address: 'Douala, Cameroun',
-        lat: 4.0511,
-        lng: 9.7679,
-        delivery_zones: ['Douala', 'Yaoundé'],
-        min_order_amount: 50000,
-        delivery_delay_hours: 12,
-        opening_hours: '07:30 - 18:30',
-        status: 'open',
-        subscription_status: 'trial',
-        subscription_plan: 'trial'
-      };
-      saveSession(autoWs);
-      return autoWs;
-    }
+    throw new Error('Identifiants incorrects ou compte grossiste introuvable. Utilisez « Inscrire mon établissement » ou un compte démo.');
+  }
 
-    throw new Error('Identifiants incorrects ou compte grossiste introuvable.');
+  async function resetPassword(email) {
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(cleanEmail)) {
+      throw new Error('Veuillez saisir une adresse email professionnelle valide.');
+    }
+    if (!window.supabase || !window.supabase.auth) {
+      throw new Error('Service d\'authentification indisponible.');
+    }
+    const { error } = await window.supabase.auth.resetPasswordForEmail(cleanEmail, {
+      redirectTo: window.location.origin + '/grossiste.html?reset=true'
+    });
+    if (error) throw error;
+    return true;
   }
 
   async function register(payload) {
@@ -275,6 +263,7 @@
       } catch (e) {}
     }
 
+    newWholesaler._local_pwd_hash = await hashPassword(p.password);
     saveSession(newWholesaler);
     return newWholesaler;
   }
@@ -288,7 +277,8 @@
     saveSession,
     clearSession,
     login,
-    register
+    register,
+    resetPassword
   };
 })(window);
 

@@ -86,7 +86,8 @@
     }
     const el = document.createElement('div');
     el.className = 'pg-toast pg-toast--' + (type || 'success');
-    el.textContent = message;
+    const txt = (window.I18n && typeof I18n.translateText === 'function') ? I18n.translateText(String(message || '')) : message;
+    el.textContent = txt;
     stack.appendChild(el);
     while (stack.children.length > 3) stack.removeChild(stack.firstChild);
     setTimeout(() => { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 320); }, 3800);
@@ -380,12 +381,63 @@
     });
   }
 
+  /** Modale de confirmation non-bloquante (remplace window.confirm) */
+  function confirmModal(title, message, opts) {
+    const o = opts || {};
+    const trTxt = (s) => (window.I18n && I18n.translateText) ? I18n.translateText(s) : s;
+    return new Promise((resolve) => {
+      const ov = document.createElement('div');
+      ov.className = 'pg-dialog-overlay';
+      ov.innerHTML = `<div class="pg-dialog-box">
+        <h3>${esc(trTxt(title || 'Confirmation'))}</h3>
+        <p>${esc(trTxt(message || ''))}</p>
+        <div class="pg-dialog-actions">
+          <button type="button" class="btn btn--secondary btn--sm" data-dlg="no">${esc(trTxt(o.cancelText || 'Annuler'))}</button>
+          <button type="button" class="btn btn--primary btn--sm" data-dlg="yes">${esc(trTxt(o.okText || 'Confirmer'))}</button>
+        </div>
+      </div>`;
+      const done = (v) => { ov.remove(); resolve(v); };
+      ov.addEventListener('click', (e) => { if (e.target === ov) done(false); });
+      ov.querySelector('[data-dlg="no"]').addEventListener('click', () => done(false));
+      ov.querySelector('[data-dlg="yes"]').addEventListener('click', () => done(true));
+      document.body.appendChild(ov);
+    });
+  }
+
+  /** Modale de saisie non-bloquante (remplace window.prompt) */
+  function promptModal(title, message, opts) {
+    const o = opts || {};
+    const trTxt = (s) => (window.I18n && I18n.translateText) ? I18n.translateText(s) : s;
+    return new Promise((resolve) => {
+      const ov = document.createElement('div');
+      ov.className = 'pg-dialog-overlay';
+      const inputType = o.type === 'password' ? 'password' : 'text';
+      ov.innerHTML = `<div class="pg-dialog-box">
+        <h3>${esc(trTxt(title || 'Saisie'))}</h3>
+        ${message ? `<p>${esc(trTxt(message))}</p>` : ''}
+        <input type="${inputType}" class="form-input" id="pg-prompt-field" value="${esc(o.defaultValue || '')}" placeholder="${esc(trTxt(o.placeholder || ''))}">
+        <div class="pg-dialog-actions">
+          <button type="button" class="btn btn--secondary btn--sm" data-dlg="no">${esc(trTxt(o.cancelText || 'Annuler'))}</button>
+          <button type="button" class="btn btn--primary btn--sm" data-dlg="yes">${esc(trTxt(o.okText || 'Valider'))}</button>
+        </div>
+      </div>`;
+      const field = ov.querySelector('#pg-prompt-field');
+      const done = (v) => { ov.remove(); resolve(v); };
+      ov.addEventListener('click', (e) => { if (e.target === ov) done(null); });
+      ov.querySelector('[data-dlg="no"]').addEventListener('click', () => done(null));
+      ov.querySelector('[data-dlg="yes"]').addEventListener('click', () => done(field.value));
+      field.addEventListener('keydown', (e) => { if (e.key === 'Enter') done(field.value); if (e.key === 'Escape') done(null); });
+      document.body.appendChild(ov);
+      setTimeout(() => field.focus(), 50);
+    });
+  }
+
   window.PG = {
     esc, code, normalize, cleanText, isEmail, phoneDigits, telLink, waLink, haversine,
     fmtDate, fmtTime, fmtDateTime, timeAgo, periodStart, PERIOD_LABELS, tr,
     toast, sound, locate, reverse, searchPlace, db,
     PROMO_STATUS, VISIT_STATUS, OBJECT_LABELS, chip, table, exportCSV, exportPDF, reportShell, reportTable,
-    openModal, closeModal, busy, panelToggle, toggleFullscreen, throttle, syncHeaderHeight,
+    openModal, closeModal, confirmModal, promptModal, busy, panelToggle, toggleFullscreen, throttle, syncHeaderHeight,
     baseMap, meIcon, pharmacyIcon, radiusZoom,
   };
 

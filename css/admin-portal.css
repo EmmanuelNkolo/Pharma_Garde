@@ -1,0 +1,307 @@
+/* ═══════════════════════════════════════════════════════════════════
+   PHARMA-GARDE v10 — PORTAIL SUPER-ADMINISTRATEUR PLATEFORME
+   Esthétique Exécutive Or & Bleu Nuit (harmonisée avec Espace Grossiste)
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Barre flottante Super-Admin (visible uniquement quand l'Admin est connecté) */
+.pg-admin-bar {
+  position: fixed;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9950;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  max-width: calc(100vw - 20px);
+  overflow-x: auto;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.96));
+  border: 1.5px solid rgba(251, 191, 36, 0.65);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65), 0 0 24px rgba(251, 191, 36, 0.22);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.pg-admin-bar__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #fbbf24, #d97706);
+  color: #0f172a;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.pg-admin-bar__sep {
+  width: 1px;
+  height: 20px;
+  background: rgba(148, 163, 184, 0.25);
+  flex-shrink: 0;
+}
+
+.pg-admin-bar__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(255, 255, 255, 0.05);
+  color: #e2e8f0;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.18s ease;
+  text-decoration: none;
+}
+
+.pg-admin-bar__btn:hover,
+.pg-admin-bar__btn.active {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: #34d399;
+  color: #34d399;
+}
+
+.pg-admin-bar__btn--gold {
+  background: rgba(251, 191, 36, 0.16);
+  border-color: rgba(251, 191, 36, 0.55);
+  color: #fbbf24;
+}
+
+.pg-admin-bar__btn--gold:hover {
+  background: rgba(251, 191, 36, 0.3);
+  color: #fde68a;
+}
+
+.pg-admin-bar__btn--danger {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #f87171;
+}
+
+.pg-admin-bar__btn--danger:hover {
+  background: rgba(239, 68, 68, 0.28);
+  color: #fecaca;
+}
+
+/* Bouton discret d'accès Admin sur les écrans d'authentification */
+.pg-admin-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  margin-top: 12px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.12), rgba(217, 119, 6, 0.08));
+  border: 1px dashed rgba(251, 191, 36, 0.55);
+  color: #fbbf24;
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pg-admin-trigger:hover {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.24), rgba(217, 119, 6, 0.18));
+  border-style: solid;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(251, 191, 36, 0.2);
+}
+
+/* Modale Super-Admin & Console de Pilotage */
+.pg-admin-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  background: rgba(2, 6, 23, 0.82);
+  backdrop-filter: blur(8px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.pg-admin-modal-overlay.active {
+  display: flex;
+}
+
+.pg-admin-modal {
+  width: 100%;
+  max-width: 960px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #0f172a, #090e1a);
+  border: 1.5px solid rgba(251, 191, 36, 0.45);
+  border-radius: 20px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.75), 0 0 36px rgba(251, 191, 36, 0.14);
+  overflow: hidden;
+  color: #f8fafc;
+}
+
+.pg-admin-modal--sm {
+  max-width: 440px;
+}
+
+.pg-admin-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+  background: rgba(251, 191, 36, 0.06);
+}
+
+.pg-admin-modal__title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 900;
+  color: #fbbf24;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pg-admin-modal__tabs {
+  display: flex;
+  gap: 8px;
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  overflow-x: auto;
+}
+
+.pg-admin-tab {
+  padding: 7px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(255, 255, 255, 0.04);
+  color: #cbd5e1;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.18s ease;
+}
+
+.pg-admin-tab.active,
+.pg-admin-tab:hover {
+  background: rgba(251, 191, 36, 0.18);
+  border-color: rgba(251, 191, 36, 0.65);
+  color: #fbbf24;
+}
+
+.pg-admin-modal__body {
+  padding: 18px 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.pg-admin-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.pg-admin-kpi {
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(30, 41, 59, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.pg-admin-kpi__label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pg-admin-kpi__val {
+  font-size: 26px;
+  font-weight: 900;
+  color: #34d399;
+  margin-top: 4px;
+}
+
+.pg-admin-kpi__val--gold { color: #fbbf24; }
+.pg-admin-kpi__val--blue { color: #60a5fa; }
+
+.pg-admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.pg-admin-table th,
+.pg-admin-table td {
+  padding: 10px 10px;
+  text-align: left;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.pg-admin-table th {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #94a3b8;
+  font-weight: 800;
+}
+
+/* Modale de confirmation / saisie non-bloquante (remplace prompt / confirm natifs) */
+.pg-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10100;
+  background: rgba(2, 6, 23, 0.78);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.pg-dialog-box {
+  width: 100%;
+  max-width: 420px;
+  background: #0f172a;
+  border: 1px solid rgba(52, 211, 153, 0.45);
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65);
+  color: #f8fafc;
+}
+
+.pg-dialog-box h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 800;
+  color: #34d399;
+}
+
+.pg-dialog-box p {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: #cbd5e1;
+  line-height: 1.5;
+}
+
+.pg-dialog-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}

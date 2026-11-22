@@ -1543,5 +1543,53 @@
   font-weight: 700;
 }
 
+/* 7. Autocomplétion Médicaments (Espace Client) */
+.autocomplete-list {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 950;
+  margin-top: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  background: #0f172a;
+  border: 1.5px solid rgba(52, 211, 153, 0.45);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65);
+}
+
+.autocomplete-list.visible {
+  display: block;
+}
+
+.autocomplete-item {
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #e2e8f0;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  transition: background 0.15s ease;
+}
+
+.autocomplete-item:last-child {
+  border-bottom: none;
+}
+
+.autocomplete-item:hover {
+  background: rgba(16, 185, 129, 0.18);
+  color: #ffffff;
+}
+
+.autocomplete-item mark {
+  background: rgba(251, 191, 36, 0.25);
+  color: #fbbf24;
+  border-radius: 3px;
+  padding: 0 2px;
+  font-weight: 800;
+}
+
+
 
 

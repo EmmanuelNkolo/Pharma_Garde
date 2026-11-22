@@ -42,9 +42,10 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
   <!-- Design System & Modules -->
-  <link rel="stylesheet" href="css/design-system.css?v=10.0">
-  <link rel="stylesheet" href="css/pro.css?v=10.0">
-  <link rel="stylesheet" href="css/pg-share.css?v=10.0">
+  <link rel="stylesheet" href="css/design-system.css?v=10.1">
+  <link rel="stylesheet" href="css/pro.css?v=10.1">
+  <link rel="stylesheet" href="css/pg-share.css?v=10.1">
+  <link rel="stylesheet" href="css/admin-portal.css?v=10.1">
 </head>
 <body>
   <div class="app-container">
@@ -309,12 +310,13 @@
         <div class="modal-body">
           <!-- Step 1: Medicine Input -->
           <div id="search-step-1">
-            <div class="form-group">
+            <div class="form-group" style="position: relative;">
               <label class="form-label" data-i18n="search_medicine">Médicament</label>
               <div style="display: flex; gap: 8px; align-items: stretch;">
-                <input type="text" id="medicine-input" class="form-input" style="flex: 1;" data-i18n-placeholder="search_placeholder" placeholder="Nom du médicament...">
+                <input type="text" id="medicine-input" class="form-input" style="flex: 1;" data-i18n-placeholder="search_placeholder" placeholder="Nom du médicament..." autocomplete="off">
                 <button id="add-medicine-btn" class="btn btn--secondary btn--sm" style="min-height: 46px; padding: 0 18px; flex-shrink: 0;">+ Ajouter</button>
               </div>
+              <div id="autocomplete-list" class="autocomplete-list"></div>
             </div>
             <div id="medicine-tags" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 12px;"></div>
             <div class="form-group" style="margin-top: 16px;">
@@ -368,6 +370,9 @@
             </div>
             <button id="btn-confirm-payment" class="btn btn--primary btn--block" style="margin-top: 16px;" data-i18n="payment_confirm">
               Confirmer le paiement
+            </button>
+            <button type="button" id="btn-back-search" class="btn btn--ghost btn--block" style="margin-top: 8px;">
+              ← Retour à la recherche
             </button>
           </div>
 
@@ -432,6 +437,49 @@
       <div id="ocr-backdrop" style="position: absolute; inset: 0; z-index: -1; background: rgba(0,0,0,0.5);"></div>
     </div>
 
+    <!-- ════════════════════════════════════════════════════════
+         DETAIL PHARMACY MODAL
+         ════════════════════════════════════════════════════════ -->
+    <div id="detail-modal" class="modal-overlay">
+      <div id="detail-backdrop" style="position: absolute; inset: 0; z-index: -1;"></div>
+      <div class="modal-content" style="max-width: 440px;">
+        <div class="modal-header">
+          <div style="min-width: 0;">
+            <h3 id="detail-name" style="margin: 0; font-size: 17px; font-weight: 800; color: #fff;">Pharmacie</h3>
+            <div id="detail-badge" style="margin-top: 4px;"></div>
+          </div>
+          <button type="button" class="btn btn--icon" onclick="document.getElementById('detail-modal').classList.remove('active')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="modal-body" style="padding: 16px 20px 22px;">
+          <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; display: flex; align-items: center; gap: 6px;">
+            <span>📍</span> <span id="detail-address">—</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px;">
+            <div style="background: rgba(255,255,255,0.04); border: 1px solid var(--border-default); border-radius: 10px; padding: 10px; text-align: center;">
+              <div style="font-size: 10.5px; color: var(--text-muted);">Distance</div>
+              <div style="font-size: 15px; font-weight: 800; color: var(--emerald-400);"><span id="detail-distance">—</span> km</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.04); border: 1px solid var(--border-default); border-radius: 10px; padding: 10px; text-align: center;">
+              <div style="font-size: 10.5px; color: var(--text-muted);">Statut</div>
+              <div id="detail-status-text" style="font-size: 14px; font-weight: 800;">—</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.04); border: 1px solid var(--border-default); border-radius: 10px; padding: 10px; text-align: center;">
+              <div style="font-size: 10.5px; color: var(--text-muted);">Horaires</div>
+              <div id="detail-hours" style="font-size: 12px; font-weight: 700; color: #e2e8f0;">—</div>
+            </div>
+          </div>
+          <span id="detail-rating" style="display:none;"></span>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+            <button type="button" id="detail-call" class="pharma-btn btn-call">📞 Appeler</button>
+            <button type="button" id="detail-whatsapp" class="pharma-btn btn-whatsapp">💬 WhatsApp</button>
+            <button type="button" id="detail-route" class="pharma-btn btn-route">🧭 Y aller</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="toast-container">
       <div id="toast" class="toast toast--success"><span id="toast-message"></span></div>
     </div>
@@ -442,18 +490,19 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <!-- Tesseract (OCR ordonnance) est chargé à la demande par js/client/app.js -->
-  <script src="js/core/supabaseClient.js?v=10.0"></script>
-  <script src="js/shared/network.js?v=10.0"></script>
-  <script src="js/data/medicines.js?v=10.0"></script>
-  <script src="js/data/pharmacies.js?v=10.0"></script>
-  <script src="js/shared/pro-geolocation.js?v=10.0"></script>
-  <script src="js/core/core.js?v=10.0"></script>
-  <script src="js/core/i18n.js?v=10.0"></script>
-  <script src="js/core/geolocation.js?v=10.0"></script>
-  <script src="js/client/location-intel.js?v=10.0"></script>
-  <script src="js/client/pharmacy-service.js?v=10.0"></script>
-  <script src="js/client/payment.js?v=10.0"></script>
-  <script src="js/shared/pg-share.js?v=10.0"></script>
-  <script src="js/client/app.js?v=10.0"></script>
+  <script src="js/core/supabaseClient.js?v=10.1"></script>
+  <script src="js/shared/network.js?v=10.1"></script>
+  <script src="js/data/medicines.js?v=10.1"></script>
+  <script src="js/data/pharmacies.js?v=10.1"></script>
+  <script src="js/shared/pro-geolocation.js?v=10.1"></script>
+  <script src="js/core/core.js?v=10.1"></script>
+  <script src="js/core/i18n.js?v=10.1"></script>
+  <script src="js/core/geolocation.js?v=10.1"></script>
+  <script src="js/client/location-intel.js?v=10.1"></script>
+  <script src="js/client/pharmacy-service.js?v=10.1"></script>
+  <script src="js/client/payment.js?v=10.1"></script>
+  <script src="js/shared/pg-share.js?v=10.1"></script>
+  <script src="js/shared/admin-portal.js?v=10.1"></script>
+  <script src="js/client/app.js?v=10.1"></script>
 </body>
 </html>

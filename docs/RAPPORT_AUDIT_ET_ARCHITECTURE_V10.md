@@ -121,3 +121,4 @@ Les 27 fichiers JavaScript actifs ont été vérifiés par `node --check` (**0 e
 - **Officine ↔ Délégué Médical** : alertes de ruptures, campagnes promotionnelles, messagerie temps réel, prise de rendez-vous et géolocalisation vérifiée.
 - **Officine ↔ Grossiste B2B** : consultation du catalogue et des tarifs de cession HT, passation de commandes B2B en 1 clic et suivi de livraison.
 - **Grossiste B2B ↔ Délégué Médical** : suivi des stocks grossistes par spécialité, campagnes d'arrivages et radar GPS couvrant les **58 chefs-lieux de départements du Cameroun**.
+

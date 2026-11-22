@@ -831,11 +831,12 @@ const App = (() => {
     }
 
     autocompleteList.innerHTML = matches.map(med => {
-      const highlighted = med.replace(
-        new RegExp(`(${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'),
+      const safeMed = escapeHtml(med);
+      const highlighted = safeMed.replace(
+        new RegExp(`(${escapeHtml(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'),
         '<mark>$1</mark>'
       );
-      return `<div class="autocomplete-item" onclick="App.addMedicine('${med.replace(/'/g, "\\'")}')">${highlighted}</div>`;
+      return `<div class="autocomplete-item" data-med="${safeMed}" onclick="App.addMedicine(this.dataset.med)">${highlighted}</div>`;
     }).join('');
 
     autocompleteList.classList.add('visible');
@@ -2125,7 +2126,7 @@ const App = (() => {
     
     // Remove old classes
     toast.className = 'toast toast--' + type;
-    msgEl.textContent = message;
+    msgEl.textContent = (window.I18n && typeof I18n.translateText === 'function') ? I18n.translateText(String(message || '')) : message;
     toast.classList.add('show');
     
     clearTimeout(toast._timer);
@@ -2159,7 +2160,7 @@ const App = (() => {
   };
 
   // ── Start ──────────────────────────────────────────────
-  document.addEventListener('DOMContentLoaded', () => { I18n.init(); init(); });
+  document.addEventListener('DOMContentLoaded', () => { init(); });
 
   return publicApi;
 })();

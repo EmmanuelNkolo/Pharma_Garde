@@ -75,6 +75,9 @@ const Payment = (() => {
    * Check if user has an active payment session (valid for 24h)
    */
   function hasActiveSession() {
+    if (window.PGAdmin && typeof window.PGAdmin.isAdmin === 'function' && window.PGAdmin.isAdmin()) {
+      return true;
+    }
     const session = getSessionRaw();
     if (!session) return false;
 
@@ -149,6 +152,17 @@ const Payment = (() => {
    * Get detailed session info for UI badges and countdowns
    */
   function getSessionInfo() {
+    if (window.PGAdmin && typeof window.PGAdmin.isAdmin === 'function' && window.PGAdmin.isAdmin()) {
+      return {
+        active: true,
+        remainingMs: SESSION_DURATION,
+        remainingHours: 24,
+        remainingMinutes: 0,
+        formatted: '👑 Admin Illimité',
+        phone: localStorage.getItem(PHONE_KEY) || '694929909',
+        transactionId: 'SUPER_ADMIN_PASS'
+      };
+    }
     const active = hasActiveSession();
     if (!active) {
       return {

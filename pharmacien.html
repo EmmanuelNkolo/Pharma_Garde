@@ -26,12 +26,13 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="css/design-system.css?v=10.0">
-  <link rel="stylesheet" href="css/pro.css?v=10.0">
-  <link rel="stylesheet" href="css/pharma-auth.css?v=10.0">
-  <link rel="stylesheet" href="css/pg-connect.css?v=10.0">
-  <link rel="stylesheet" href="css/pg-share.css?v=10.0">
-  <link rel="stylesheet" href="css/espace-pharmacie-v2.css?v=10.0">
+  <link rel="stylesheet" href="css/design-system.css?v=10.1">
+  <link rel="stylesheet" href="css/pro.css?v=10.1">
+  <link rel="stylesheet" href="css/pharma-auth.css?v=10.1">
+  <link rel="stylesheet" href="css/pg-connect.css?v=10.1">
+  <link rel="stylesheet" href="css/pg-share.css?v=10.1">
+  <link rel="stylesheet" href="css/espace-pharmacie-v2.css?v=10.1">
+  <link rel="stylesheet" href="css/admin-portal.css?v=10.1">
 </head>
 <body>
   <div class="app-container">
@@ -724,7 +725,7 @@
                       <th>Alerte Réappro</th>
                     </tr>
                   </thead>
-                  <tbody id="stock-table-body"></tbody>
+                  <tbody id="stock-table-body" class="js-stock-table-body"></tbody>
                 </table>
               </div>
             </div>
@@ -1020,7 +1021,7 @@
                     <th>Alerte Délégué</th>
                   </tr>
                 </thead>
-                <tbody id="stock-table-body"></tbody>
+                <tbody id="stock-table-body-modal" class="js-stock-table-body"></tbody>
               </table>
             </div>
           </div>
@@ -1177,24 +1178,25 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <script src="js/data/pharmacies.js?v=10.0"></script>
-  <script src="js/data/medicines.js?v=10.0"></script>
-  <script src="js/core/supabaseClient.js?v=10.0"></script>
-  <script src="js/core/core.js?v=10.0"></script>
-  <script src="js/core/i18n.js?v=10.0"></script>
-  <script src="js/core/geolocation.js?v=10.0"></script>
-  <script src="js/shared/pg-connect.js?v=10.0"></script>
-  <script src="js/shared/pg-share.js?v=10.0"></script>
-  <script src="js/shared/network.js?v=10.0"></script>
-  <script src="js/shared/subscription.js?v=10.0"></script>
-  <script src="js/shared/charts.js?v=10.0"></script>
-  <script src="js/shared/reports.js?v=10.0"></script>
-  <script src="js/shared/pro-geolocation.js?v=10.0"></script>
-  <script src="js/grossiste/auth.js?v=10.0"></script>
-  <script src="js/grossiste/catalog.js?v=10.0"></script>
-  <script src="js/grossiste/orders.js?v=10.0"></script>
-  <script src="js/grossiste/campaigns.js?v=10.0"></script>
-  <script src="js/pharmacie/pharmacien.js?v=10.0"></script>
-  <script src="js/pharmacie/pharmacie-spaces-controller.js?v=10.0"></script>
+  <script src="js/data/pharmacies.js?v=10.1"></script>
+  <script src="js/data/medicines.js?v=10.1"></script>
+  <script src="js/core/supabaseClient.js?v=10.1"></script>
+  <script src="js/core/core.js?v=10.1"></script>
+  <script src="js/core/i18n.js?v=10.1"></script>
+  <script src="js/core/geolocation.js?v=10.1"></script>
+  <script src="js/shared/pg-connect.js?v=10.1"></script>
+  <script src="js/shared/pg-share.js?v=10.1"></script>
+  <script src="js/shared/network.js?v=10.1"></script>
+  <script src="js/shared/subscription.js?v=10.1"></script>
+  <script src="js/shared/charts.js?v=10.1"></script>
+  <script src="js/shared/reports.js?v=10.1"></script>
+  <script src="js/shared/pro-geolocation.js?v=10.1"></script>
+  <script src="js/grossiste/auth.js?v=10.1"></script>
+  <script src="js/grossiste/catalog.js?v=10.1"></script>
+  <script src="js/grossiste/orders.js?v=10.1"></script>
+  <script src="js/grossiste/campaigns.js?v=10.1"></script>
+  <script src="js/pharmacie/pharmacien.js?v=10.1"></script>
+  <script src="js/pharmacie/pharmacie-spaces-controller.js?v=10.1"></script>
+  <script src="js/shared/admin-portal.js?v=10.1"></script>
 </body>
 </html>

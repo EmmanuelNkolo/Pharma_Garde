@@ -118,6 +118,21 @@
    * Calcule l'état détaillé de l'abonnement
    */
   function getStatusInfo(userOrRole, roleOrUser) {
+    if (window.PGAdmin && typeof window.PGAdmin.isAdmin === 'function' && window.PGAdmin.isAdmin()) {
+      return {
+        isActive: true,
+        isTrial: false,
+        status: 'active',
+        planId: 'admin',
+        planLabel: '👑 Admin Plateforme',
+        daysLeft: 999,
+        expiresAt: new Date(Date.now() + 999 * 24 * 3600 * 1000).toISOString(),
+        expiresFormatted: 'Illimité',
+        reminderLevel: null,
+        reference: 'SUPER_ADMIN',
+        amount: 0
+      };
+    }
     const { user, role } = normalizeUserAndRole(userOrRole, roleOrUser);
     const sub = getLocalSubscription(user, role);
     const now = Date.now();

@@ -38,7 +38,6 @@
   //  INITIALIZATION
   // ═══════════════════════════════════════════════════════
   function init() {
-    if (typeof I18n !== 'undefined') I18n.init();
     bindLoginTabs();
     bindEvents();
 
@@ -80,21 +79,29 @@
   function bindLoginTabs() {
     const btnShowRegister = document.getElementById('btn-show-register');
     const btnShowLogin = document.getElementById('btn-show-login');
+    const btnShowReset = document.getElementById('btn-show-reset');
+    const btnBackLoginReset = document.getElementById('btn-back-login-reset');
     const loginForm = document.getElementById('login-form');
     const registerForm = document.getElementById('register-form');
+    const resetForm = document.getElementById('reset-form');
+
+    const showOnly = (target) => {
+      [loginForm, registerForm, resetForm].forEach(f => {
+        if (f) f.classList.toggle('hidden', f !== target);
+      });
+    };
 
     if (btnShowRegister && loginForm && registerForm) {
-      btnShowRegister.addEventListener('click', () => {
-        loginForm.classList.add('hidden');
-        registerForm.classList.remove('hidden');
-      });
+      btnShowRegister.addEventListener('click', () => showOnly(registerForm));
     }
-
     if (btnShowLogin && loginForm && registerForm) {
-      btnShowLogin.addEventListener('click', () => {
-        registerForm.classList.add('hidden');
-        loginForm.classList.remove('hidden');
-      });
+      btnShowLogin.addEventListener('click', () => showOnly(loginForm));
+    }
+    if (btnShowReset && resetForm) {
+      btnShowReset.addEventListener('click', () => showOnly(resetForm));
+    }
+    if (btnBackLoginReset && loginForm) {
+      btnBackLoginReset.addEventListener('click', () => showOnly(loginForm));
     }
   }
 
@@ -676,7 +683,11 @@
       });
       if (error) throw error;
       showToast('✅ Email de réinitialisation envoyé !', 'success');
-      setTimeout(() => { $('tab-login').click(); }, 3000);
+      setTimeout(() => {
+        const rf = $('reset-form'); const lf = $('login-form');
+        if (rf) rf.classList.add('hidden');
+        if (lf) lf.classList.remove('hidden');
+      }, 2200);
     } catch (err) {
       showToast('❌ Erreur lors de la réinitialisation.', 'error');
     } finally {
@@ -2526,7 +2537,7 @@
     const msgEl = document.getElementById('toast-message');
     if (!toast || !msgEl) return;
     toast.className = 'toast toast--' + type;
-    msgEl.textContent = message;
+    msgEl.textContent = (window.I18n && typeof I18n.translateText === 'function') ? I18n.translateText(String(message || '')) : message;
     toast.classList.add('show');
     clearTimeout(toast._timer);
     toast._timer = setTimeout(() => toast.classList.remove('show'), 3500);
@@ -2709,12 +2720,28 @@
     showToast('⚡ Réponses & visites de réapprovisionnement planifiées automatiquement pour les officines en rupture !', 'success');
   }
 
+  async function adminEnter() {
+    currentDelegate = {
+      id: 'admin_delegate_master',
+      first_name: 'Administrateur',
+      last_name: 'Pharma-Garde',
+      email: 'admin@pharmagarde.cm',
+      phone: '694929909',
+      pro_card_number: 'DM-ADMIN-237',
+      _isAdminPreview: true
+    };
+    sessionLabs = ['Sanofi', 'Novartis', 'GSK', 'Pfizer', 'AstraZeneca', 'Sandoz'];
+    saveSession(currentDelegate, sessionLabs);
+    showDashboard();
+  }
+
   // ═══════════════════════════════════════════════════════
   //  PUBLIC API (for inline onclick handlers)
   // ═══════════════════════════════════════════════════════
   window.DelegateApp = {
     clearSession,
     handleLogout,
+    adminEnter,
     openSendPromo,
     openVisitRequest,
     getRoute,
@@ -2755,10 +2782,8 @@
 
   // ── Boot ───────────────────────────────────────────────
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => { if (typeof I18n !== 'undefined') I18n.init(); });
     document.addEventListener('DOMContentLoaded', init);
   } else {
-    if (typeof I18n !== 'undefined') I18n.init();
     init();
   }
 

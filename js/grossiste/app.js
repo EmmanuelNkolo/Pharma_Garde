@@ -1,6 +1,6 @@
 /**
- * Pharma-Garde v9.0 — Contrôleur Principal de l'Espace Grossiste-Répartiteur
- * Orchestre : Auth, Catalogue, Commandes B2B, Campagnes, Statistiques, Abonnements & Temps Réel
+ * Pharma-Garde v10.0 — Contrôleur Principal de l'Espace Grossiste-Répartiteur
+ * Orchestre : Auth, Catalogue, Commandes B2B, Campagnes, Statistiques, Abonnements, Temps Réel & Admin
  * Expose : window.GrossisteApp
  */
 (function (window) {
@@ -14,14 +14,15 @@
     const m = document.getElementById('toast-message');
     if (!t || !m) return;
     t.className = 'toast toast--' + (type || 'success');
-    m.textContent = msg;
+    m.textContent = (window.I18n && typeof I18n.translateText === 'function')
+      ? I18n.translateText(String(msg || ''))
+      : msg;
     t.classList.add('show');
     clearTimeout(t._timer);
     t._timer = setTimeout(() => t.classList.remove('show'), 3600);
   }
 
   function init() {
-    if (typeof I18n !== 'undefined') I18n.init();
     bindAuthEvents();
     bindDashboardEvents();
 
@@ -108,17 +109,29 @@
         }
       });
     }
+
+    const btnReset = document.getElementById('btn-g-reset');
+    if (btnReset) {
+      btnReset.addEventListener('click', async () => {
+        const email = (document.getElementById('g-reset-email') || {}).value || '';
+        try {
+          await window.GrossisteAuth.resetPassword(email);
+          toast('✅ Lien de réinitialisation envoyé ! Vérifiez votre boîte mail.', 'success');
+          setTimeout(() => showAuthView('login'), 2000);
+        } catch (err) {
+          toast('❌ ' + (err.message || 'Erreur lors de l\'envoi'), 'error');
+        }
+      });
+    }
   }
 
   function bindDashboardEvents() {
-    // Fermeture modales
     document.querySelectorAll('.modal-overlay').forEach(modal => {
       modal.addEventListener('click', (e) => {
         if (e.target === modal) modal.classList.remove('active');
       });
     });
 
-    // Plein écran
     const fsBtn = document.getElementById('btn-g-fullscreen');
     if (fsBtn) {
       fsBtn.addEventListener('click', () => {
@@ -130,7 +143,6 @@
       });
     }
 
-    // Paramètres
     const openSet = document.getElementById('g-settings-open');
     const closeSet = document.getElementById('g-settings-close');
     const panelSet = document.getElementById('g-settings-panel');
@@ -255,6 +267,30 @@
     toast(labels[newStatus] || 'Statut mis à jour', 'info');
   }
 
+  async function adminEnter(wsOrId) {
+    const dir = window.GrossisteAuth ? window.GrossisteAuth.getDirectory() : [];
+    let target = null;
+    if (wsOrId && typeof wsOrId === 'object') target = wsOrId;
+    else if (wsOrId) target = dir.find(w => w.id === wsOrId);
+    if (!target) {
+      target = dir[0] || {
+        id: 'admin_ws_master',
+        wholesaler_code: 'ADMIN-B2B',
+        company_name: 'ADMINISTRATION GROSSISTES PHARMA-GARDE',
+        manager_name: 'Super Administrateur',
+        city: 'Douala',
+        lat: 4.0511,
+        lng: 9.7085,
+        status: 'open',
+        subscription_status: 'active',
+        subscription_plan: 'admin'
+      };
+    }
+    currentWholesaler = Object.assign({}, target, { _isAdminPreview: true });
+    if (window.GrossisteAuth) window.GrossisteAuth.saveSession(currentWholesaler);
+    await showDashboard();
+  }
+
   document.addEventListener('DOMContentLoaded', init);
 
   window.GrossisteApp = {
@@ -263,7 +299,7 @@
     refreshAllKpis,
     toggleStatus,
     toast,
+    adminEnter,
     getCurrentWholesaler: () => currentWholesaler
   };
 })(window);
-
