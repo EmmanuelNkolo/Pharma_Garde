@@ -1,0 +1,638 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   PHARMA-GARDE v15.0 — SYSTÈME DE BOUTONS & ALIGNEMENT PROFESSIONNEL UNIFIÉ
+   Chargé en DERNIER sur les 6 espaces (Patient, Pharmacie, Médecin,
+   Labos/Hôpitaux, Délégué, Grossiste) :
+   • Hiérarchie visuelle nette (Primaire / Secondaire / Ghost / Danger / Or)
+   • En-têtes sticky fluides — zéro chevauchement, zéro bouton coupé sur 1366px+
+   • Grilles d'onglets symétriques auto-adaptatives (4, 5 ou 6 onglets sans orphelin)
+   • Barres d'actions de cartes de hauteur et largeur parfaitement alignées
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. HIÉRARCHIE PROFESSIONNELLE DES BOUTONS ─────────────────────────── */
+.btn,
+.pg-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+  min-height: 42px;
+  padding: 9px 16px;
+  border-radius: 11px !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 13.5px;
+  font-weight: 700 !important;
+  line-height: 1.25 !important;
+  text-decoration: none !important;
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease !important;
+  box-sizing: border-box;
+  vertical-align: middle;
+}
+
+.btn:disabled,
+.pg-btn:disabled {
+  opacity: 0.52 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+/* Bouton Primaire (CTA fort — dégradé Émeraude/Teal lumineux, texte blanc net) */
+.btn--primary,
+.btn-primary {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(52, 211, 153, 0.55) !important;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.28) !important;
+}
+
+.btn--primary:hover:not(:disabled),
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #14c98e 0%, #059669 100%) !important;
+  color: #ffffff !important;
+  border-color: #34d399 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px rgba(16, 185, 129, 0.38) !important;
+}
+
+.btn--primary:active:not(:disabled),
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.32) !important;
+}
+
+/* Bouton Secondaire (verre ardoise élégant, bordure discrète, texte clair) */
+.btn--secondary,
+.btn-secondary {
+  background: rgba(15, 29, 44, 0.88) !important;
+  color: #e2e8f0 !important;
+  border: 1px solid rgba(148, 163, 184, 0.34) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18) !important;
+}
+
+.btn--secondary:hover:not(:disabled),
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(20, 44, 64, 0.96) !important;
+  color: #ffffff !important;
+  border-color: rgba(45, 212, 191, 0.65) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(6, 182, 212, 0.16) !important;
+}
+
+/* Bouton Ghost / Lien retour */
+.btn--ghost {
+  background: transparent !important;
+  color: #cbd5e1 !important;
+  border: 1px solid transparent !important;
+  box-shadow: none !important;
+}
+
+.btn--ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.07) !important;
+  color: #ffffff !important;
+  border-color: rgba(148, 163, 184, 0.22) !important;
+}
+
+/* Tailles uniformes */
+.btn--sm,
+.btn-sm {
+  min-height: 36px !important;
+  padding: 6px 13px !important;
+  font-size: 12.5px !important;
+  border-radius: 9px !important;
+}
+
+.btn--lg {
+  min-height: 48px !important;
+  padding: 12px 22px !important;
+  font-size: 15px !important;
+  border-radius: 13px !important;
+}
+
+.btn--block,
+.btn-block {
+  width: 100% !important;
+  display: flex !important;
+}
+
+.btn--stacked {
+  flex-direction: column !important;
+  gap: 2px !important;
+  text-align: center !important;
+  line-height: 1.25 !important;
+}
+
+.time-pill-btn {
+  min-height: 34px !important;
+  padding: 6px 12px !important;
+  border-radius: 999px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 5px !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+}
+
+.app-header__actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+/* Boutons icônes parfaitement carrés & alignés (38x38 partout) */
+.btn--icon,
+.pg-icon-btn,
+.pharm-notif-bell,
+.pg-home {
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  min-height: 38px !important;
+  padding: 0 !important;
+  border-radius: 10px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(15, 29, 44, 0.88) !important;
+  border: 1px solid rgba(148, 163, 184, 0.28) !important;
+  color: #e2e8f0 !important;
+  flex-shrink: 0 !important;
+  box-shadow: none !important;
+}
+
+.btn--icon:hover,
+.pg-icon-btn:hover,
+.pharm-notif-bell:hover,
+.pg-home:hover {
+  background: rgba(16, 185, 129, 0.16) !important;
+  border-color: rgba(52, 211, 153, 0.65) !important;
+  color: #34d399 !important;
+  transform: translateY(-1px);
+}
+
+/* Sélecteur de langue FR / EN aligné à la même hauteur (38px) */
+.lang-switch {
+  display: inline-flex !important;
+  align-items: center !important;
+  height: 38px !important;
+  padding: 3px !important;
+  border-radius: 10px !important;
+  background: rgba(15, 29, 44, 0.9) !important;
+  border: 1px solid rgba(148, 163, 184, 0.28) !important;
+  gap: 2px !important;
+  flex-shrink: 0 !important;
+}
+
+.lang-switch__btn {
+  height: 30px !important;
+  min-width: 34px !important;
+  padding: 0 9px !important;
+  border-radius: 7px !important;
+  font-size: 11.5px !important;
+  font-weight: 800 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* ── 2. ÉCRAN D'ACCUEIL : BARRE D'ACTIONS RAPIDES SYMÉTRIQUE (4 COLONNES) ── */
+.welcome-screen__quick-actions {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+  width: 100% !important;
+  max-width: 920px !important;
+  margin: 18px auto 12px !important;
+  align-items: stretch !important;
+}
+
+.welcome-screen__quick-actions .welcome-quick-btn {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  min-height: 44px !important;
+  padding: 10px 14px !important;
+  border-radius: 12px !important;
+  justify-content: center !important;
+  text-align: center !important;
+  font-size: 12.5px !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+}
+
+@media (max-width: 760px) {
+  .welcome-screen__quick-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+  .welcome-screen__quick-actions .welcome-quick-btn {
+    white-space: normal !important;
+    font-size: 12px !important;
+    padding: 9px 10px !important;
+  }
+}
+
+/* ── 3. EN-TÊTES PRO (PHARMACIE, MÉDECIN, LABO/HÔPITAL, GROSSISTE) ─────── */
+/* Passage en sticky fluide : zéro chevauchement avec le contenu en dessous */
+#doc-dashboard,
+#fac-dashboard,
+#g-dashboard {
+  padding-top: 0 !important;
+}
+
+.grossiste-header,
+.pharm-header {
+  position: sticky !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: auto !important;
+  min-height: 64px !important;
+  padding: 10px 18px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  flex-wrap: wrap !important;
+  gap: 10px 14px !important;
+  background: rgba(7, 17, 29, 0.94) !important;
+  backdrop-filter: blur(18px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(160%) !important;
+  border-bottom: 1px solid rgba(45, 212, 191, 0.22) !important;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.32) !important;
+  z-index: 1200 !important;
+}
+
+.grossiste-header__left,
+.pharm-header__left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  flex-shrink: 0 !important;
+}
+
+.grossiste-header__center,
+.pharm-header__center {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+  min-width: 0 !important;
+  flex: 1 1 200px !important;
+}
+
+.grossiste-gold-title,
+.pg-pharmacy-gold-title {
+  font-size: 15px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.4px !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 280px;
+}
+
+.grossiste-header__right,
+.grossiste-header > div:last-child,
+.pharm-header > div:last-child {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+}
+
+/* Segmented Control de Statut dans les en-têtes (aligné en une pilule propre) */
+.pharm-header__status-group {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 3px !important;
+  border-radius: 12px !important;
+  background: rgba(15, 23, 42, 0.92) !important;
+  border: 1px solid rgba(148, 163, 184, 0.24) !important;
+  flex-shrink: 0 !important;
+}
+
+.header-status-btn {
+  height: 32px !important;
+  padding: 0 11px !important;
+  border-radius: 8px !important;
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  color: #94a3b8 !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  white-space: nowrap !important;
+  cursor: pointer;
+  transition: all 0.18s ease !important;
+}
+
+.header-status-btn:hover {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+.header-status-btn.status-open.active {
+  background: rgba(16, 185, 129, 0.22) !important;
+  border-color: rgba(52, 211, 153, 0.6) !important;
+  color: #34d399 !important;
+}
+
+.header-status-btn.status-guard.active {
+  background: rgba(245, 158, 11, 0.22) !important;
+  border-color: rgba(251, 191, 36, 0.65) !important;
+  color: #fbbf24 !important;
+}
+
+.header-status-btn.status-closed.active {
+  background: rgba(239, 68, 68, 0.22) !important;
+  border-color: rgba(248, 113, 113, 0.6) !important;
+  color: #f87171 !important;
+}
+
+.pg-sub-header-btn {
+  height: 38px !important;
+  padding: 0 13px !important;
+  border-radius: 10px !important;
+  font-size: 12px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+/* ── 4. BARRES DE NAVIGATION PRINCIPALES (ZÉRO ONGLET ORPHELIN!) ───────── */
+.grossiste-nav {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)) !important;
+  gap: 10px !important;
+  max-width: 1400px !important;
+  margin: 16px auto 0 !important;
+  padding: 0 16px !important;
+  align-items: stretch !important;
+}
+
+.grossiste-tab {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 10px !important;
+  padding: 12px 14px !important;
+  min-height: 62px !important;
+  border-radius: 13px !important;
+  background: rgba(13, 27, 42, 0.86) !important;
+  border: 1px solid rgba(148, 163, 184, 0.18) !important;
+  color: #cbd5e1 !important;
+  font-size: 12.5px !important;
+  font-weight: 800 !important;
+  text-align: left !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+}
+
+.grossiste-tab:hover {
+  border-color: rgba(45, 212, 191, 0.5) !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+}
+
+.grossiste-tab.active {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.24), rgba(14, 165, 233, 0.15)) !important;
+  border-color: #10b981 !important;
+  color: #ffffff !important;
+  box-shadow: 0 8px 22px rgba(16, 185, 129, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Espace Pharmacie : 4 grands onglets + sous-onglets alignés */
+.pharm-spaces-nav {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+  padding: 16px 16px 0 !important;
+  max-width: 1400px !important;
+  margin: 0 auto !important;
+}
+
+.pharm-space-tab {
+  justify-content: flex-start !important;
+  padding: 13px 14px !important;
+  min-height: 64px !important;
+  border-radius: 13px !important;
+}
+
+.pharm-subtabs {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  align-items: center !important;
+  margin-bottom: 16px !important;
+}
+
+.pharm-subtab-btn {
+  min-height: 40px !important;
+  padding: 8px 14px !important;
+  border-radius: 10px !important;
+  font-size: 12.5px !important;
+  font-weight: 700 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+}
+
+/* Espace Délégué : grille 5 colonnes parfaitement alignée sur 1 ligne (sidebar 540px) */
+.delegate-nav-tabs {
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  gap: 5px !important;
+  padding: 5px !important;
+  margin-bottom: 14px !important;
+  border-radius: 14px !important;
+}
+
+.delegate-nav-tab {
+  min-height: 52px !important;
+  padding: 7px 4px !important;
+  border-radius: 10px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 3px !important;
+  font-size: 10.5px !important;
+  font-weight: 800 !important;
+  text-align: center !important;
+}
+
+/* ── 5. ESPACE PATIENT : BARRES D'ACTIONS & CARTES PARFAITEMENT ALIGNÉES ── */
+.patient-hub-tabs {
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  gap: 5px !important;
+  padding: 5px !important;
+  border-radius: 14px !important;
+  margin-bottom: 12px !important;
+}
+
+.patient-hub-tab {
+  min-height: 50px !important;
+  border-radius: 10px !important;
+  padding: 6px 4px !important;
+  gap: 3px !important;
+}
+
+.client-actions {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  margin-bottom: 10px !important;
+}
+
+.client-actions__btn {
+  min-height: 44px !important;
+  padding: 10px 12px !important;
+  border-radius: 12px !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  width: 100% !important;
+}
+
+.client-actions__btn--garde {
+  grid-column: 1 / -1 !important;
+  min-height: 42px !important;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.14)) !important;
+  border: 1px solid rgba(251, 191, 36, 0.55) !important;
+  color: #fbbf24 !important;
+}
+
+.client-actions__btn--garde:hover {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.32), rgba(217, 119, 6, 0.22)) !important;
+  color: #fef3c7 !important;
+}
+
+#patient-pro-strip {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  margin: 0 0 12px !important;
+}
+
+#patient-pro-strip button {
+  min-height: 40px !important;
+  border-radius: 11px !important;
+  font-size: 12.5px !important;
+  font-weight: 800 !important;
+  width: 100% !important;
+}
+
+/* Boutons d'actions dans toutes les cartes (Pharmacies, Médecins, Labos, Hôpitaux) */
+.pharma-card > div:last-child {
+  align-items: stretch !important;
+}
+
+.pharma-btn {
+  flex: 1 1 auto !important;
+  min-height: 38px !important;
+  padding: 7px 11px !important;
+  border-radius: 10px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 5px !important;
+  white-space: nowrap !important;
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease, border-color 0.15s ease !important;
+}
+
+.pharma-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.12);
+}
+
+/* ── 6. BARRES D'EN-TÊTE DE PÔLES & TABLEAUX ──────────────────────────── */
+.pharm-pole-header,
+.grossiste-pole-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 12px 16px !important;
+  padding: 16px 20px !important;
+  border-radius: 16px !important;
+}
+
+.pharm-mode-switch-group {
+  display: inline-flex !important;
+  gap: 6px !important;
+  flex-wrap: wrap !important;
+}
+
+.pharm-mode-switch-btn {
+  min-height: 38px !important;
+  padding: 8px 14px !important;
+  border-radius: 10px !important;
+  font-size: 12.5px !important;
+  font-weight: 800 !important;
+}
+
+/* Alignement propre des boutons dans les formulaires & modales */
+.modal-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+}
+
+.modal-header .btn--icon {
+  margin-left: auto !important;
+}
+
+/* ── 7. RESPONSIVE TABLETTE & MOBILE (PORTRAIT + PAYSAGE) ──────────────── */
+@media (max-width: 1024px) {
+  .grossiste-nav {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+  .pharm-spaces-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .grossiste-header,
+  .pharm-header {
+    padding: 8px 12px !important;
+    gap: 8px !important;
+  }
+  .grossiste-gold-title,
+  .pg-pharmacy-gold-title {
+    max-width: 180px;
+    font-size: 13.5px !important;
+  }
+  .grossiste-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    padding: 0 10px !important;
+  }
+  .grossiste-tab {
+    min-height: 54px !important;
+    padding: 9px 10px !important;
+    font-size: 11.5px !important;
+  }
+  .pharm-header__status-group {
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+  .header-status-btn {
+    flex: 1 1 0 !important;
+    padding: 0 6px !important;
+    font-size: 11px !important;
+  }
+  .pharma-btn {
+    flex: 1 1 45% !important;
+    min-height: 38px !important;
+  }
+}

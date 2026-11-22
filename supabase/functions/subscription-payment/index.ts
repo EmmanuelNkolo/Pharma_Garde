@@ -42,7 +42,7 @@ serve(async (req: Request) => {
     const reqData = await req.json();
     const action = reqData.action || 'collect';
 
-    let NOTCHPAY_SECRET_KEY = (Deno.env.get('NOTCHPAY_SECRET_KEY') || '').replace(/^["']|["']$/g, '').trim();
+    let NOTCHPAY_SECRET_KEY = (Deno.env.get('NOTCHPAY_SECRET_KEY') || Deno.env.get('NOTCHPAY_PRIVATE_KEY') || '').replace(/^["']|["']$/g, '').trim();
     let NOTCHPAY_PUBLIC_KEY = (Deno.env.get('NOTCHPAY_PUBLIC_KEY') || '').replace(/^["']|["']$/g, '').trim();
     const API_KEY = NOTCHPAY_PUBLIC_KEY || NOTCHPAY_SECRET_KEY;
 
@@ -81,7 +81,8 @@ serve(async (req: Request) => {
 
       const rolePlans = SUBSCRIPTION_PLANS[role] || SUBSCRIPTION_PLANS.delegate;
       const planConfig = rolePlans[planId] || rolePlans.monthly;
-      const amount = reqData.amount || planConfig.amount;
+      // Montant strictement verrouillé côté serveur (100 % reversé sur le compte marchand NotchPay Pharma-Garde)
+      const amount = planConfig.amount;
       const reference = `sub_${role.slice(0, 3)}_${planId.slice(0, 1)}_${Date.now()}_${Math.floor(Math.random() * 900 + 100)}`;
 
       const now = new Date();
@@ -106,6 +107,7 @@ serve(async (req: Request) => {
           expires_at: expiresAt.toISOString(),
           metadata: {
             type: 'subscription',
+            destination_account: 'pharmagarde_notchpay_merchant',
             role,
             plan_id: planId,
             days: planConfig.days,

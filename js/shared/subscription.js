@@ -409,15 +409,18 @@
           </div>
 
           <!-- Moyen de paiement Mobile Money -->
-          <div style="font-size:12px;font-weight:800;color:#fbbf24;text-transform:uppercase;margin-bottom:10px;">
-            2. Paiement Mobile Money (Push USSD Direct)
+          <div style="font-size:12px;font-weight:800;color:#fbbf24;text-transform:uppercase;margin-bottom:6px;">
+            2. Paiement Mobile Money Direct (NotchPay Sécurisé)
+          </div>
+          <div style="font-size:11.5px;color:#94a3b8;margin-bottom:10px;padding:8px 11px;border-radius:10px;background:rgba(16,185,129,0.08);border:1px solid rgba(52,211,153,0.28);">
+            🏦 Votre abonnement (mensuel ou annuel) est encaissé <strong>directement sur le compte officiel NotchPay Pharma-Garde</strong> et active votre compte automatiquement dès confirmation Mobile Money.
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
-            <button type="button" class="pg-op-btn active" data-op="om" style="padding:11px;border-radius:10px;border:2px solid #f97316;background:rgba(249,115,22,0.15);color:#fff;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+            <button type="button" class="pg-op-btn active" data-op="om" style="min-height:44px;padding:10px 12px;border-radius:11px;border:2px solid #f97316;background:rgba(249,115,22,0.16);color:#fff;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
               <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#f97316;"></span>
               <span>Orange Money</span>
             </button>
-            <button type="button" class="pg-op-btn" data-op="momo" style="padding:11px;border-radius:10px;border:2px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.03);color:#fff;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+            <button type="button" class="pg-op-btn" data-op="momo" style="min-height:44px;padding:10px 12px;border-radius:11px;border:2px solid rgba(148,163,184,0.24);background:rgba(15,29,44,0.75);color:#fff;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
               <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#eab308;"></span>
               <span>MTN MoMo</span>
             </button>
@@ -428,10 +431,10 @@
             <input type="tel" id="pg-sub-phone" class="form-input" value="${esc(defaultPhone)}" placeholder="Ex: 699 00 11 22" maxlength="14" style="font-size:15px;font-weight:700;">
           </div>
 
-          <div id="pg-sub-feedback" style="display:none;padding:12px;border-radius:10px;margin-bottom:14px;font-size:12.5px;"></div>
+          <div id="pg-sub-feedback" style="display:none;padding:12px;border-radius:10px;margin-bottom:14px;font-size:12.5px;line-height:1.45;"></div>
 
-          <button type="button" id="pg-sub-pay-btn" class="btn btn--primary btn--block" style="background:linear-gradient(135deg,#10b981,#059669);font-weight:900;font-size:15px;padding:14px;">
-            🔐 Payer ${defaultPlan.amount.toLocaleString('fr-FR')} FCFA &amp; Activer maintenant
+          <button type="button" id="pg-sub-pay-btn" class="btn btn--primary btn--block btn--lg" style="font-weight:900;">
+            🔐 Payer ${defaultPlan.amount.toLocaleString('fr-FR')} FCFA via NotchPay &amp; Activer
           </button>
         </div>
       </div>
@@ -441,6 +444,7 @@
 
     let selectedPlan = defaultPlan;
     let selectedOp = 'om';
+    let pendingNotchCheck = null;
 
     const closeBtn = modal.querySelector('#pg-paywall-close');
     closeBtn.addEventListener('click', () => modal.remove());
@@ -454,6 +458,7 @@
       card.addEventListener('click', () => {
         const pid = card.getAttribute('data-plan');
         selectedPlan = roleConfig.plans.find(p => p.id === pid) || defaultPlan;
+        pendingNotchCheck = null;
         modal.querySelectorAll('.pg-plan-option').forEach(c => {
           const active = c.getAttribute('data-plan') === pid;
           c.style.borderColor = active ? '#10b981' : 'rgba(255,255,255,0.1)';
@@ -461,7 +466,7 @@
           const r = c.querySelector('input[type="radio"]');
           if (r) r.checked = active;
         });
-        payBtn.innerHTML = `🔐 Payer ${selectedPlan.amount.toLocaleString('fr-FR')} FCFA &amp; Activer maintenant`;
+        payBtn.innerHTML = `🔐 Payer ${selectedPlan.amount.toLocaleString('fr-FR')} FCFA via NotchPay &amp; Activer`;
       });
     });
 
@@ -469,11 +474,12 @@
     modal.querySelectorAll('.pg-op-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         selectedOp = btn.getAttribute('data-op') || 'om';
+        pendingNotchCheck = null;
         modal.querySelectorAll('.pg-op-btn').forEach(b => {
           const active = b.getAttribute('data-op') === selectedOp;
           const color = selectedOp === 'om' ? '#f97316' : '#eab308';
-          b.style.borderColor = active ? color : 'rgba(255,255,255,0.12)';
-          b.style.background = active ? (selectedOp === 'om' ? 'rgba(249,115,22,0.15)' : 'rgba(234,179,8,0.15)') : 'rgba(255,255,255,0.03)';
+          b.style.borderColor = active ? color : 'rgba(148,163,184,0.24)';
+          b.style.background = active ? (selectedOp === 'om' ? 'rgba(249,115,22,0.16)' : 'rgba(234,179,8,0.16)') : 'rgba(15,29,44,0.75)';
         });
       });
     });
@@ -496,53 +502,13 @@
       }
 
       payBtn.disabled = true;
-      payBtn.textContent = '⏳ Initialisation du paiement USSD en cours...';
+      payBtn.textContent = '⏳ Connexion NotchPay Pharma-Garde...';
       feedbackEl.style.display = 'block';
       feedbackEl.style.background = 'rgba(59,130,246,0.15)';
       feedbackEl.style.color = '#93c5fd';
-      feedbackEl.textContent = '📲 Connexion sécurisée à la passerelle Mobile Money...';
+      feedbackEl.textContent = '📲 Initialisation de l\'encaissement sécurisé sur le compte NotchPay Pharma-Garde...';
 
-      try {
-        let activated = false;
-        let txRef = 'SUB_' + Date.now();
-
-        if (window.supabase && window.supabase.functions) {
-          const { data, error } = await window.supabase.functions.invoke('subscription-payment', {
-            body: {
-              action: 'collect',
-              subscriber_id: (user && user.id) ? user.id : 'pro_user',
-              subscriber_role: effectiveRole,
-              subscriber_name: (user && (user.name || user.company_name || user.last_name)) || 'Professionnel',
-              subscriber_email: (user && user.email) || 'pro@pharmagarde.cm',
-              plan_id: selectedPlan.id,
-              amount: selectedPlan.amount,
-              phone: rawPhone,
-              method: selectedOp
-            }
-          });
-
-          if (!error && data && data.success && data.reference) {
-            txRef = data.internal_reference || data.reference;
-            feedbackEl.textContent = data.message || '📲 Push USSD envoyé ! Entrez votre code PIN sur votre téléphone...';
-
-            // Polling rapide du statut
-            for (let i = 0; i < 16; i++) {
-              await new Promise(r => setTimeout(r, 3000));
-              const { data: stData } = await window.supabase.functions.invoke('subscription-payment', {
-                body: { action: 'status', reference: data.reference, internal_reference: txRef }
-              });
-              if (stData && stData.status === 'SUCCESSFUL') {
-                activated = true;
-                break;
-              }
-              if (stData && stData.status === 'FAILED') {
-                throw new Error('Le paiement Mobile Money a été annulé ou refusé.');
-              }
-            }
-          }
-        }
-
-        // Activation locale / confirmation
+      const activateConfirmedSub = (confirmedRef) => {
         const currentInfo = getStatusInfo(user, effectiveRole);
         const baseTime = currentInfo.isActive ? new Date(currentInfo.expiresAt).getTime() : Date.now();
         const newExpMs = baseTime + selectedPlan.days * 24 * 60 * 60 * 1000;
@@ -555,19 +521,19 @@
           planLabel: selectedPlan.label,
           startsAt: Date.now(),
           expiresAt: newExpMs,
-          reference: txRef,
+          reference: confirmedRef,
           amount: selectedPlan.amount,
           phone: rawPhone,
-          method: selectedOp
+          method: selectedOp,
+          merchant: 'NotchPay Pharma-Garde'
         };
 
         saveLocalSubscription((user && user.id) || 'demo_user', effectiveRole, newSub);
 
         feedbackEl.style.background = 'rgba(16,185,129,0.2)';
         feedbackEl.style.color = '#6ee7b7';
-        feedbackEl.innerHTML = `✅ <strong>Abonnement ${esc(selectedPlan.label)} activé !</strong> Nouvelle échéance : ${new Date(newExpMs).toLocaleDateString('fr-FR')}.`;
+        feedbackEl.innerHTML = `✅ <strong>Paiement NotchPay confirmé ! Abonnement ${esc(selectedPlan.label)} activé.</strong><br>Nouvelle échéance : ${new Date(newExpMs).toLocaleDateString('fr-FR')}.`;
 
-        // Rafraîchir les badges présents dans la page
         document.querySelectorAll('[data-pg-sub-badge]').forEach(el => {
           renderHeaderBadge(el, user, effectiveRole);
         });
@@ -576,12 +542,118 @@
           modal.remove();
           if (typeof opts.onSuccess === 'function') opts.onSuccess(getStatusInfo(user, effectiveRole));
         }, 1200);
+      };
+
+      try {
+        if (!window.supabase || !window.supabase.functions) {
+          throw new Error('Passerelle NotchPay indisponible hors-ligne. Vérifiez votre connexion Internet.');
+        }
+
+        // Si une transaction NotchPay est déjà en attente de validation PIN, vérifier son statut sans recréer de débit
+        if (pendingNotchCheck) {
+          payBtn.textContent = '⏳ Vérification NotchPay...';
+          const { data: stCheck, error: stErr } = await window.supabase.functions.invoke('subscription-payment', {
+            body: {
+              action: 'status',
+              reference: pendingNotchCheck.notchRef,
+              internal_reference: pendingNotchCheck.internalRef
+            }
+          });
+          if (stErr) throw new Error(stErr.message || 'Impossible de vérifier la transaction NotchPay.');
+          if (stCheck && stCheck.status === 'SUCCESSFUL') {
+            const refOk = pendingNotchCheck.internalRef;
+            pendingNotchCheck = null;
+            activateConfirmedSub(refOk);
+            return;
+          }
+          if (stCheck && stCheck.status === 'FAILED') {
+            pendingNotchCheck = null;
+            payBtn.disabled = false;
+            payBtn.innerHTML = `🔐 Réessayer (${selectedPlan.amount.toLocaleString('fr-FR')} FCFA via NotchPay)`;
+            feedbackEl.style.background = 'rgba(239,68,68,0.18)';
+            feedbackEl.style.color = '#fca5a5';
+            feedbackEl.textContent = '❌ Paiement refusé ou expiré côté NotchPay. Vous pouvez réessayer.';
+            return;
+          }
+          payBtn.disabled = false;
+          payBtn.innerHTML = '🔄 Revérifier mon paiement NotchPay';
+          feedbackEl.style.background = 'rgba(245,158,11,0.16)';
+          feedbackEl.style.color = '#fde68a';
+          feedbackEl.textContent = '⏳ Transaction toujours en attente sur NotchPay. Validez votre code PIN sur votre téléphone puis recliquez.';
+          return;
+        }
+
+        const { data, error } = await window.supabase.functions.invoke('subscription-payment', {
+          body: {
+            action: 'collect',
+            subscriber_id: (user && user.id) ? user.id : 'pro_user',
+            subscriber_role: effectiveRole,
+            subscriber_name: (user && (user.name || user.full_name || user.company_name || user.last_name)) || 'Professionnel',
+            subscriber_email: (user && user.email) || 'pro@pharmagarde.cm',
+            plan_id: selectedPlan.id,
+            phone: rawPhone,
+            method: selectedOp
+          }
+        });
+
+        if (error) {
+          throw new Error(error.message || 'Erreur de communication avec le serveur de paiement NotchPay.');
+        }
+        if (!data || !data.success || !data.reference) {
+          throw new Error((data && data.error) || 'Impossible d\'initialiser le paiement NotchPay.');
+        }
+
+        const notchRef = data.reference;
+        const internalRef = data.internal_reference || notchRef;
+
+        if (data.authorization_url && data.direct_charge === false) {
+          feedbackEl.innerHTML = `
+            <div style="margin-bottom:8px;">💳 <strong>Finalisez votre paiement sécurisé sur NotchPay :</strong></div>
+            <a href="${esc(data.authorization_url)}" target="_blank" rel="noopener" class="btn btn--primary btn--sm btn--block" style="margin-bottom:8px;">
+              🔐 Ouvrir la page sécurisée NotchPay (${selectedPlan.amount.toLocaleString('fr-FR')} FCFA)
+            </a>
+            <div style="font-size:11.5px;color:#cbd5e1;">⏳ Vérification automatique en cours dès validation...</div>
+          `;
+          try { window.open(data.authorization_url, '_blank', 'noopener'); } catch (e) {}
+        } else {
+          feedbackEl.textContent = data.message || '📲 Push USSD NotchPay envoyé ! Confirmez avec votre code PIN Mobile Money...';
+        }
+
+        // Polling strict jusqu'à confirmation réelle NotchPay (aucune activation gratuite sans paiement confirmé)
+        let confirmed = false;
+        for (let i = 0; i < 20; i++) {
+          await new Promise(r => setTimeout(r, 3000));
+          const { data: stData } = await window.supabase.functions.invoke('subscription-payment', {
+            body: { action: 'status', reference: notchRef, internal_reference: internalRef }
+          });
+          if (stData && stData.status === 'SUCCESSFUL') {
+            confirmed = true;
+            break;
+          }
+          if (stData && stData.status === 'FAILED') {
+            throw new Error('Le paiement Mobile Money NotchPay a été annulé ou refusé.');
+          }
+        }
+
+        if (confirmed) {
+          pendingNotchCheck = null;
+          activateConfirmedSub(internalRef);
+          return;
+        }
+
+        // Si le client n'a pas encore validé son code PIN au bout de 60s : proposer un bouton de vérification directe sans double débit
+        pendingNotchCheck = { notchRef, internalRef };
+        payBtn.disabled = false;
+        payBtn.innerHTML = '🔄 J\'ai validé sur mon téléphone — Vérifier NotchPay';
+        feedbackEl.style.background = 'rgba(245,158,11,0.16)';
+        feedbackEl.style.color = '#fde68a';
+        feedbackEl.innerHTML = `⏳ <strong>Paiement toujours en attente de validation PIN</strong> (Réf. <code>${esc(notchRef)}</code>). Validez sur votre téléphone puis cliquez sur le bouton ci-dessous pour activer immédiatement.`;
       } catch (err) {
         payBtn.disabled = false;
-        payBtn.innerHTML = `🔐 Réessayer (${selectedPlan.amount.toLocaleString('fr-FR')} FCFA)`;
+        payBtn.innerHTML = `🔐 Réessayer (${selectedPlan.amount.toLocaleString('fr-FR')} FCFA via NotchPay)`;
         feedbackEl.style.background = 'rgba(239,68,68,0.18)';
         feedbackEl.style.color = '#fca5a5';
-        feedbackEl.textContent = '❌ ' + (err.message || 'Erreur lors de la validation du paiement.');
+        feedbackEl.textContent = '❌ ' + (err.message || 'Erreur lors de la validation du paiement NotchPay.');
       }
     });
   }

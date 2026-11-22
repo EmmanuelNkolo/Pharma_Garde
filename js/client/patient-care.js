@@ -145,11 +145,13 @@
           ⭐ Les plus grands spécialistes exercent dans les <strong>10 Chefs-lieux de Régions</strong> — consultables à distance depuis <strong>tout le Cameroun</strong> !
         </div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-          <button type="button" class="btn btn--primary btn--sm" onclick="PGPatientCare.openTeleconsultModal('', 'any')" style="background:linear-gradient(135deg,#0ea5e9,#10b981)!important; color:#fff!important; border:none!important; font-weight:900; padding:10px 8px;">
-            🎲 Mode Aléatoire Rapide<br><small style="font-weight:600; opacity:0.9;">1er Médecin Dispo (2 600 F)</small>
+          <button type="button" class="btn btn--primary btn--sm btn--stacked" onclick="PGPatientCare.openTeleconsultModal('', 'any')" style="background:linear-gradient(135deg,#0ea5e9,#10b981)!important; color:#fff!important; border:none!important; font-weight:900; padding:10px 8px;">
+            <span>🎲 Mode Aléatoire Rapide</span>
+            <small style="font-weight:600; opacity:0.92;">1er Médecin Dispo (2 600 F)</small>
           </button>
-          <button type="button" class="btn btn--secondary btn--sm" onclick="PGPatientCare.openTeleconsultModal('', '${esc(docFilterSpecialty === 'all' ? 'Médecine Générale' : docFilterSpecialty)}')" style="border-color:rgba(251,191,36,0.5); color:#fbbf24; font-weight:800; padding:10px 8px;">
-            🎯 Choisir ma Spécialité<br><small style="font-weight:600; color:#cbd5e1;">Spécialiste ONMC (2 600 F)</small>
+          <button type="button" class="btn btn--secondary btn--sm btn--stacked" onclick="PGPatientCare.openTeleconsultModal('', '${esc(docFilterSpecialty === 'all' ? 'Médecine Générale' : docFilterSpecialty)}')" style="border-color:rgba(251,191,36,0.5)!important; color:#fbbf24!important; font-weight:800; padding:10px 8px;">
+            <span>🎯 Choisir ma Spécialité</span>
+            <small style="font-weight:600; color:#cbd5e1;">Spécialiste ONMC (2 600 F)</small>
           </button>
         </div>
       </div>

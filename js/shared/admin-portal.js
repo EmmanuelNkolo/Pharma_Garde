@@ -888,10 +888,10 @@
       btn.type = 'button';
       btn.id = 'btn-welcome-admin';
       btn.className = 'welcome-quick-btn';
-      btn.style.cssText = 'border-color:rgba(251,191,36,0.55)!important; color:#fbbf24!important; background:rgba(251,191,36,0.10)!important; max-width:320px; margin:6px auto 4px; display:flex;';
+      btn.style.cssText = 'border-color:rgba(251,191,36,0.55)!important; color:#fbbf24!important; background:rgba(251,191,36,0.10)!important;';
       btn.innerHTML = '<span>👑</span> <span>Accès Administrateur</span>';
       btn.addEventListener('click', () => openUnlockModal(openConsoleModal));
-      quick.parentElement.insertBefore(btn, quick.nextSibling);
+      quick.appendChild(btn);
     }
     ['login-form', 'g-login-form', 'doc-login-form', 'fac-login-form'].forEach((id) => {
       const form = document.getElementById(id);

@@ -1256,7 +1256,13 @@ const I18n = (() => {
     'Orthopédie & Traumatologie': 'Orthopedics & Traumatology',
     'Oncologie Médicale': 'Medical Oncology',
     'Infectiologie & Médecine Tropicale': 'Infectious Diseases & Tropical Medicine',
-    'Anesthésie-Réanimation & Urgences': 'Anesthesiology & Emergency Medicine'
+    'Anesthésie-Réanimation & Urgences': 'Anesthesiology & Emergency Medicine',
+    '2. Paiement Mobile Money Direct (NotchPay Sécurisé)': '2. Direct Mobile Money Payment (Secure NotchPay)',
+    'Ouvrir la page sécurisée NotchPay': 'Open Secure NotchPay Page',
+    'J\'ai validé sur mon téléphone — Vérifier NotchPay': 'I confirmed on my phone — Verify NotchPay',
+    'Revérifier mon paiement NotchPay': 'Re-verify my NotchPay payment',
+    'Connexion NotchPay Pharma-Garde...': 'Connecting to Pharma-Garde NotchPay...',
+    'Vérification NotchPay...': 'Verifying NotchPay...'
   };
 
   // Motifs dynamiques (compteurs, dates, durées, départements, abonnements)
