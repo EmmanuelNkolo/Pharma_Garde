@@ -27,7 +27,7 @@ La documentation fonctionnelle et les rapports d'architecture sont dans `docs/` 
 - **PWA** : `manifest.json`, `sw.js` (Service Worker, stratégie Network-First + cache hors-ligne).
 - **Cartographie / géo** : Leaflet + OpenStreetMap, Nominatim (géocodage), Overpass (quartiers, pharmacies), OSRM (itinéraires).
 - **Backend** : Supabase (Postgres + RLS + Edge Functions Deno). Projet unique : `Pharma_Garde` (région `eu-west-1`).
-- **Paiements** : Mobile Money (MTN MoMo / Orange Money) via Edge Functions. NotchPay est référencé dans la CSP ; des fonctions Campay existent aussi. **À CONFIRMER : fournisseur actif.**
+- **Paiements** : Mobile Money (MTN MoMo / Orange Money) via les Edge Functions **NotchPay** (`notchpay-payment`, `notchpay-webhook`). **NotchPay est le fournisseur actif.** Les fonctions Campay (`campay-payment`, `campay-webhook`) sont encore déployées : ne pas les modifier ni les supprimer sans demande explicite.
 - **Hébergement** : Vercel (équipe `capbio`), déploiement automatique depuis GitHub.
 - **Dépôt** : `EmmanuelNkolo/Pharma_Garde`, branche de production `main`.
 
@@ -72,7 +72,7 @@ Règle : le code d'un espace reste dans le dossier de cet espace ; ce qui sert �
 
 ## 5. Base de données Supabase
 
-Projet : `Pharma_Garde` (`kcbcvdinuhckrpotngbw`), Postgres 17. **Toutes les tables du schéma `public` ont la RLS activée** : cela doit rester vrai pour toute nouvelle table.
+Projet : `Pharma_Garde`, Postgres 17. **Toutes les tables du schéma `public` ont la RLS activée** : cela doit rester vrai pour toute nouvelle table.
 
 ### Tables par domaine
 
@@ -102,7 +102,7 @@ Projet : `Pharma_Garde` (`kcbcvdinuhckrpotngbw`), Postgres 17. **Toutes les tabl
 3. Toute nouvelle table : activer la RLS **et** écrire les politiques dans le même fichier SQL. Tester avec un rôle non privilégié.
 4. **Interdit sans confirmation explicite de l'utilisateur** : `DROP`, `TRUNCATE`, `DELETE` / `UPDATE` sans `WHERE`, suppression de colonne, désactivation de la RLS.
 5. Migrations **rétro-compatibles** (ajouter avant de supprimer) : voir la section 6, la base est partagée entre aperçu et production.
-6. **Données sensibles** : `pharmacy_private` est destinée aux champs `api_endpoint` / `api_key` des officines. La table `pharmacies` contient encore des colonnes `api_endpoint` et `api_key` : **ne jamais les renvoyer côté client ni les afficher** ; à CONFIRMER / nettoyer avec l'utilisateur. Idem pour `delegates` (`pro_card_number`, `cni_number`) : ne pas les exposer au-delà de leur propriétaire.
+6. **Données sensibles** : les identifiants d'accès aux systèmes de stock des officines (`api_endpoint`, `api_key`) ne doivent **jamais** être renvoyés côté client, affichés ou journalisés ; ils relèvent de `pharmacy_private`. De même, les données d'identité professionnelle des délégués ne sont pas exposées au-delà de leur propriétaire. En cas de doute sur une politique RLS, le signaler à l'utilisateur en privé plutôt que dans ce dépôt public.
 7. Après un changement de schéma, lancer les contrôles de sécurité Supabase (`get_advisors`) et corriger les alertes RLS.
 
 ---
@@ -124,8 +124,8 @@ Flux obligatoire :
 Rollback : en cas de régression en production, proposer d'abord le retour au déploiement précédent (rollback Vercel) puis corriger par une nouvelle branche.
 
 ### Points d'attention
+- **Projet Vercel de production : `pharma-garde`** (confirmé). Un second projet, `pharma-garde-2zbt`, est aussi lié à ce dépôt : **À CONFIRMER : le supprimer ou le désactiver ?** En attendant, ne modifier aucun réglage de ces projets sans demande explicite.
 - **Un seul projet Supabase** : l'aperçu Vercel utilise la **même base que la production** (l'URL Supabase est dans `js/core/supabaseClient.js`). Donc, pendant les tests d'une branche : ne pas créer de données de test sans les nettoyer, ne pas appliquer de migration destructive, et appliquer les migrations **avant** la fusion en les gardant rétro-compatibles avec le code actuellement en production. *Piste à discuter : une branche Supabase de développement (peut engendrer des coûts, ne pas la créer sans accord).*
-- **Deux projets Vercel** sont liés à ce dépôt : `pharma-garde` et `pharma-garde-2zbt`. **À CONFIRMER : lequel est la production**, et si l'autre doit être supprimé ou désactivé. En attendant, ne modifier aucun réglage de ces projets sans demande explicite.
 - `vercel.json` porte les en-têtes de sécurité et la CSP : toute modification de ce fichier se teste obligatoirement sur l'aperçu avant fusion (une CSP trop stricte casse la carte, les paiements ou Supabase).
 
 ---
@@ -135,7 +135,7 @@ Rollback : en cas de régression en production, proposer d'abord le retour au d�
 - **Lire avant d'écrire** : parcourir le dossier concerné et `docs/` avant de modifier.
 - **Changements minimaux et ciblés** : ne pas refactorer ce qui n'est pas demandé ; proposer le refactoring séparément.
 - **Annoncer les actions à impact** (migration, suppression, changement de CSP, de domaine, de variable d'environnement, de paiement) et attendre la confirmation.
-- **Ne jamais inventer** : si une information manque (fournisseur de paiement actif, projet Vercel de production…), le dire et poser la question.
+- **Ne jamais inventer** : si une information manque, le dire et poser la question.
 - **Rendre compte** : à la fin d'une tâche, indiquer ce qui a changé, ce qui a été testé, ce qui reste à vérifier, et le lien de l'aperçu Vercel.
 - **Sécurité des données** : les données de santé et d'identité professionnelle (cartes pro, CNI, téléphones) ne sont jamais copiées dans les logs, commits, PR ou réponses.
 
