@@ -14,9 +14,12 @@
 (function (window) {
   'use strict';
 
-  let currentMode = 'pharmacies'; // pharmacies | doctors | labs | hospitals
+  let currentMode = 'pharmacies'; // pharmacies | doctors | labs | hospitals | dmp
   let activeConsultId = null;
   let facilityMapLayer = null;
+  let docFilterSpecialty = 'all';
+  let docFilterRegion = 'all';
+  let docFilterAvailOnly = false;
 
   const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -112,10 +115,18 @@
     }
   }
 
-  // ── VUE MÉDECINS (TÉLÉCONSULTATION 48H + ORDONNANCES → PHARMACIES + RDV) ──
+  // ── VUE MÉDECINS (MODE ALÉATOIRE RAPIDE + MULTI-SPÉCIALITÉS + 10 RÉGIONS / CHEFS-LIEUX) ──
   function renderDoctorsView(host) {
     if (!window.MedecinStore) return;
-    const docs = MedecinStore.getDoctors();
+    const allDocs = MedecinStore.getDoctors();
+    const totalAvailNow = allDocs.filter((d) => MedecinStore.getEffectiveAvailability(d).isAvailableNow).length;
+    const specSummary = MedecinStore.getSpecialtyDirectorySummary(docFilterRegion);
+    const docs = MedecinStore.filterDoctors({
+      specialty: docFilterSpecialty,
+      region: docFilterRegion,
+      onlyAvailable: docFilterAvailOnly
+    });
+
     const mySid = MedecinStore.getPatientSessionId();
     const myConsults = MedecinStore.getConsultations().filter((c) => c.patient_session_id === mySid);
     const myRxs = MedecinStore.getPrescriptions().filter((r) => r.patient_session_id === mySid);
@@ -123,29 +134,39 @@
     if (activeConsult) activeConsultId = activeConsult.id;
 
     host.innerHTML = `
-      <div style="background:linear-gradient(135deg, rgba(14,165,233,0.16), rgba(20,184,166,0.12)); border:1px solid rgba(56,189,248,0.45); border-radius:14px; padding:14px; margin-bottom:14px;">
-        <div style="font-weight:900; font-size:14.5px; color:#38bdf8; margin-bottom:4px;">🩺 Téléconsultation Médecin ONMC (Session 48h)</div>
-        <div style="font-size:12px; color:#cbd5e1; line-height:1.45; margin-bottom:10px;">
-          Coût total : <strong style="color:#fbbf24;">2 600 FCFA</strong> (<strong style="color:#34d399;">2 500 F</strong> versés directement au médecin OM/MoMo + <strong>100 F</strong> frais plateforme NotchPay). Ordonnance signée PDF envoyée en 1 clic aux pharmacies !
+      <!-- Mode Aléatoire Rapide + Couverture Nationale 10 Régions -->
+      <div style="background:linear-gradient(135deg, rgba(14,165,233,0.18), rgba(16,185,129,0.14)); border:1px solid rgba(56,189,248,0.45); border-radius:14px; padding:13px; margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:5px;">
+          <div style="font-weight:900; font-size:14.5px; color:#38bdf8;">🩺 Téléconsultation ONMC · Tout le Cameroun</div>
+          <span style="padding:2px 9px; border-radius:999px; background:rgba(16,185,129,0.22); border:1px solid #10b981; color:#34d399; font-size:10.5px; font-weight:800;">🟢 ${totalAvailNow} médecin(s) dispo en direct</span>
         </div>
-        <button type="button" class="btn btn--primary btn--block" onclick="PGPatientCare.openTeleconsultModal()" style="background:linear-gradient(135deg,#0ea5e9,#10b981)!important; color:#fff!important; border:none!important; font-weight:900;">
-          ⚡ Consulter un Médecin Disponible (2 600 FCFA)
-        </button>
+        <div style="font-size:11.5px; color:#cbd5e1; line-height:1.45; margin-bottom:10px;">
+          <strong style="color:#fbbf24;">2 600 FCFA</strong> (2 500 F direct OM/MoMo médecin + 100 F NotchPay · <strong>Session 48h</strong>).<br>
+          ⭐ Les plus grands spécialistes exercent dans les <strong>10 Chefs-lieux de Régions</strong> — consultables à distance depuis <strong>tout le Cameroun</strong> !
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <button type="button" class="btn btn--primary btn--sm" onclick="PGPatientCare.openTeleconsultModal('', 'any')" style="background:linear-gradient(135deg,#0ea5e9,#10b981)!important; color:#fff!important; border:none!important; font-weight:900; padding:10px 8px;">
+            🎲 Mode Aléatoire Rapide<br><small style="font-weight:600; opacity:0.9;">1er Médecin Dispo (2 600 F)</small>
+          </button>
+          <button type="button" class="btn btn--secondary btn--sm" onclick="PGPatientCare.openTeleconsultModal('', '${esc(docFilterSpecialty === 'all' ? 'Médecine Générale' : docFilterSpecialty)}')" style="border-color:rgba(251,191,36,0.5); color:#fbbf24; font-weight:800; padding:10px 8px;">
+            🎯 Choisir ma Spécialité<br><small style="font-weight:600; color:#cbd5e1;">Spécialiste ONMC (2 600 F)</small>
+          </button>
+        </div>
       </div>
 
       ${myRxs.length > 0 ? `
-        <div style="margin-bottom:14px;">
-          <div style="font-size:12px; font-weight:800; color:#fbbf24; text-transform:uppercase; margin-bottom:8px;">📝 Mes Ordonnances Signées (${myRxs.length})</div>
+        <div style="margin-bottom:12px;">
+          <div style="font-size:11.5px; font-weight:800; color:#fbbf24; text-transform:uppercase; margin-bottom:6px;">📝 Mes Ordonnances Signées (${myRxs.length})</div>
           ${myRxs.map((rx) => `
-            <div style="padding:12px; border-radius:12px; background:rgba(16,185,129,0.1); border:1px solid rgba(52,211,153,0.42); margin-bottom:8px;">
-              <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
+            <div style="padding:11px; border-radius:12px; background:rgba(16,185,129,0.1); border:1px solid rgba(52,211,153,0.42); margin-bottom:8px;">
+              <div style="display:flex; justify-content:space-between; font-size:11.5px; margin-bottom:4px;">
                 <strong style="color:#fbbf24; font-family:monospace;">${esc(rx.rx_code)}</strong>
                 <span style="color:#94a3b8;">${esc(rx.doctor_name)} (${esc(rx.doctor_onmc)})</span>
               </div>
-              <div style="font-size:12.5px; color:#fff; font-weight:700; margin-bottom:8px;">💊 ${(rx.medications || []).map((m) => esc(m.name)).join(' · ')}</div>
+              <div style="font-size:12px; color:#fff; font-weight:700; margin-bottom:8px;">💊 ${(rx.medications || []).map((m) => esc(m.name)).join(' · ')}</div>
               <div style="display:flex; gap:6px; flex-wrap:wrap;">
                 <button type="button" class="btn btn--primary btn--sm" data-rx-id="${esc(rx.id)}" onclick="PGPatientCare.searchRxInPharmacies(this.dataset.rxId)" style="flex:1; font-weight:800;">💊 Rechercher en Pharmacie (1 Clic)</button>
-                <button type="button" class="btn btn--secondary btn--sm" onclick="MedecinStore.downloadPrescriptionPDF('${esc(rx.id)}')">📄 Télécharger PDF Signé</button>
+                <button type="button" class="btn btn--secondary btn--sm" onclick="MedecinStore.downloadPrescriptionPDF('${esc(rx.id)}')">📄 PDF Signé</button>
               </div>
             </div>
           `).join('')}
@@ -153,12 +174,12 @@
       ` : ''}
 
       ${activeConsult ? `
-        <div style="margin-bottom:14px; padding:12px; border-radius:14px; background:rgba(15,23,42,0.8); border:1px solid rgba(45,212,191,0.4);">
+        <div style="margin-bottom:12px; padding:11px; border-radius:14px; background:rgba(15,23,42,0.8); border:1px solid rgba(45,212,191,0.4);">
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:8px;">
             <strong style="color:#2dd4bf; font-size:13px;">💬 Ma Session 48h — ${esc(activeConsult.doctor_name)}</strong>
             <span style="font-size:11px; font-weight:800; color:#fbbf24;">⏱️ ${esc(MedecinStore.remaining48hLabel(activeConsult.session_expires_at))}</span>
           </div>
-          <div class="pg-consult-chat" id="pat-consult-chat" style="max-height:190px; margin-bottom:8px;">
+          <div class="pg-consult-chat" id="pat-consult-chat" style="max-height:175px; margin-bottom:8px;">
             ${MedecinStore.getMessages(activeConsult.id).map((m) => `
               <div class="pg-chat-msg ${m.sender_role === 'patient' ? 'pg-chat-msg--patient' : 'pg-chat-msg--doctor'}">
                 <div style="font-size:10px; opacity:0.75; font-weight:700;">${esc(m.sender_name)}</div>
@@ -167,34 +188,78 @@
             `).join('')}
           </div>
           <div style="display:flex; gap:6px;">
-            <input type="text" id="pat-chat-input" class="form-input" placeholder="Écrire à votre médecin (48h inclus)..." style="flex:1; min-height:40px;">
+            <input type="text" id="pat-chat-input" class="form-input" placeholder="Écrire à votre médecin (48h inclus)..." style="flex:1; min-height:38px;">
             <button type="button" class="btn btn--primary btn--sm" onclick="PGPatientCare.sendPatientMessage('${esc(activeConsult.id)}')">Envoyer</button>
           </div>
         </div>
       ` : ''}
 
-      <div style="font-size:12px; font-weight:800; color:#34d399; text-transform:uppercase; margin-bottom:8px;">👨‍⚕️ Médecins Vérifiés ONMC &amp; Prise de Rendez-Vous (${docs.length})</div>
+      <!-- Menus Déroulants Rapides : Spécialité · Région / Chefs-Lieux · Disponibilité -->
+      <div style="background:rgba(15,23,42,0.75); border:1px solid rgba(45,212,191,0.28); border-radius:12px; padding:10px; margin-bottom:12px;">
+        <div style="font-size:11.5px; font-weight:800; color:#2dd4bf; margin-bottom:7px;">🔍 Filtrer les Médecins &amp; Spécialistes (Menus Rapides)</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-bottom:7px;">
+          <select id="pat-doc-spec-filter" class="form-input form-select" onchange="PGPatientCare.setDocFilter('specialty', this.value)" style="min-height:40px; font-size:12px;">
+            <option value="all" ${docFilterSpecialty === 'all' ? 'selected' : ''}>🩺 Toutes Spécialités (${allDocs.length})</option>
+            ${specSummary.map((s) => `<option value="${esc(s.specialty)}" ${docFilterSpecialty === s.specialty ? 'selected' : ''}>${esc(s.specialty)} (${s.total} · ${s.available} dispo)</option>`).join('')}
+          </select>
+          <select id="pat-doc-region-filter" class="form-input form-select" onchange="PGPatientCare.setDocFilter('region', this.value)" style="min-height:40px; font-size:12px;">
+            <option value="all" ${docFilterRegion === 'all' ? 'selected' : ''}>🇨🇲 Tout le Cameroun (10 Régions)</option>
+            <option value="capitals" ${docFilterRegion === 'capitals' ? 'selected' : ''}>⭐ Chefs-lieux de Régions (Grands Spécialistes)</option>
+            ${MedecinStore.CAMEROON_REGIONS.map((r) => `<option value="${esc(r.region)}" ${docFilterRegion === r.region ? 'selected' : ''}>${esc(r.region)} — ${esc(r.capital)} ⭐</option>`).join('')}
+          </select>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+          <label style="display:flex; align-items:center; gap:6px; font-size:11.5px; color:#cbd5e1; cursor:pointer;">
+            <input type="checkbox" ${docFilterAvailOnly ? 'checked' : ''} onchange="PGPatientCare.setDocFilter('avail', this.checked)">
+            <span>🟢 Disponibles maintenant uniquement</span>
+          </label>
+          <span style="font-size:11px; color:#94a3b8; font-weight:700;">${docs.length} praticien(s) affiché(s)</span>
+        </div>
+      </div>
+
+      <!-- Liste des Médecins Multi-Spécialités & Disponibilité Live -->
       <div style="display:flex; flex-direction:column; gap:10px;">
-        ${docs.map((d) => `
-          <div class="pharma-card">
-            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:8px;">
-              <div>
-                <div style="font-weight:800; font-size:15px; color:#fff;">${esc(d.title)} ${esc(d.full_name)} <span style="font-size:10.5px; color:#34d399;">✓ ONMC</span></div>
-                <div style="font-size:12.5px; color:#38bdf8; font-weight:700;">${esc(d.specialty)} · ${esc(d.onmc_number)}</div>
-                <div style="font-size:11.5px; color:#94a3b8; margin-top:2px;">🏥 ${esc(d.clinic_name || d.city)} · 📍 ${esc(d.quarter ? d.quarter + ', ' : '')}${esc(d.city)}</div>
-              </div>
-              <span style="padding:3px 8px; border-radius:999px; font-size:10.5px; font-weight:800; background:${d.availability_status === 'available' ? 'rgba(16,185,129,0.18)' : 'rgba(245,158,11,0.18)'}; color:${d.availability_status === 'available' ? '#34d399' : '#fbbf24'};">
-                ${d.availability_status === 'available' ? '🟢 Dispo' : '🟡 Occupé'}
-              </span>
-            </div>
-            <div style="display:flex; gap:6px; flex-wrap:wrap;">
-              <button type="button" class="pharma-btn btn-call" onclick="PGPatientCare.openTeleconsultModal('${esc(d.id)}','${esc(d.specialty)}')">⚡ Consulter (2 600 F)</button>
-              <button type="button" class="pharma-btn btn-route" onclick="PGPatientCare.openBookApptModal('${esc(d.id)}','${esc(d.title + ' ' + d.full_name)}')">📅 Prendre RDV</button>
-            </div>
+        ${docs.length === 0 ? `
+          <div class="pharma-card" style="text-align:center; padding:20px; color:#94a3b8; font-size:12.5px;">
+            Aucun médecin dans ce filtre exact. Essayez « 🇨🇲 Tout le Cameroun » ou cliquez sur <strong>🎲 Mode Aléatoire Rapide</strong> !
           </div>
-        `).join('')}
+        ` : docs.map((d) => {
+          const eff = MedecinStore.getEffectiveAvailability(d);
+          const specs = MedecinStore.getDoctorSpecialties(d);
+          return `
+            <div class="pharma-card">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:6px;">
+                <div>
+                  <div style="font-weight:800; font-size:15px; color:#fff;">
+                    ${esc(d.title)} ${esc(d.full_name)} <span style="font-size:10.5px; color:#34d399;">✓ ONMC</span>
+                    ${d.is_regional_capital ? '<span style="font-size:10px; color:#fbbf24; background:rgba(251,191,36,0.14); padding:1px 6px; border-radius:999px; margin-left:4px;">⭐ Chef-lieu</span>' : ''}
+                  </div>
+                  <div style="display:flex; flex-wrap:wrap; gap:4px; margin:5px 0;">
+                    ${specs.map((sp) => `<span style="padding:2px 7px; border-radius:999px; background:rgba(56,189,248,0.15); border:1px solid rgba(56,189,248,0.38); color:#7dd3fc; font-size:10.5px; font-weight:700;">${esc(sp)}</span>`).join('')}
+                  </div>
+                  <div style="font-size:11.5px; color:#94a3b8;">🏥 ${esc(d.clinic_name || d.city)} · 📍 ${esc(d.city)} (${esc(d.region || 'Cameroun')})</div>
+                  ${d.availability_note ? `<div style="font-size:11px; color:#cbd5e1; margin-top:3px;">💬 ${esc(d.availability_note)}</div>` : ''}
+                </div>
+                <span style="padding:3px 8px; border-radius:999px; font-size:10.5px; font-weight:800; background:${eff.bg}; color:${eff.badgeColor}; white-space:nowrap;">
+                  ${esc(eff.shortLabel)}
+                </span>
+              </div>
+              <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                <button type="button" class="pharma-btn btn-call" onclick="PGPatientCare.openTeleconsultModal('${esc(d.id)}','${esc(specs[0])}')">⚡ Consulter (2 600 F)</button>
+                <button type="button" class="pharma-btn btn-route" onclick="PGPatientCare.openBookApptModal('${esc(d.id)}','${esc(d.title + ' ' + d.full_name)}')">📅 Prendre RDV</button>
+              </div>
+            </div>
+          `;
+        }).join('')}
       </div>
     `;
+  }
+
+  function setDocFilter(type, value) {
+    if (type === 'specialty') docFilterSpecialty = value || 'all';
+    else if (type === 'region') docFilterRegion = value || 'all';
+    else if (type === 'avail') docFilterAvailOnly = !!value;
+    renderCarePanel();
   }
 
   // ── VUE LABORATOIRES / HÔPITAUX / CLINIQUES ────────────────────
@@ -291,11 +356,22 @@
               <div class="form-group"><label class="form-label">Votre nom / prénom *</label><input type="text" id="tc-name" class="form-input" placeholder="Ex : Marie Ngo"></div>
               <div class="form-group"><label class="form-label">Âge</label><input type="number" id="tc-age" class="form-input" placeholder="Ex : 32"></div>
             </div>
-            <div class="form-group" style="margin-bottom:10px;">
-              <label class="form-label">Spécialité souhaitée</label>
-              <select id="tc-specialty" class="form-input form-select">
-                ${(window.MedecinStore ? MedecinStore.SPECIALTIES : ['Médecine Générale']).map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join('')}
-              </select>
+            <div class="pa-grid-2" style="margin-bottom:10px;">
+              <div class="form-group">
+                <label class="form-label">Spécialité (ou Mode Aléatoire Rapide)</label>
+                <select id="tc-specialty" class="form-input form-select">
+                  <option value="any">🎲 Aléatoire — Premier Médecin Disponible (Instantané)</option>
+                  ${(window.MedecinStore ? MedecinStore.SPECIALTIES : ['Médecine Générale']).map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join('')}
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Région / Couverture Cameroun</label>
+                <select id="tc-region" class="form-input form-select">
+                  <option value="all">🇨🇲 Tout le Cameroun (Auto)</option>
+                  <option value="capitals">⭐ Chefs-lieux (Grands Spécialistes)</option>
+                  ${(window.MedecinStore ? MedecinStore.CAMEROON_REGIONS : []).map((r) => `<option value="${esc(r.region)}">${esc(r.region)} (${esc(r.capital)})</option>`).join('')}
+                </select>
+              </div>
             </div>
             <div class="form-group" style="margin-bottom:10px;">
               <label class="form-label">Décrivez vos symptômes *</label>
@@ -336,7 +412,8 @@
       const c = await MedecinStore.initiatePatientConsultation({
         patient_alias: alias,
         patient_age: document.getElementById('tc-age')?.value,
-        specialty: document.getElementById('tc-specialty')?.value,
+        specialty: document.getElementById('tc-specialty')?.value || 'any',
+        region: document.getElementById('tc-region')?.value || 'all',
         preferred_doctor_id: document.getElementById('tc-pref-doc')?.value || null,
         symptoms,
         allergies: document.getElementById('tc-allergies')?.value,
@@ -443,6 +520,7 @@
   window.PGPatientCare = {
     switchMode,
     getMode: () => currentMode,
+    setDocFilter,
     openTeleconsultModal,
     submitTeleconsult,
     sendPatientMessage,

@@ -14,6 +14,7 @@
   let regSigPad = null;
   let profSigPad = null;
   let autoAvailTimer = null;
+  let selectedRegSpecs = ['Médecine Générale'];
 
   const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -130,7 +131,49 @@
     }
   }
 
+  function renderRegSpecTags() {
+    const box = document.getElementById('doc-reg-spec-tags');
+    if (!box) return;
+    box.innerHTML = selectedRegSpecs.map((sp) => `
+      <span style="display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:999px; background:rgba(56,189,248,0.16); border:1px solid rgba(56,189,248,0.45); color:#7dd3fc; font-size:11.5px; font-weight:800;">
+        🩺 ${esc(sp)}
+        ${selectedRegSpecs.length > 1 ? `<button type="button" onclick="MedecinApp.removeRegSpecialty('${esc(sp).replace(/'/g, "\\'")}')" style="background:none;border:none;color:#fda4af;cursor:pointer;font-weight:900;padding:0 2px;">×</button>` : ''}
+      </span>
+    `).join('');
+  }
+
+  function addRegSpecialty(val) {
+    const sp = String(val || document.getElementById('doc-reg-specialty')?.value || '').trim();
+    if (!sp) return;
+    if (!selectedRegSpecs.includes(sp)) selectedRegSpecs.push(sp);
+    renderRegSpecTags();
+  }
+
+  function removeRegSpecialty(sp) {
+    if (selectedRegSpecs.length <= 1) return;
+    selectedRegSpecs = selectedRegSpecs.filter((x) => x !== sp);
+    renderRegSpecTags();
+  }
+
   function bindAuthEvents() {
+    // Remplir le menu déroulant des spécialités + liaison région → chef-lieu auto
+    const specSel = document.getElementById('doc-reg-specialty');
+    if (specSel && window.MedecinStore) {
+      specSel.innerHTML = MedecinStore.SPECIALTIES.map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+      specSel.addEventListener('change', () => addRegSpecialty(specSel.value));
+    }
+    document.getElementById('btn-doc-add-spec')?.addEventListener('click', () => addRegSpecialty());
+    renderRegSpecTags();
+
+    const regSel = document.getElementById('doc-reg-region');
+    if (regSel && window.MedecinStore) {
+      regSel.addEventListener('change', () => {
+        const found = MedecinStore.CAMEROON_REGIONS.find((r) => r.region === regSel.value);
+        const cityInp = document.getElementById('doc-reg-city');
+        if (found && cityInp) cityInp.value = found.capital;
+      });
+    }
+
     document.querySelectorAll('[data-doc-view]').forEach((b) => {
       b.addEventListener('click', (e) => { e.preventDefault(); showAuthView(b.getAttribute('data-doc-view')); });
     });
@@ -188,13 +231,15 @@
           currentDoctor = await MedecinStore.registerDoctor({
             title: document.getElementById('doc-reg-title').value,
             full_name: document.getElementById('doc-reg-name').value,
-            specialty: document.getElementById('doc-reg-specialty').value,
+            specialty: selectedRegSpecs[0] || document.getElementById('doc-reg-specialty').value,
+            specialties: selectedRegSpecs.slice(),
             onmc_number: document.getElementById('doc-reg-onmc').value,
             cni_number: document.getElementById('doc-reg-cni').value,
             diploma_title: document.getElementById('doc-reg-diploma').value,
             university: document.getElementById('doc-reg-univ').value,
             graduation_year: document.getElementById('doc-reg-year').value,
             clinic_name: document.getElementById('doc-reg-clinic').value,
+            region: document.getElementById('doc-reg-region')?.value || 'Littoral',
             city: document.getElementById('doc-reg-city').value,
             quarter: document.getElementById('doc-reg-quarter').value,
             phone: document.getElementById('doc-reg-phone').value,
@@ -235,18 +280,22 @@
     if (!currentDoctor) return;
     const nm = document.getElementById('doc-header-name');
     if (nm) nm.textContent = `${currentDoctor.title || 'Dr'} ${currentDoctor.full_name}`;
+    const specs = MedecinStore.getDoctorSpecialties(currentDoctor);
+    const eff = MedecinStore.getEffectiveAvailability(currentDoctor);
     const meta = document.getElementById('doc-header-meta');
-    if (meta) meta.textContent = `${currentDoctor.specialty} · ${currentDoctor.onmc_number}`;
+    if (meta) meta.textContent = `${specs.join(' · ')} · ${currentDoctor.city || ''} (${currentDoctor.region || 'Cameroun'})`;
     const verBadge = document.getElementById('doc-verif-pill');
     const isVer = currentDoctor.verification_status === 'verified' || (window.PGAdmin && PGAdmin.isVerified('doctor', currentDoctor.id));
     if (verBadge) {
-      verBadge.innerHTML = isVer
-        ? '<span style="background:rgba(16,185,129,0.2);border:1px solid #10b981;color:#34d399;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:800;">✓ Vérifié ONMC</span>'
-        : '<span style="background:rgba(245,158,11,0.18);border:1px solid #f59e0b;color:#fbbf24;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:800;">⏳ Vérification ONMC en attente</span>';
+      verBadge.innerHTML =
+        (isVer
+          ? '<span style="background:rgba(16,185,129,0.2);border:1px solid #10b981;color:#34d399;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:800;">✓ ONMC</span> '
+          : '<span style="background:rgba(245,158,11,0.18);border:1px solid #f59e0b;color:#fbbf24;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:800;">⏳ ONMC</span> ') +
+        `<span onclick="MedecinApp.openAvailabilityModal()" style="cursor:pointer;background:${eff.bg};border:1px solid ${eff.badgeColor};color:${eff.badgeColor};padding:3px 9px;border-radius:999px;font-size:11px;font-weight:800;" title="Cliquer pour régler la durée de disponibilité">${esc(eff.shortLabel)}</span>`;
     }
     ['available', 'busy', 'offline'].forEach((st) => {
       const b = document.getElementById('doc-st-' + st);
-      if (b) b.classList.toggle('active', currentDoctor.availability_status === st);
+      if (b) b.classList.toggle('active', eff.status === st);
     });
     if (window.PGSubscription) {
       PGSubscription.renderHeaderBadge('doc-sub-badge-slot', currentDoctor, 'doctor');
@@ -254,13 +303,82 @@
     }
   }
 
-  function toggleStatus(st) {
+  function openAvailabilityModal(presetStatus) {
     if (!currentDoctor) return;
-    currentDoctor.availability_status = st;
-    MedecinStore.saveSession(currentDoctor);
+    let modal = document.getElementById('doc-availability-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'doc-availability-modal';
+      modal.className = 'modal-overlay';
+      modal.innerHTML = `
+        <div class="modal-content" style="max-width:460px;">
+          <div class="modal-header">
+            <h3 style="margin:0; font-size:16px; font-weight:900; color:#2dd4bf;">⏱️ Régler ma Disponibilité / Indisponibilité</h3>
+            <button type="button" class="btn btn--icon" onclick="document.getElementById('doc-availability-modal').classList.remove('active')">✕</button>
+          </div>
+          <div class="modal-body" style="padding:16px 20px;">
+            <p style="font-size:12px; color:#94a3b8; margin:0 0 12px;">
+              Définissez votre statut et sa <strong>durée exacte</strong> : à expiration, la plateforme rebascule <strong>automatiquement</strong> selon votre planning hebdomadaire (zéro action manuelle).
+            </p>
+            <div class="form-group" style="margin-bottom:10px;">
+              <label class="form-label">Statut souhaité *</label>
+              <select id="doc-av-status" class="form-input form-select">
+                <option value="available">🟢 Disponible pour téléconsultations &amp; patients</option>
+                <option value="busy">🟡 En consultation / Occupé temporairement</option>
+                <option value="offline">🔴 Indisponible / Absent / Congé</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:10px;">
+              <label class="form-label">Durée automatique *</label>
+              <select id="doc-av-duration" class="form-input form-select">
+                ${MedecinStore.AVAILABILITY_DURATIONS.map((d) => `<option value="${d.minutes}">${esc(d.label)}</option>`).join('')}
+                <option value="custom">🗓️ Date &amp; heure de fin personnalisées...</option>
+              </select>
+            </div>
+            <div class="form-group hidden" id="doc-av-custom-wrap" style="margin-bottom:10px;">
+              <label class="form-label">Jusqu'au (Date &amp; Heure exacte)</label>
+              <input type="datetime-local" id="doc-av-custom-dt" class="form-input">
+            </div>
+            <div class="form-group" style="margin-bottom:14px;">
+              <label class="form-label">Note visible par les patients (optionnel)</label>
+              <input type="text" id="doc-av-note" class="form-input" placeholder="Ex : Garde hôpital, libre après 16h, téléconsultation rapide...">
+            </div>
+            <button type="button" class="btn btn--primary btn--block" onclick="MedecinApp.applyTimedAvailability()">✅ Appliquer &amp; Automatiser</button>
+          </div>
+        </div>
+      `;
+      modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
+      document.body.appendChild(modal);
+      document.getElementById('doc-av-duration')?.addEventListener('change', (e) => {
+        document.getElementById('doc-av-custom-wrap')?.classList.toggle('hidden', e.target.value !== 'custom');
+      });
+    }
+    const eff = MedecinStore.getEffectiveAvailability(currentDoctor);
+    document.getElementById('doc-av-status').value = presetStatus || eff.status || 'available';
+    document.getElementById('doc-av-note').value = currentDoctor.availability_note || '';
+    document.getElementById('doc-av-duration').value = presetStatus && presetStatus !== 'available' ? '60' : '240';
+    document.getElementById('doc-av-custom-wrap')?.classList.add('hidden');
+    modal.classList.add('active');
+  }
+
+  function applyTimedAvailability() {
+    if (!currentDoctor) return;
+    const status = document.getElementById('doc-av-status')?.value || 'available';
+    const durVal = document.getElementById('doc-av-duration')?.value || '0';
+    const customDt = durVal === 'custom' ? (document.getElementById('doc-av-custom-dt')?.value || '') : '';
+    const minutes = durVal === 'custom' ? 0 : Number(durVal);
+    const note = document.getElementById('doc-av-note')?.value || '';
+
+    MedecinStore.setDoctorTimedAvailability(currentDoctor, status, minutes, customDt, note);
+    document.getElementById('doc-availability-modal')?.classList.remove('active');
     updateHeader();
-    const map = { available: '🟢 Disponible pour téléconsultations', busy: '🟡 En consultation', offline: '🔴 Hors ligne' };
-    toast(map[st] || 'Statut mis à jour', 'info');
+    if (activeTab === 'schedule') renderSchedulePanel();
+    const eff = MedecinStore.getEffectiveAvailability(currentDoctor);
+    toast(`✅ Statut automatisé : ${eff.fullLabel}`, 'success');
+  }
+
+  function toggleStatus(st) {
+    openAvailabilityModal(st);
   }
 
   function showDashboard() {
@@ -269,7 +387,10 @@
     updateHeader();
     switchTab('consults');
     if (!autoAvailTimer) {
-      autoAvailTimer = setInterval(() => { if (activeTab === 'consults') renderConsultsPanel(); }, 30000);
+      autoAvailTimer = setInterval(() => {
+        updateHeader();
+        if (activeTab === 'consults') renderConsultsPanel();
+      }, 30000);
     }
   }
 
@@ -525,8 +646,22 @@
       ['jeu', 'Jeudi'], ['ven', 'Vendredi'], ['sam', 'Samedi'], ['dim', 'Dimanche']
     ];
     const appts = MedecinStore.getAppointments().filter((a) => a.doctor_id === currentDoctor.id || (window.PGAdmin && PGAdmin.isAdmin()));
+    const eff = MedecinStore.getEffectiveAvailability(currentDoctor);
 
     host.innerHTML = `
+      <div class="pharm-card" style="margin-bottom:16px; border-color:rgba(45,212,191,0.45); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+        <div>
+          <div style="font-size:11px; font-weight:800; color:#2dd4bf; text-transform:uppercase;">⚡ Disponibilité / Indisponibilité Temporisée Automatisée</div>
+          <div style="font-size:15.5px; font-weight:900; color:${eff.badgeColor}; margin-top:3px;">${esc(eff.fullLabel)}</div>
+          ${currentDoctor.availability_note ? `<div style="font-size:12px; color:#cbd5e1; margin-top:2px;">📝 ${esc(currentDoctor.availability_note)}</div>` : ''}
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button type="button" class="btn btn--primary btn--sm" onclick="MedecinApp.openAvailabilityModal('available')">🟢 Disponible (Durée...)</button>
+          <button type="button" class="btn btn--secondary btn--sm" onclick="MedecinApp.openAvailabilityModal('busy')" style="color:#fbbf24;">🟡 Occupé (Durée...)</button>
+          <button type="button" class="btn btn--secondary btn--sm" onclick="MedecinApp.openAvailabilityModal('offline')" style="color:#f87171;">🔴 Indisponible (Durée...)</button>
+        </div>
+      </div>
+
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;" class="pg-two-col">
         <div class="pharm-card">
           <h3 style="margin:0 0 10px; font-size:15px; font-weight:800; color:#2dd4bf;">🕒 Mes Horaires de Consultation Automatisés</h3>
@@ -620,13 +755,31 @@
     `;
   }
 
-  // ── PÔLE 5 : PROFIL ONMC & SIGNATURE ───────────────────────────
+  // ── PÔLE 5 : PROFIL ONMC, MULTI-SPÉCIALITÉS & SIGNATURE ────────
   function renderProfilePanel() {
     const host = document.getElementById('dpanel-profile');
     if (!host || !currentDoctor) return;
+    const specs = MedecinStore.getDoctorSpecialties(currentDoctor);
     host.innerHTML = `
-      <div class="pharm-card" style="max-width:680px; margin:0 auto;">
-        <h3 style="margin:0 0 12px; font-size:15.5px; font-weight:800; color:#2dd4bf;">✍️ Profil ONMC, Compte OM/MoMo &amp; Signature Manuscrite</h3>
+      <div class="pharm-card" style="max-width:700px; margin:0 auto;">
+        <h3 style="margin:0 0 12px; font-size:15.5px; font-weight:800; color:#2dd4bf;">✍️ Profil ONMC, Multi-Spécialités, OM/MoMo &amp; Signature</h3>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Mes Spécialités Médicales (${specs.length}) — ajout/retrait instantané</label>
+          <div style="display:flex; gap:8px; margin-bottom:8px;">
+            <select id="prof-spec-select" class="form-input form-select" style="flex:1;">
+              ${MedecinStore.SPECIALTIES.map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join('')}
+            </select>
+            <button type="button" class="btn btn--secondary btn--sm" onclick="MedecinApp.addProfileSpecialty()">+ Ajouter</button>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:6px;">
+            ${specs.map((sp) => `
+              <span style="display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:999px; background:rgba(56,189,248,0.16); border:1px solid rgba(56,189,248,0.45); color:#7dd3fc; font-size:12px; font-weight:800;">
+                🩺 ${esc(sp)}
+                ${specs.length > 1 ? `<button type="button" onclick="MedecinApp.removeProfileSpecialty('${esc(sp).replace(/'/g, "\\'")}')" style="background:none;border:none;color:#fda4af;cursor:pointer;font-weight:900;">×</button>` : ''}
+              </span>
+            `).join('')}
+          </div>
+        </div>
         <div class="pa-grid-2" style="margin-bottom:12px;">
           <div class="form-group"><label class="form-label">Numéro Versement OM / MoMo</label><input type="tel" id="prof-payout-phone" class="form-input" value="${esc(currentDoctor.payout_phone || currentDoctor.phone || '')}"></div>
           <div class="form-group"><label class="form-label">Opérateur Versement</label>
@@ -707,9 +860,43 @@
 
   document.addEventListener('DOMContentLoaded', init);
 
+  function addProfileSpecialty() {
+    if (!currentDoctor) return;
+    const sp = document.getElementById('prof-spec-select')?.value;
+    if (!sp) return;
+    const cur = MedecinStore.getDoctorSpecialties(currentDoctor);
+    if (!cur.includes(sp)) {
+      cur.push(sp);
+      currentDoctor.specialties = cur;
+      currentDoctor.specialty = cur[0];
+      MedecinStore.saveSession(currentDoctor);
+      updateHeader();
+      renderProfilePanel();
+      toast(`✅ Spécialité "${sp}" ajoutée à votre profil ONMC !`, 'success');
+    }
+  }
+
+  function removeProfileSpecialty(sp) {
+    if (!currentDoctor) return;
+    const cur = MedecinStore.getDoctorSpecialties(currentDoctor).filter((x) => x !== sp);
+    if (cur.length === 0) return;
+    currentDoctor.specialties = cur;
+    currentDoctor.specialty = cur[0];
+    MedecinStore.saveSession(currentDoctor);
+    updateHeader();
+    renderProfilePanel();
+    toast(`Spécialité "${sp}" retirée.`, 'info');
+  }
+
   window.MedecinApp = {
     switchTab,
     toggleStatus,
+    openAvailabilityModal,
+    applyTimedAvailability,
+    addRegSpecialty,
+    removeRegSpecialty,
+    addProfileSpecialty,
+    removeProfileSpecialty,
     acceptRequest,
     selectConsult,
     sendChatMessage,

@@ -1199,7 +1199,64 @@ const I18n = (() => {
     'Analyses & Imagerie': 'Lab & Imaging',
     'Ordonnances': 'Prescriptions',
     'Consultations': 'Consultations',
-    'Constantes': 'Vitals'
+    'Constantes': 'Vitals',
+
+    // Nouvelles fonctionnalités v14.0 (Multi-Spécialités, Disponibilités Temporisées, Aléatoire & 10 Régions)
+    'Spécialité(s) Médicale(s) (Multi-choix)': 'Medical Specialty(ies) (Multi-select)',
+    'Région du Cameroun': 'Cameroon Region',
+    'Ville / Chef-lieu': 'City / Regional Capital',
+    'Indisponible': 'Unavailable',
+    'Régler ma Disponibilité / Indisponibilité': 'Set My Availability / Unavailability',
+    'Statut souhaité *': 'Desired status *',
+    'Durée automatique *': 'Automatic duration *',
+    'Jusqu\'au (Date & Heure exacte)': 'Until (Exact Date & Time)',
+    'Note visible par les patients (optionnel)': 'Note visible to patients (optional)',
+    'Appliquer & Automatiser': 'Apply & Automate',
+    'Automatique (selon mon planning hebdo)': 'Automatic (per weekly schedule)',
+    'Pendant 30 minutes': 'For 30 minutes',
+    'Pendant 1 heure': 'For 1 hour',
+    'Pendant 2 heures': 'For 2 hours',
+    'Pendant 4 heures': 'For 4 hours',
+    'Pendant 8 heures': 'For 8 hours',
+    'Pendant 12 heures': 'For 12 hours',
+    'Pendant 24 heures (1 jour)': 'For 24 hours (1 day)',
+    'Pendant 48 heures (2 jours)': 'For 48 hours (2 days)',
+    'Pendant 7 jours (congé / mission)': 'For 7 days (leave / mission)',
+    'Date & heure de fin personnalisées...': 'Custom end date & time...',
+    'Disponibilité / Indisponibilité Temporisée Automatisée': 'Automated Timed Availability / Unavailability',
+    'Disponible (Durée...)': 'Available (Duration...)',
+    'Occupé (Durée...)': 'Busy (Duration...)',
+    'Indisponible (Durée...)': 'Unavailable (Duration...)',
+    'Téléconsultation ONMC · Tout le Cameroun': 'ONMC Teleconsultation · All Cameroon',
+    'Mode Aléatoire Rapide': 'Fast Random Mode',
+    '1er Médecin Dispo (2 600 F)': '1st Available Doctor (2,600 F)',
+    'Choisir ma Spécialité': 'Choose My Specialty',
+    'Spécialiste ONMC (2 600 F)': 'ONMC Specialist (2,600 F)',
+    'Filtrer les Médecins & Spécialistes (Menus Rapides)': 'Filter Doctors & Specialists (Quick Menus)',
+    'Tout le Cameroun (10 Régions)': 'All Cameroon (10 Regions)',
+    'Tout le Cameroun (Auto)': 'All Cameroon (Auto)',
+    'Chefs-lieux de Régions (Grands Spécialistes)': 'Regional Capitals (Top Specialists)',
+    'Chefs-lieux (Grands Spécialistes)': 'Regional Capitals (Top Specialists)',
+    'Disponibles maintenant uniquement': 'Available right now only',
+    'Chef-lieu': 'Regional Capital',
+    'Spécialité (ou Mode Aléatoire Rapide)': 'Specialty (or Fast Random Mode)',
+    'Région / Couverture Cameroun': 'Region / Cameroon Coverage',
+    'Aléatoire — Premier Médecin Disponible (Instantané)': 'Random — First Available Doctor (Instant)',
+    'Disponible maintenant (Auto)': 'Available now (Auto)',
+    'En consultation': 'In consultation',
+    'Indisponible / Hors horaires': 'Unavailable / Off-hours',
+    'Néonatologie': 'Neonatology',
+    'Dermatologie & Vénéréologie': 'Dermatology & Venereology',
+    'ORL & Chirurgie Cervico-Faciale': 'ENT & Head/Neck Surgery',
+    'Gastro-entérologie & Hépatologie': 'Gastroenterology & Hepatology',
+    'Endocrinologie & Diabétologie': 'Endocrinology & Diabetology',
+    'Néphrologie': 'Nephrology',
+    'Rhumatologie': 'Rheumatology',
+    'Chirurgie Générale': 'General Surgery',
+    'Orthopédie & Traumatologie': 'Orthopedics & Traumatology',
+    'Oncologie Médicale': 'Medical Oncology',
+    'Infectiologie & Médecine Tropicale': 'Infectious Diseases & Tropical Medicine',
+    'Anesthésie-Réanimation & Urgences': 'Anesthesiology & Emergency Medicine'
   };
 
   // Motifs dynamiques (compteurs, dates, durées, départements, abonnements)
@@ -1275,7 +1332,16 @@ const I18n = (() => {
     [/^Partager\s*\((\d+)\)$/i, 'Share ($1)'],
     [/^Mes Partages\s*\((\d+)\)$/i, 'My Shares ($1)'],
     [/^Dossiers Récents\s*\((\d+)\)$/i, 'Recent Orders ($1)'],
-    [/^Journal d'Accès & Traçabilité Complète\s*\((\d+)\)$/i, 'Access Log & Full Traceability ($1)']
+    [/^Journal d'Accès & Traçabilité Complète\s*\((\d+)\)$/i, 'Access Log & Full Traceability ($1)'],
+    [/^(\d+)\s*médecin\(s\)\s*dispo\s*en\s*direct$/i, '$1 doctor(s) available live'],
+    [/^(\d+)\s*praticien\(s\)\s*affiché\(s\)$/i, '$1 practitioner(s) shown'],
+    [/^Toutes Spécialités\s*\((\d+)\)$/i, 'All Specialties ($1)'],
+    [/^Disponible encore\s*(.+)$/i, 'Available for $1'],
+    [/^En consultation\s*—\s*libre dans\s*(.+)$/i, 'In consultation — free in $1'],
+    [/^Indisponible\s*—\s*retour dans\s*(.+)$/i, 'Unavailable — back in $1'],
+    [/^Dispo\s*\((.+)\)$/i, 'Avail. ($1)'],
+    [/^Occupé\s*\((.+)\)$/i, 'Busy ($1)'],
+    [/^Indispo\s*\((.+)\)$/i, 'Unavail. ($1)']
   ];
 
   // Index insensible à la casse & aux espaces multiples pour recherche O(1)
@@ -1289,8 +1355,17 @@ const I18n = (() => {
   // Expression de séparation des emojis/symboles en préfixe pour préserver les icônes
   const LEADING_SYMBOL_RE = /^([\s\u2600-\u27BF\u2B00-\u2BFF\u{1F300}-\u{1FAFF}\uFE0F\u200D•·—\-→←⚡✅❌⚠️📍📞💬🏥💼🏭📦🛒📢📊📈📉📅📆🗓️🔍📷🌙🛡️🛟⚙️🔄💾📁📄🖥️🔌🌐🚀🚚🚢🎁🏷️🎯🏆👥🤝📏🤖👑🔒🔓🔑🧪💊⏱️📋🔔✨🎉]+)(.*)$/u;
 
+  // Cache O(1) des résultats traduits (évite tout recalcule regex sur les re-renders rapides)
+  const TRANSLATE_CACHE = new Map();
+
   function translateText(raw) {
     if (currentLang !== 'en' || !raw || typeof raw !== 'string') return raw;
+    if (TRANSLATE_CACHE.has(raw)) return TRANSLATE_CACHE.get(raw);
+    const cacheAndReturn = (val) => {
+      if (TRANSLATE_CACHE.size > 1500) TRANSLATE_CACHE.clear();
+      TRANSLATE_CACHE.set(raw, val);
+      return val;
+    };
     const leadWs = raw.match(/^\s*/)[0];
     const trailWs = raw.match(/\s*$/)[0];
     const trimmed = raw.trim();
@@ -1298,8 +1373,8 @@ const I18n = (() => {
 
     // 1. Correspondance directe exacte (avec emojis inclus)
     const clean = trimmed.replace(/\s+/g, ' ');
-    if (PHRASE_INDEX.has(clean)) return leadWs + PHRASE_INDEX.get(clean) + trailWs;
-    if (PHRASE_INDEX.has(clean.toLowerCase())) return leadWs + PHRASE_INDEX.get(clean.toLowerCase()) + trailWs;
+    if (PHRASE_INDEX.has(clean)) return cacheAndReturn(leadWs + PHRASE_INDEX.get(clean) + trailWs);
+    if (PHRASE_INDEX.has(clean.toLowerCase())) return cacheAndReturn(leadWs + PHRASE_INDEX.get(clean.toLowerCase()) + trailWs);
 
     // 2. Séparer un éventuel préfixe emoji/symbole et traduire le texte
     let prefix = '';
@@ -1308,15 +1383,15 @@ const I18n = (() => {
     if (m && m[2] && m[2].trim().length >= 2) {
       prefix = m[1];
       core = m[2].trim();
-      if (PHRASE_INDEX.has(core)) return leadWs + prefix + PHRASE_INDEX.get(core) + trailWs;
-      if (PHRASE_INDEX.has(core.toLowerCase())) return leadWs + prefix + PHRASE_INDEX.get(core.toLowerCase()) + trailWs;
+      if (PHRASE_INDEX.has(core)) return cacheAndReturn(leadWs + prefix + PHRASE_INDEX.get(core) + trailWs);
+      if (PHRASE_INDEX.has(core.toLowerCase())) return cacheAndReturn(leadWs + prefix + PHRASE_INDEX.get(core.toLowerCase()) + trailWs);
     }
 
     // 3. Motifs regex dynamiques (compteurs, durées, départements, statuts)
     for (let i = 0; i < REGEX_FR_EN.length; i++) {
       const [re, rep] = REGEX_FR_EN[i];
       if (re.test(core)) {
-        return leadWs + prefix + core.replace(re, rep).trim() + trailWs;
+        return cacheAndReturn(leadWs + prefix + core.replace(re, rep).trim() + trailWs);
       }
     }
 
@@ -1331,7 +1406,7 @@ const I18n = (() => {
           if (tp !== p) changed = true;
           return tp;
         });
-        if (changed) return leadWs + prefix + trParts.join(sep) + trailWs;
+        if (changed) return cacheAndReturn(leadWs + prefix + trParts.join(sep) + trailWs);
       }
     }
 
@@ -1339,10 +1414,10 @@ const I18n = (() => {
     if (/^(Ex\s*:\s*)/i.test(core)) {
       const rest = core.replace(/^Ex\s*:\s*/i, '');
       const trRest = translateText(rest);
-      if (trRest !== rest) return leadWs + prefix + 'Ex: ' + trRest + trailWs;
+      if (trRest !== rest) return cacheAndReturn(leadWs + prefix + 'Ex: ' + trRest + trailWs);
     }
 
-    return raw;
+    return cacheAndReturn(raw);
   }
 
   function t(key, params) {
@@ -1497,10 +1572,20 @@ const I18n = (() => {
     observer.observe(document.body, { childList: true, subtree: true, characterData: true });
   }
 
+  function stopObserver() {
+    if (observer) {
+      try { observer.disconnect(); } catch (e) {}
+      observer = null;
+    }
+  }
+
   function setLang(lang) {
     currentLang = lang === 'en' ? 'en' : 'fr';
     try { localStorage.setItem('pharmagarde_lang', currentLang); } catch (e) {}
     document.documentElement.lang = currentLang;
+
+    // 0 coût CPU en français : observer actif uniquement en mode anglais
+    if (currentLang === 'en') startObserver(); else stopObserver();
 
     // Mettre à jour tous les sélecteurs FR/EN de la page
     document.querySelectorAll('.lang-switch__btn').forEach((btn) => {

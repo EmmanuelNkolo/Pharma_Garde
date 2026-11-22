@@ -12,17 +12,6 @@ const App = (() => {
   let insuranceName = null;
   let navigationHistory = [];
   let navIndex = -1;
-  let demoSlideIndex = 0;
-
-  // Demo slides data
-  const DEMO_SLIDES = [
-    { icon: '📍', title: 'Localisez-vous', desc: 'Pharma-Garde détecte automatiquement votre position GPS pour trouver les pharmacies les plus proches dans un rayon de 2 à 20 km.' },
-    { icon: '💊', title: 'Recherchez vos médicaments', desc: 'Entrez le nom du médicament recherché. Notre système interroge en temps réel toutes les pharmacies ouvertes autour de vous.' },
-    { icon: '💰', title: 'Paiement Mobile Money', desc: 'Payez seulement 100 FCFA via Orange Money ou MTN MoMo. Une session de 24h vous permet des recherches illimitées.' },
-    { icon: '🔔', title: 'Réponses en temps réel', desc: 'Les pharmacies reçoivent votre demande instantanément et vous répondent dans les minutes qui suivent. Aucune attente !' },
-    { icon: '🗺️', title: 'Itinéraire GPS', desc: 'Obtenez l\'itinéraire exact vers la pharmacie qui a votre médicament. Appelez-la ou contactez-la par WhatsApp directement.' },
-    { icon: '🏥', title: 'Espace Pharmacie', desc: 'Vous êtes pharmacien ? Inscrivez votre pharmacie pour recevoir des demandes de patients, gérer vos stocks et augmenter votre visibilité.' },
-  ];
 
   // ── DOM References ─────────────────────────────────────
   const $ = (sel) => document.querySelector(sel);
@@ -205,21 +194,20 @@ const App = (() => {
     }
   }
 
-  // ── Initialize ─────────────────────────────────────────
+  // ── Initialize (0ms instant boot) ─────────────────────
   function init() {
-    // Splash screen timer (Low-Latency 350ms)
-    setTimeout(() => {
-      $('#splash-screen').classList.add('hidden');
+    requestAnimationFrame(() => {
+      const splash = $('#splash-screen');
+      if (splash) splash.classList.add('hidden');
       const welcomeScreen = $('#welcome-screen');
       if (welcomeScreen) {
         welcomeScreen.classList.remove('hidden');
       } else {
         showLocationModal();
       }
-    }, 350);
+    });
 
     bindEvents();
-    initDemoSlides();
     updateSessionUI();
     setInterval(updateSessionUI, 30000); // Synchronisation automatique du compte à rebours 24h
     

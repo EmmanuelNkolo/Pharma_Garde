@@ -108,20 +108,12 @@
             </div>
             <div class="pa-grid-2">
               <div class="form-group">
-                <label class="pa-label">Spécialité Médicale <span class="req">*</span></label>
-                <select id="doc-reg-specialty" class="form-input form-select">
-                  <option value="Médecine Générale">Médecine Générale</option>
-                  <option value="Pédiatrie">Pédiatrie</option>
-                  <option value="Gynécologie-Obstétrique">Gynécologie-Obstétrique</option>
-                  <option value="Cardiologie">Cardiologie</option>
-                  <option value="Dermatologie">Dermatologie</option>
-                  <option value="Médecine Interne">Médecine Interne</option>
-                  <option value="Ophtalmologie">Ophtalmologie</option>
-                  <option value="Neurologie">Neurologie</option>
-                  <option value="Pneumologie">Pneumologie</option>
-                  <option value="Gastro-entérologie">Gastro-entérologie</option>
-                  <option value="Endocrinologie / Diabétologie">Endocrinologie / Diabétologie</option>
-                </select>
+                <label class="pa-label">Spécialité(s) Médicale(s) (Multi-choix) <span class="req">*</span></label>
+                <div style="display:flex; gap:6px;">
+                  <select id="doc-reg-specialty" class="form-input form-select" style="flex:1;"></select>
+                  <button type="button" id="btn-doc-add-spec" class="btn btn--secondary btn--sm" style="white-space:nowrap;">+ Ajouter</button>
+                </div>
+                <div id="doc-reg-spec-tags" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:7px;"></div>
               </div>
               <div class="form-group">
                 <label class="pa-label">N° Ordre National Médecins (ONMC) <span class="req">*</span></label>
@@ -157,13 +149,28 @@
           <div class="pa-section">
             <div class="pa-section__title"><span class="pa-section__num">2</span> Cabinet, Téléphone &amp; Compte de Versement Direct (2 500 FCFA)</div>
             <div class="pa-grid-2">
-              <div class="form-group"><label class="pa-label">Cabinet / Hôpital d'attache</label><input type="text" id="doc-reg-clinic" class="form-input" placeholder="Ex : Clinique Bonapriso"></div>
-              <div class="form-group"><label class="pa-label">Ville (Cameroun) <span class="req">*</span></label><input type="text" id="doc-reg-city" class="form-input" value="Douala"></div>
+              <div class="form-group"><label class="pa-label">Cabinet / Hôpital d'attache</label><input type="text" id="doc-reg-clinic" class="form-input" placeholder="Ex : Hôpital Régional / Clinique Bonapriso"></div>
+              <div class="form-group">
+                <label class="pa-label">Région du Cameroun <span class="req">*</span></label>
+                <select id="doc-reg-region" class="form-input form-select">
+                  <option value="Littoral">Littoral (Chef-lieu : Douala ⭐)</option>
+                  <option value="Centre">Centre (Chef-lieu : Yaoundé ⭐)</option>
+                  <option value="Ouest">Ouest (Chef-lieu : Bafoussam ⭐)</option>
+                  <option value="Nord-Ouest">Nord-Ouest (Chef-lieu : Bamenda ⭐)</option>
+                  <option value="Sud-Ouest">Sud-Ouest (Chef-lieu : Buéa ⭐)</option>
+                  <option value="Nord">Nord (Chef-lieu : Garoua ⭐)</option>
+                  <option value="Extrême-Nord">Extrême-Nord (Chef-lieu : Maroua ⭐)</option>
+                  <option value="Adamaoua">Adamaoua (Chef-lieu : Ngaoundéré ⭐)</option>
+                  <option value="Est">Est (Chef-lieu : Bertoua ⭐)</option>
+                  <option value="Sud">Sud (Chef-lieu : Ebolowa ⭐)</option>
+                </select>
+              </div>
             </div>
             <div class="pa-grid-2">
+              <div class="form-group"><label class="pa-label">Ville / Chef-lieu <span class="req">*</span></label><input type="text" id="doc-reg-city" class="form-input" value="Douala" placeholder="Ex : Douala, Yaoundé, Bafoussam, Kribi..."></div>
               <div class="form-group"><label class="pa-label">Quartier</label><input type="text" id="doc-reg-quarter" class="form-input" placeholder="Ex : Bonapriso"></div>
-              <div class="form-group"><label class="pa-label">Téléphone professionnel <span class="req">*</span></label><input type="tel" id="doc-reg-phone" class="form-input" placeholder="699 41 25 80"></div>
             </div>
+            <div class="form-group"><label class="pa-label">Téléphone professionnel <span class="req">*</span></label><input type="tel" id="doc-reg-phone" class="form-input" placeholder="699 41 25 80"></div>
             <div class="pa-grid-2">
               <div class="form-group"><label class="pa-label">Numéro OM / MoMo (Honoraires 2 500 F) <span class="req">*</span></label><input type="tel" id="doc-reg-payout-phone" class="form-input" placeholder="6XX XXX XXX"></div>
               <div class="form-group"><label class="pa-label">Opérateur Mobile Money <span class="req">*</span></label>
@@ -223,9 +230,9 @@
         </div>
 
         <div class="pharm-header__status-group">
-          <button type="button" id="doc-st-available" class="header-status-btn status-open active" onclick="MedecinApp.toggleStatus('available')"><span class="dot-status dot-open"></span> <span>Disponible</span></button>
-          <button type="button" id="doc-st-busy" class="header-status-btn status-guard" onclick="MedecinApp.toggleStatus('busy')"><span class="dot-status dot-guard"></span> <span>En consult.</span></button>
-          <button type="button" id="doc-st-offline" class="header-status-btn status-closed" onclick="MedecinApp.toggleStatus('offline')"><span class="dot-status dot-closed"></span> <span>Hors ligne</span></button>
+          <button type="button" id="doc-st-available" class="header-status-btn status-open active" onclick="MedecinApp.openAvailabilityModal('available')"><span class="dot-status dot-open"></span> <span>Disponible</span></button>
+          <button type="button" id="doc-st-busy" class="header-status-btn status-guard" onclick="MedecinApp.openAvailabilityModal('busy')"><span class="dot-status dot-guard"></span> <span>En consult.</span></button>
+          <button type="button" id="doc-st-offline" class="header-status-btn status-closed" onclick="MedecinApp.openAvailabilityModal('offline')"><span class="dot-status dot-closed"></span> <span>Indisponible</span></button>
         </div>
 
         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
@@ -284,14 +291,14 @@
   <script src="js/core/supabaseClient.js?v=12.0"></script>
   <script src="js/data/pharmacies.js?v=12.0"></script>
   <script src="js/core/core.js?v=12.0"></script>
-  <script src="js/core/i18n.js?v=12.0"></script>
+  <script src="js/core/i18n.js?v=14.0"></script>
   <script src="js/shared/network.js?v=12.0"></script>
   <script src="js/shared/subscription.js?v=12.0"></script>
   <script src="js/shared/pro-geolocation.js?v=13.0"></script>
   <script src="js/shared/admin-portal.js?v=13.0"></script>
   <script src="js/shared/patient-dmp.js?v=13.0"></script>
-  <script src="js/medecin/store.js?v=13.0"></script>
-  <script src="js/medecin/app.js?v=13.0"></script>
+  <script src="js/medecin/store.js?v=14.0"></script>
+  <script src="js/medecin/app.js?v=14.0"></script>
 </body>
 </html>
 

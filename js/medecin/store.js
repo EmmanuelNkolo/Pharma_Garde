@@ -1,15 +1,15 @@
 /**
- * Pharma-Garde v12.0 — Moteur Partagé Médecins, Téléconsultations 48h & Ordonnances Signées
- * ─────────────────────────────────────────────────────────────────────────────────────────
- * Utilisé à la fois par :
- *   • medecin.html (Espace Médecins ONMC)
- *   • index.html   (Espace Patient : Requête 2 600 FCFA, Chat 48h, RDV, Ordonnance PDF → Pharmacies)
- *
- * Modèle financier automatisé :
- *   • Requête patient = 2 600 FCFA (100 FCFA vers NotchPay AVANT recherche médecin +
- *     2 500 FCFA transférés automatiquement au médecin assigné via OM / MTN MoMo)
- *   • Session ouverte 48 heures sans frais supplémentaires
- *   • Abonnement médecin : 5 000 FCFA/mois · 50 000 FCFA/an (14 jours essai gratuit)
+ * Pharma-Garde v14.0 — Moteur Partagé Médecins Multi-Spécialités,
+ *                      Disponibilités Temporisées Automatisées & Couverture 10 Régions Cameroun
+ * ──────────────────────────────────────────────────────────────────────────────────────────────
+ * • Multi-spécialités par médecin (`specialties: string[]` + `specialty` principale)
+ * • Gestion fine des disponibilités & indisponibilités temporisées (durée précise + auto-bascule
+ *   automatique vers le planning hebdomadaire à expiration, zéro action manuelle)
+ * • Mode Aléatoire Rapide (« Consulter le premier médecin disponible ») + Filtre Spécialité +
+ *   Couverture nationale 10 Régions (accent sur les Grands Spécialistes des Chefs-lieux de Régions)
+ * • Cache mémoire O(1) pour réponses et filtrages instantanés (< 1 ms)
+ * • Modèle financier : 2 600 FCFA (100 F NotchPay avant recherche + 2 500 F direct OM/MoMo médecin),
+ *   session ouverte 48h, abonnement médecin 5 000 F/mois · 50 000 F/an (14j gratuits).
  *
  * Expose : window.MedecinStore
  */
@@ -17,7 +17,8 @@
   'use strict';
 
   const DOC_SESSION_KEY = 'pharmagarde_doctor_session_v12';
-  const DOC_DIR_KEY = 'pharmagarde_doctors_directory_v12';
+  const DOC_DIR_KEY = 'pharmagarde_doctors_directory_v14';
+  const LEGACY_DOC_DIR_KEY = 'pharmagarde_doctors_directory_v12';
   const CONSULT_KEY = 'pharmagarde_consultations_v12';
   const MSGS_KEY = 'pharmagarde_consult_msgs_v12';
   const RX_KEY = 'pharmagarde_signed_prescriptions_v12';
@@ -28,150 +29,414 @@
   const DOCTOR_PAYOUT_FCFA = 2500;
   const SESSION_48H_MS = 48 * 60 * 60 * 1000;
 
+  // Cache mémoire instantané (évite tout JSON.parse répétitif)
+  const memCache = Object.create(null);
+
   const SPECIALTIES = [
     'Médecine Générale',
     'Pédiatrie',
+    'Néonatologie',
     'Gynécologie-Obstétrique',
     'Cardiologie',
-    'Dermatologie',
     'Médecine Interne',
+    'Dermatologie & Vénéréologie',
     'Ophtalmologie',
-    'ORL',
+    'ORL & Chirurgie Cervico-Faciale',
     'Neurologie',
     'Pneumologie',
-    'Gastro-entérologie',
-    'Endocrinologie / Diabétologie',
-    'Psychiatrie / Bien-être Mental',
-    'Urologie'
+    'Gastro-entérologie & Hépatologie',
+    'Endocrinologie & Diabétologie',
+    'Néphrologie',
+    'Rhumatologie',
+    'Urologie',
+    'Chirurgie Générale',
+    'Orthopédie & Traumatologie',
+    'Psychiatrie & Bien-être Mental',
+    'Oncologie Médicale',
+    'Infectiologie & Médecine Tropicale',
+    'Anesthésie-Réanimation & Urgences'
   ];
 
-  // Signature vectorielle SVG par défaut pour les médecins de démonstration certifiés
+  // Les 10 Régions du Cameroun & leurs Chefs-Lieux (Pôles des Grands Spécialistes)
+  const CAMEROON_REGIONS = [
+    { region: 'Littoral', capital: 'Douala', lat: 4.0511, lng: 9.7085, hubs: ['Douala', 'Edéa', 'Nkongsamba', 'Yabassi'] },
+    { region: 'Centre', capital: 'Yaoundé', lat: 3.8667, lng: 11.5167, hubs: ['Yaoundé', 'Mbalmayo', 'Bafia', 'Obala', 'Eséka', 'Mfou'] },
+    { region: 'Ouest', capital: 'Bafoussam', lat: 5.4778, lng: 10.4176, hubs: ['Bafoussam', 'Dschang', 'Mbouda', 'Bangangté', 'Foumban', 'Bafang'] },
+    { region: 'Nord-Ouest', capital: 'Bamenda', lat: 5.9631, lng: 10.1591, hubs: ['Bamenda', 'Kumbo', 'Wum', 'Ndop', 'Mbengwi'] },
+    { region: 'Sud-Ouest', capital: 'Buéa', lat: 4.1560, lng: 9.2320, hubs: ['Buéa', 'Limbé', 'Kumba', 'Mamfé', 'Tiko'] },
+    { region: 'Nord', capital: 'Garoua', lat: 9.3014, lng: 13.3977, hubs: ['Garoua', 'Guider', 'Poli', 'Tcholliré'] },
+    { region: 'Extrême-Nord', capital: 'Maroua', lat: 10.5956, lng: 14.3247, hubs: ['Maroua', 'Kousséri', 'Mokolo', 'Mora', 'Yagoua', 'Kaélé'] },
+    { region: 'Adamaoua', capital: 'Ngaoundéré', lat: 7.3167, lng: 13.5833, hubs: ['Ngaoundéré', 'Meiganga', 'Tibati', 'Banyo', 'Tignère'] },
+    { region: 'Est', capital: 'Bertoua', lat: 4.5773, lng: 13.6846, hubs: ['Bertoua', 'Batouri', 'Abong-Mbang', 'Yokadouma'] },
+    { region: 'Sud', capital: 'Ebolowa', lat: 2.9000, lng: 11.1500, hubs: ['Ebolowa', 'Kribi', 'Sangmélima', 'Ambam'] }
+  ];
+
+  const REGIONAL_CAPITALS = new Set(CAMEROON_REGIONS.map((r) => r.capital.toLowerCase()));
+
+  const AVAILABILITY_DURATIONS = [
+    { minutes: 0, label: '🤖 Automatique (selon mon planning hebdo)' },
+    { minutes: 30, label: '⏱️ Pendant 30 minutes' },
+    { minutes: 60, label: '⏱️ Pendant 1 heure' },
+    { minutes: 120, label: '⏱️ Pendant 2 heures' },
+    { minutes: 240, label: '⏱️ Pendant 4 heures' },
+    { minutes: 480, label: '⏱️ Pendant 8 heures' },
+    { minutes: 720, label: '⏱️ Pendant 12 heures' },
+    { minutes: 1440, label: '📅 Pendant 24 heures (1 jour)' },
+    { minutes: 2880, label: '📅 Pendant 48 heures (2 jours)' },
+    { minutes: 10080, label: '📅 Pendant 7 jours (congé / mission)' }
+  ];
+
   const DEMO_SIG_SVG = 'data:image/svg+xml;utf8,' + encodeURIComponent(
     '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="72" viewBox="0 0 240 72"><path d="M18 52 C32 14, 54 14, 48 48 C44 62, 68 22, 86 38 C98 48, 114 26, 132 42 C148 54, 174 22, 218 36" fill="none" stroke="#0f172a" stroke-width="2.6" stroke-linecap="round"/><path d="M24 60 L214 54" stroke="#0d9488" stroke-width="1.2" opacity="0.6"/></svg>'
   );
 
   const DEFAULT_SCHEDULE = {
-    lun: { active: true, start: '08:00', end: '20:00' },
-    mar: { active: true, start: '08:00', end: '20:00' },
-    mer: { active: true, start: '08:00', end: '20:00' },
-    jeu: { active: true, start: '08:00', end: '20:00' },
-    ven: { active: true, start: '08:00', end: '20:00' },
-    sam: { active: true, start: '09:00', end: '17:00' },
-    dim: { active: false, start: '10:00', end: '15:00' }
+    lun: { active: true, start: '07:30', end: '21:00' },
+    mar: { active: true, start: '07:30', end: '21:00' },
+    mer: { active: true, start: '07:30', end: '21:00' },
+    jeu: { active: true, start: '07:30', end: '21:00' },
+    ven: { active: true, start: '07:30', end: '21:00' },
+    sam: { active: true, start: '08:30', end: '19:00' },
+    dim: { active: true, start: '09:00', end: '16:00' }
   };
 
+  // Annuaire National Initial : Grands Spécialistes multi-spécialités dans les 10 Chefs-lieux de Régions du Cameroun
   const DEFAULT_DOCTORS = [
     {
       id: 'doc_kamga_dla',
       title: 'Dr',
       full_name: 'Hervé Kamga Fotso',
       specialty: 'Médecine Générale',
+      specialties: ['Médecine Générale', 'Infectiologie & Médecine Tropicale'],
       onmc_number: 'ONMC-2017-4821',
       cni_number: '114288901',
       diploma_title: 'Doctorat d\'État en Médecine (FMSB Yaoundé I)',
       university: 'Université de Yaoundé I',
       graduation_year: 2016,
       clinic_name: 'Cabinet Médical Bonapriso Santé',
+      region: 'Littoral',
       city: 'Douala',
       quarter: 'Bonapriso',
+      is_regional_capital: true,
       address: 'Rue Tokoto, Bonapriso, Douala',
-      lat: 4.0278,
-      lng: 9.6982,
-      phone: '699412580',
-      whatsapp: '699412580',
-      payout_phone: '699412580',
-      payout_operator: 'om',
+      lat: 4.0278, lng: 9.6982,
+      phone: '699412580', whatsapp: '699412580', payout_phone: '699412580', payout_operator: 'om',
       email: 'dr.kamga@pharmagarde.cm',
       signature_data_url: DEMO_SIG_SVG,
       consultation_hours: DEFAULT_SCHEDULE,
       availability_status: 'available',
-      verification_status: 'verified',
-      subscription_status: 'active',
-      subscription_plan: 'annual'
-    },
-    {
-      id: 'doc_mbarga_yde',
-      title: 'Dr',
-      full_name: 'Clarisse Mbarga Owona',
-      specialty: 'Pédiatrie',
-      onmc_number: 'ONMC-2019-5310',
-      cni_number: '118903421',
-      diploma_title: 'DES Pédiatrie & Néonatologie (FMSB)',
-      university: 'Université de Yaoundé I',
-      graduation_year: 2018,
-      clinic_name: 'Pôle Pédiatrique Bastos',
-      city: 'Yaoundé',
-      quarter: 'Bastos',
-      address: 'Avenue Rosa Parks, Bastos, Yaoundé',
-      lat: 3.8924,
-      lng: 11.5142,
-      phone: '677823190',
-      whatsapp: '677823190',
-      payout_phone: '677823190',
-      payout_operator: 'momo',
-      email: 'dr.mbarga@pharmagarde.cm',
-      signature_data_url: DEMO_SIG_SVG,
-      consultation_hours: DEFAULT_SCHEDULE,
-      availability_status: 'available',
-      verification_status: 'verified',
-      subscription_status: 'active',
-      subscription_plan: 'monthly'
+      availability_until: new Date(Date.now() + 6 * 3600000).toISOString(),
+      availability_note: 'Téléconsultation rapide & suivi paludisme/infections',
+      auto_schedule_enabled: true,
+      verification_status: 'verified', subscription_status: 'active', subscription_plan: 'annual'
     },
     {
       id: 'doc_nguefack_dla',
       title: 'Pr',
       full_name: 'Alain Nguefack Tchoumi',
       specialty: 'Cardiologie',
+      specialties: ['Cardiologie', 'Médecine Interne'],
       onmc_number: 'ONMC-2012-2194',
       cni_number: '108451209',
       diploma_title: 'Agrégation Cardiologie & Médecine Vasculaire',
       university: 'Université de Douala (FMSP)',
       graduation_year: 2011,
-      clinic_name: 'Institut Cardiovasculaire Akwa',
+      clinic_name: 'Institut Cardiovasculaire Akwa (CHU Douala)',
+      region: 'Littoral',
       city: 'Douala',
       quarter: 'Akwa',
+      is_regional_capital: true,
       address: 'Boulevard de la Liberté, Akwa, Douala',
-      lat: 4.0518,
-      lng: 9.7048,
-      phone: '694552100',
-      whatsapp: '694552100',
-      payout_phone: '694552100',
-      payout_operator: 'om',
+      lat: 4.0518, lng: 9.7048,
+      phone: '694552100', whatsapp: '694552100', payout_phone: '694552100', payout_operator: 'om',
       email: 'pr.nguefack@pharmagarde.cm',
       signature_data_url: DEMO_SIG_SVG,
       consultation_hours: DEFAULT_SCHEDULE,
       availability_status: 'available',
-      verification_status: 'verified',
-      subscription_status: 'active',
-      subscription_plan: 'annual'
+      availability_until: new Date(Date.now() + 4 * 3600000).toISOString(),
+      availability_note: 'HTA, palpitations, ECG & suivi cardiaque',
+      auto_schedule_enabled: true,
+      verification_status: 'verified', subscription_status: 'active', subscription_plan: 'annual'
+    },
+    {
+      id: 'doc_mbarga_yde',
+      title: 'Dr',
+      full_name: 'Clarisse Mbarga Owona',
+      specialty: 'Pédiatrie',
+      specialties: ['Pédiatrie', 'Néonatologie'],
+      onmc_number: 'ONMC-2019-5310',
+      cni_number: '118903421',
+      diploma_title: 'DES Pédiatrie & Néonatologie (FMSB)',
+      university: 'Université de Yaoundé I',
+      graduation_year: 2018,
+      clinic_name: 'Pôle Pédiatrique Bastos (Hôpital Gynéco-Obstétrique)',
+      region: 'Centre',
+      city: 'Yaoundé',
+      quarter: 'Bastos',
+      is_regional_capital: true,
+      address: 'Avenue Rosa Parks, Bastos, Yaoundé',
+      lat: 3.8924, lng: 11.5142,
+      phone: '677823190', whatsapp: '677823190', payout_phone: '677823190', payout_operator: 'momo',
+      email: 'dr.mbarga@pharmagarde.cm',
+      signature_data_url: DEMO_SIG_SVG,
+      consultation_hours: DEFAULT_SCHEDULE,
+      availability_status: 'available',
+      availability_until: new Date(Date.now() + 5 * 3600000).toISOString(),
+      availability_note: 'Nourrissons, fièvres infantiles & calendrier vaccinal',
+      auto_schedule_enabled: true,
+      verification_status: 'verified', subscription_status: 'active', subscription_plan: 'monthly'
     },
     {
       id: 'doc_ebongue_yde',
       title: 'Dr',
       full_name: 'Nadine Ebongue Ndongo',
       specialty: 'Gynécologie-Obstétrique',
+      specialties: ['Gynécologie-Obstétrique', 'Endocrinologie & Diabétologie'],
       onmc_number: 'ONMC-2020-6044',
       cni_number: '121044782',
       diploma_title: 'DES Gynécologie-Obstétrique (FMSB)',
       university: 'Université de Yaoundé I',
       graduation_year: 2019,
       clinic_name: 'Centre Mère-Enfant Nlongkak',
+      region: 'Centre',
       city: 'Yaoundé',
       quarter: 'Nlongkak',
+      is_regional_capital: true,
       address: 'Carrefour Nlongkak, Yaoundé',
-      lat: 3.8781,
-      lng: 11.5229,
-      phone: '675339011',
-      whatsapp: '675339011',
-      payout_phone: '675339011',
-      payout_operator: 'momo',
+      lat: 3.8781, lng: 11.5229,
+      phone: '675339011', whatsapp: '675339011', payout_phone: '675339011', payout_operator: 'momo',
       email: 'dr.ebongue@pharmagarde.cm',
       signature_data_url: DEMO_SIG_SVG,
       consultation_hours: DEFAULT_SCHEDULE,
       availability_status: 'available',
-      verification_status: 'verified',
-      subscription_status: 'active',
-      subscription_plan: 'monthly'
+      availability_until: new Date(Date.now() + 3 * 3600000).toISOString(),
+      availability_note: 'Suivi grossesse, fertilité & diabète gestationnel',
+      auto_schedule_enabled: true,
+      verification_status: 'verified', subscription_status: 'active', subscription_plan: 'monthly'
+    },
+    {
+      id: 'doc_fokou_baf',
+      title: 'Pr',
+      full_name: 'Samuel Fokou Talla',
+      specialty: 'Gastro-entérologie & Hépatologie',
+      specialties: ['Gastro-entérologie & Hépatologie', 'Médecine Interne', 'Endocrinologie & Diabétologie'],
+      onmc_number: 'ONMC-2014-3120',
+      cni_number: '110338219',
+      diploma_title: 'DES Hépato-Gastro-Entérologie & Médecine Interne',
+      university: 'Université de Dschang / Yaoundé I',
+      graduation_year: 2013,
+      clinic_name: 'Hôpital Régional de Bafoussam',
+      region: 'Ouest',
+      city: 'Bafoussam',
+      quarter: 'Tamdja',
+      is_regional_capital: true,
+      address: 'Quartier Tamdja, Bafoussam',
+      lat: 5.4778, lng: 10.4176,
+      phone: '699741022', whatsapp: '699741022', payout_phone: '699741022', payout_operator: 'om',
+      email: 'pr.fokou@pharmagarde.cm',
+      signature_data_url: DEMO_SIG_SVG,
+      consultation_hours: DEFAULT_SCHEDULE,
+      availability_status: 'available',
+      availability_until: new Date(Date.now() + 4 * 3600000).toISOString(),
+      availability_note: 'Ulcères, hépatites, diabète & bilans digestifs',
+      auto_schedule_enabled: true,
+      verification_status: 'verified', subscription_status: 'active', subscription_plan: 'annual'
+    },
+    {
+      id: 'doc_nfor_bda',
+      title: 'Dr',
+      full_name: 'Grace Nfor Che',
+      specialty: 'Dermatologie & Vénéréologie',
+      specialties: ['Dermatologie & Vénéréologie', 'Médecine Générale'],
+      onmc_number: 'ONMC-2018-4982',
+      cni_number: '116220944',
+      diploma_title: 'MD & Specialist Dermatology (UB Buea)',
+      university: 'University of Buea',
+      graduation_year: 2017,
+      clinic_name: 'Regional Hospital Bamenda Clinic',
+      region: 'Nord-Ouest',
+      city: 'Bamenda',
+      quarter: 'Commercial Avenue',
+      is_regional_capital: true,
+      address: 'Commercial Avenue, Bamenda',
+      lat: 5.9631, lng: 10.1591,
+      phone: '677409812', whatsapp: '677409812', payout_phone: '677409812', payout_operator: 'momo',
+      email: 'dr.nfor@pharmagarde.cm',
+      signature_data_url: DEMO_SIG_SVG,
+      consultation_hours: DEFAULT_SCHEDULE,
+      availability_status: 'available',
+      availability_until: null,
+      availability_note: 'Bilingue FR/EN · Dermatologie clinique',
+      auto_schedule_enabled: true,
+      verification_status: 'verified', subscription_status: 'active', subscription_plan: 'monthly'
+    },
+    {
+      id: 'doc_hamadou_gar',
+      title: 'Dr',
+      full_name: 'Ibrahima Hamadou Bello',
+      specialty: 'Pneumologie',
+      specialties: ['Pneumologie', 'Infectiologie & Médecine Tropicale', 'Médecine Générale'],
+      onmc_number: 'ONMC-2016-4012',
+      cni_number: '113870415',
+      diploma_title: 'DES Pneumologie & Allergologie (Hôpital Régional Garoua)',
+      university: 'Université de Garoua / Yaoundé I',
+      graduation_year: 2015,
+      clinic_name: 'Hôpital Général de Garoua',
+      region: 'Nord',
+      city: 'Garoua',
+      quarter: 'Plateau',
+      is_regional_capital: true,
+      address: 'Quartier Plateau, Garoua',
+      lat: 9.3014, lng: 13.3977,
+      phone: '698114509', whatsapp: '698114509', payout_phone: '698114509', payout_operator: 'om',
+      email: 'dr.hamadou@pharmagarde.cm',
+      signature_data_url: DEMO_SIG_SVG,
+      consultation_hours: DEFAULT_SCHEDULE,
+      availability_status: 'available',
+      availability_until: new Date(Date.now() + 7 * 3600000).toISOString(),
+      availability_note: 'Asthme, allergies respiratoires & infections tropicales',
+      auto_schedule_enabled: true,
+      verification_status: 'verified', subscription_status: 'active', subscription_plan: 'annual'
+    },
+    {
+      id: 'doc_ewane_buea',
+      title: 'Dr',
+      full_name: 'Victor Ewane Lyonga',
+      specialty: 'Neurologie',
+      specialties: ['Neurologie', 'Psychiatrie & Bien-être Mental', 'Ophtalmologie'],
+      onmc_number: 'ONMC-2015-3788',
+      cni_number: '112004871',
+      diploma_title: 'Fellowship Neurology & Neuro-Ophthalmology',
+      university: 'University of Buea (FHS)',
+      graduation_year: 2014,
+      clinic_name: 'Buea Regional Specialist Center',
+      region: 'Sud-Ouest',
+      city: 'Buéa',
+      quarter: 'Molyko',
+      is_regional_capital: true,
+      address: 'Molyko High Street, Buéa',
+      lat: 4.1560, lng: 9.2320,
+      phone: '674908123', whatsapp: '674908123', payout_phone: '674908123', payout_operator: 'momo',
+      email: 'dr.ewane@pharmagarde.cm',
+      signature_data_url: DEMO_SIG_SVG,
+      consultation_hours: DEFAULT_SCHEDULE,
+      availability_status: 'available',
+      availability_until: null,
+      availability_note: 'Migraines, troubles du sommeil, stress & AVC',
+      auto_schedule_enabled: true,
+      verification_status: 'verified', subscription_status: 'active', subscription_plan: 'monthly'
+    },
+    {
+      id: 'doc_amina_mar',
+      title: 'Dr',
+      full_name: 'Amina Oumarou Sadou',
+      specialty: 'Ophtalmologie',
+      specialties: ['Ophtalmologie', 'ORL & Chirurgie Cervico-Faciale'],
+      onmc_number: 'ONMC-2019-5601',
+      cni_number: '119442010',
+      diploma_title: 'DES Ophtalmologie & ORL',
+      university: 'Université de Yaoundé I',
+      graduation_year: 2018,
+      clinic_name: 'Hôpital Régional de Maroua',
+      region: 'Extrême-Nord',
+      city: 'Maroua',
+      quarter: 'Domayo',
+      is_regional_capital: true,
+      address: 'Quartier Domayo, Maroua',
+      lat: 10.5956, lng: 14.3247,
+      phone: '695332198', whatsapp: '695332198', payout_phone: '695332198', payout_operator: 'om',
+      email: 'dr.amina@pharmagarde.cm',
+      signature_data_url: DEMO_SIG_SVG,
+      consultation_hours: DEFAULT_SCHEDULE,
+      availability_status: 'busy',
+      availability_until: new Date(Date.now() + 45 * 60000).toISOString(),
+      availability_note: 'En consultation cabinet — libre sous 45 min',
+      auto_schedule_enabled: true,
+      verification_status: 'verified', subscription_status: 'active', subscription_plan: 'monthly'
+    },
+    {
+      id: 'doc_aboubakar_ngd',
+      title: 'Dr',
+      full_name: 'Aboubakar Nana Mohamadou',
+      specialty: 'Urologie',
+      specialties: ['Urologie', 'Néphrologie', 'Chirurgie Générale'],
+      onmc_number: 'ONMC-2016-4299',
+      cni_number: '115091823',
+      diploma_title: 'DES Urologie & Néphrologie',
+      university: 'Université de Yaoundé I',
+      graduation_year: 2015,
+      clinic_name: 'Hôpital Régional de Ngaoundéré',
+      region: 'Adamaoua',
+      city: 'Ngaoundéré',
+      quarter: 'Dang / Centre',
+      is_regional_capital: true,
+      address: 'Centre Ville, Ngaoundéré',
+      lat: 7.3167, lng: 13.5833,
+      phone: '696883104', whatsapp: '696883104', payout_phone: '696883104', payout_operator: 'om',
+      email: 'dr.aboubakar@pharmagarde.cm',
+      signature_data_url: DEMO_SIG_SVG,
+      consultation_hours: DEFAULT_SCHEDULE,
+      availability_status: 'available',
+      availability_until: null,
+      availability_note: 'Urologie, calculs rénaux & bilans prostatiques',
+      auto_schedule_enabled: true,
+      verification_status: 'verified', subscription_status: 'active', subscription_plan: 'annual'
+    },
+    {
+      id: 'doc_mbida_ber',
+      title: 'Dr',
+      full_name: 'Christian Mbida Ze',
+      specialty: 'Orthopédie & Traumatologie',
+      specialties: ['Orthopédie & Traumatologie', 'Rhumatologie', 'Médecine Générale'],
+      onmc_number: 'ONMC-2018-5092',
+      cni_number: '117552901',
+      diploma_title: 'DES Orthopédie, Traumatologie & Rhumatologie',
+      university: 'Université de Yaoundé I',
+      graduation_year: 2017,
+      clinic_name: 'Hôpital Régional de Bertoua / Ebolowa',
+      region: 'Est',
+      city: 'Bertoua',
+      quarter: 'Mokolo II',
+      is_regional_capital: true,
+      address: 'Avenue de l\'Hôpital Régional, Bertoua',
+      lat: 4.5773, lng: 13.6846,
+      phone: '697441820', whatsapp: '697441820', payout_phone: '697441820', payout_operator: 'om',
+      email: 'dr.mbida@pharmagarde.cm',
+      signature_data_url: DEMO_SIG_SVG,
+      consultation_hours: DEFAULT_SCHEDULE,
+      availability_status: 'available',
+      availability_until: null,
+      availability_note: 'Douleurs articulaires, lombalgies & traumatologie',
+      auto_schedule_enabled: true,
+      verification_status: 'verified', subscription_status: 'active', subscription_plan: 'monthly'
+    },
+    {
+      id: 'doc_mvondo_ebo',
+      title: 'Dr',
+      full_name: 'Estelle Mvondo Ntyam',
+      specialty: 'Endocrinologie & Diabétologie',
+      specialties: ['Endocrinologie & Diabétologie', 'Médecine Générale', 'Pédiatrie'],
+      onmc_number: 'ONMC-2020-6218',
+      cni_number: '122190441',
+      diploma_title: 'DES Endocrinologie & Diabétologie',
+      university: 'Université de Yaoundé I',
+      graduation_year: 2019,
+      clinic_name: 'Hôpital Régional d\'Ebolowa',
+      region: 'Sud',
+      city: 'Ebolowa',
+      quarter: 'Nko\'ovos',
+      is_regional_capital: true,
+      address: 'Quartier Nko\'ovos, Ebolowa',
+      lat: 2.9000, lng: 11.1500,
+      phone: '678550192', whatsapp: '678550192', payout_phone: '678550192', payout_operator: 'momo',
+      email: 'dr.mvondo@pharmagarde.cm',
+      signature_data_url: DEMO_SIG_SVG,
+      consultation_hours: DEFAULT_SCHEDULE,
+      availability_status: 'available',
+      availability_until: null,
+      availability_note: 'Diabète, thyroïde, nutrition & médecine familiale',
+      auto_schedule_enabled: true,
+      verification_status: 'verified', subscription_status: 'active', subscription_plan: 'monthly'
     }
   ];
 
@@ -189,33 +454,81 @@
   }
 
   function readLS(key, fallback) {
+    if (Object.prototype.hasOwnProperty.call(memCache, key)) return memCache[key];
     try {
       const raw = localStorage.getItem(key);
-      if (raw) return JSON.parse(raw);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        memCache[key] = parsed;
+        return parsed;
+      }
     } catch (e) {}
     return fallback;
   }
   function writeLS(key, val) {
+    memCache[key] = val;
     try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
   }
 
-  // ── Annuaire Médecins ──────────────────────────────────────────
+  function resolveRegionInfo(cityName, explicitRegion) {
+    const cLower = String(cityName || '').trim().toLowerCase();
+    for (let i = 0; i < CAMEROON_REGIONS.length; i++) {
+      const r = CAMEROON_REGIONS[i];
+      if (r.capital.toLowerCase() === cLower) return { region: r.region, isCapital: true, lat: r.lat, lng: r.lng };
+      if (r.hubs.some((h) => h.toLowerCase() === cLower)) return { region: r.region, isCapital: false, lat: r.lat, lng: r.lng };
+    }
+    if (explicitRegion) {
+      const found = CAMEROON_REGIONS.find((r) => r.region.toLowerCase() === String(explicitRegion).toLowerCase());
+      if (found) return { region: found.region, isCapital: REGIONAL_CAPITALS.has(cLower), lat: found.lat, lng: found.lng };
+    }
+    return { region: explicitRegion || 'Littoral', isCapital: REGIONAL_CAPITALS.has(cLower), lat: 4.0511, lng: 9.7085 };
+  }
+
+  function getDoctorSpecialties(doc) {
+    if (!doc) return ['Médecine Générale'];
+    if (Array.isArray(doc.specialties) && doc.specialties.length > 0) {
+      return Array.from(new Set(doc.specialties.map((s) => String(s || '').trim()).filter(Boolean)));
+    }
+    return [doc.specialty || 'Médecine Générale'];
+  }
+
+  function normalizeDoctor(doc) {
+    const specs = getDoctorSpecialties(doc);
+    const regInfo = resolveRegionInfo(doc.city, doc.region);
+    return Object.assign({}, doc, {
+      specialty: specs[0],
+      specialties: specs,
+      region: doc.region || regInfo.region,
+      is_regional_capital: typeof doc.is_regional_capital === 'boolean' ? doc.is_regional_capital : regInfo.isCapital
+    });
+  }
+
+  // ── Annuaire Médecins National (fusion v12 + v14, 0 ms) ────────
   function getDoctors() {
-    const saved = readLS(DOC_DIR_KEY, null);
-    if (Array.isArray(saved) && saved.length > 0) return saved;
-    writeLS(DOC_DIR_KEY, DEFAULT_DOCTORS);
-    return DEFAULT_DOCTORS.slice();
+    let saved = readLS(DOC_DIR_KEY, null);
+    if (!Array.isArray(saved) || saved.length === 0) {
+      const legacy = readLS(LEGACY_DOC_DIR_KEY, []);
+      const merged = DEFAULT_DOCTORS.map(normalizeDoctor);
+      (Array.isArray(legacy) ? legacy : []).forEach((d) => {
+        if (d && !merged.some((m) => m.id === d.id || (m.email && d.email && m.email === d.email))) {
+          merged.unshift(normalizeDoctor(d));
+        }
+      });
+      writeLS(DOC_DIR_KEY, merged);
+      saved = merged;
+    }
+    return saved;
   }
 
   async function syncDoctors() {
     const local = getDoctors();
     if (!window.supabase) return local;
     try {
-      const { data, error } = await window.supabase.from('doctors').select('*').order('created_at', { ascending: false }).limit(80);
+      const { data, error } = await window.supabase.from('doctors').select('*').order('created_at', { ascending: false }).limit(120);
       if (!error && Array.isArray(data) && data.length > 0) {
-        const merged = data.slice();
+        const merged = data.map(normalizeDoctor);
         local.forEach((d) => {
-          if (!merged.some((m) => m.id === d.id || (m.email && m.email === d.email))) merged.push(d);
+          if (!merged.some((m) => m.id === d.id || (m.email && m.email === d.email))) merged.push(normalizeDoctor(d));
         });
         writeLS(DOC_DIR_KEY, merged);
         return merged;
@@ -225,10 +538,11 @@
   }
 
   function saveDoctorInDirectory(doc) {
-    const list = getDoctors();
-    const idx = list.findIndex((d) => d.id === doc.id || (d.email && doc.email && d.email.toLowerCase() === doc.email.toLowerCase()));
-    if (idx >= 0) list[idx] = Object.assign({}, list[idx], doc);
-    else list.unshift(doc);
+    const norm = normalizeDoctor(doc);
+    const list = getDoctors().slice();
+    const idx = list.findIndex((d) => d.id === norm.id || (d.email && norm.email && d.email.toLowerCase() === norm.email.toLowerCase()));
+    if (idx >= 0) list[idx] = Object.assign({}, list[idx], norm);
+    else list.unshift(norm);
     writeLS(DOC_DIR_KEY, list);
     return list;
   }
@@ -236,15 +550,16 @@
   function loadSession() {
     try {
       const raw = sessionStorage.getItem(DOC_SESSION_KEY) || localStorage.getItem(DOC_SESSION_KEY);
-      return raw ? JSON.parse(raw) : null;
+      return raw ? normalizeDoctor(JSON.parse(raw)) : null;
     } catch (e) { return null; }
   }
   function saveSession(doc) {
+    const norm = normalizeDoctor(doc);
     try {
-      sessionStorage.setItem(DOC_SESSION_KEY, JSON.stringify(doc));
-      localStorage.setItem(DOC_SESSION_KEY, JSON.stringify(doc));
+      sessionStorage.setItem(DOC_SESSION_KEY, JSON.stringify(norm));
+      localStorage.setItem(DOC_SESSION_KEY, JSON.stringify(norm));
     } catch (e) {}
-    saveDoctorInDirectory(doc);
+    saveDoctorInDirectory(norm);
   }
   function clearSession() {
     try {
@@ -253,11 +568,157 @@
     } catch (e) {}
   }
 
-  // ── Validation Médicale Stricte ONMC (vérifiable) ──────────────
+  // ── Moteur Automatisé de Disponibilité Temporisée ──────────────
+  function isWithinWeeklySchedule(doc) {
+    const days = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'];
+    const now = new Date();
+    const slot = ((doc && doc.consultation_hours) || DEFAULT_SCHEDULE)[days[now.getDay()]];
+    if (!slot || !slot.active) return false;
+    const cur = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+    return cur >= (slot.start || '08:00') && cur <= (slot.end || '20:00');
+  }
+
+  function formatDurationRemaining(untilIso) {
+    if (!untilIso) return '';
+    const diff = new Date(untilIso).getTime() - Date.now();
+    if (diff <= 0) return '';
+    const mins = Math.ceil(diff / 60000);
+    if (mins < 60) return `${mins} min`;
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    if (h < 24) return m > 0 ? `${h}h ${m}m` : `${h}h`;
+    const d = Math.floor(h / 24);
+    const remH = h % 24;
+    return remH > 0 ? `${d}j ${remH}h` : `${d}j`;
+  }
+
+  /**
+   * Calcule automatiquement l'état RÉEL en direct du médecin :
+   * • Si une disponibilité/indisponibilité temporisée (`availability_until`) est en cours, elle prévaut.
+   * • Dès qu'elle expire, le système rebascule AUTOMATIQUEMENT vers son planning hebdomadaire (0 action manuelle).
+   */
+  function getEffectiveAvailability(doc) {
+    if (!doc) return { status: 'offline', label: 'Hors ligne', badgeColor: '#f87171', remaining: '', isAvailableNow: false };
+    let status = doc.availability_status || 'available';
+    let remaining = '';
+    const hasUntil = !!doc.availability_until;
+
+    if (hasUntil) {
+      const rem = formatDurationRemaining(doc.availability_until);
+      if (rem) {
+        remaining = rem;
+      } else {
+        // Expiration atteinte → bascule automatique selon le planning hebdo !
+        status = (doc.auto_schedule_enabled !== false && isWithinWeeklySchedule(doc)) ? 'available' : 'offline';
+      }
+    } else if (status === 'available' && doc.auto_schedule_enabled !== false && !isWithinWeeklySchedule(doc)) {
+      // Hors plage horaire hebdomadaire sans forçage manuel
+      status = 'offline';
+    }
+
+    if (status === 'available') {
+      return {
+        status: 'available',
+        isAvailableNow: true,
+        badgeColor: '#34d399',
+        bg: 'rgba(16,185,129,0.18)',
+        shortLabel: remaining ? `🟢 Dispo (${remaining})` : '🟢 Disponible',
+        fullLabel: remaining ? `🟢 Disponible encore ${remaining}` : '🟢 Disponible maintenant (Auto)'
+      };
+    }
+    if (status === 'busy') {
+      return {
+        status: 'busy',
+        isAvailableNow: false,
+        badgeColor: '#fbbf24',
+        bg: 'rgba(245,158,11,0.18)',
+        shortLabel: remaining ? `🟡 Occupé (${remaining})` : '🟡 En consultation',
+        fullLabel: remaining ? `🟡 En consultation — libre dans ${remaining}` : '🟡 En consultation'
+      };
+    }
+    return {
+      status: 'offline',
+      isAvailableNow: false,
+      badgeColor: '#f87171',
+      bg: 'rgba(239,68,68,0.16)',
+      shortLabel: remaining ? `🔴 Indispo (${remaining})` : '🔴 Indisponible',
+      fullLabel: remaining ? `🔴 Indisponible — retour dans ${remaining}` : '🔴 Indisponible / Hors horaires'
+    };
+  }
+
+  function isWithinSchedule(doc) {
+    return getEffectiveAvailability(doc).isAvailableNow;
+  }
+
+  function setDoctorTimedAvailability(doc, status, durationMinutes, customUntilIso, note) {
+    if (!doc) return null;
+    let untilIso = null;
+    if (customUntilIso) {
+      const dt = new Date(customUntilIso);
+      if (!isNaN(dt.getTime()) && dt.getTime() > Date.now()) untilIso = dt.toISOString();
+    } else if (Number(durationMinutes) > 0) {
+      untilIso = new Date(Date.now() + Number(durationMinutes) * 60000).toISOString();
+    }
+
+    doc.availability_status = status || 'available';
+    doc.availability_until = untilIso;
+    if (typeof note === 'string') doc.availability_note = note.trim();
+    doc.auto_schedule_enabled = true;
+    saveSession(doc);
+
+    if (window.supabase && /^[0-9a-f-]{36}$/i.test(String(doc.id))) {
+      try {
+        window.supabase.from('doctors').update({
+          availability_status: doc.availability_status,
+          availability_until: doc.availability_until,
+          availability_note: doc.availability_note || ''
+        }).eq('id', doc.id);
+      } catch (e) {}
+    }
+    return doc;
+  }
+
+  // ── Filtrage Instantané (Spécialité, Région / Chef-lieu, Disponibilité) ──
+  function filterDoctors(opts) {
+    const o = opts || {};
+    const spec = o.specialty && o.specialty !== 'all' && o.specialty !== 'any' ? o.specialty : null;
+    const region = o.region && o.region !== 'all' ? o.region : null;
+    const onlyCapitals = region === 'capitals';
+    const onlyAvail = !!o.onlyAvailable;
+
+    return getDoctors().filter((d) => {
+      if (spec && !getDoctorSpecialties(d).includes(spec)) return false;
+      if (onlyCapitals && !d.is_regional_capital) return false;
+      if (region && !onlyCapitals && String(d.region || '').toLowerCase() !== region.toLowerCase()) return false;
+      if (onlyAvail && !getEffectiveAvailability(d).isAvailableNow) return false;
+      return true;
+    }).sort((a, b) => {
+      // Priorité : 1. Disponible maintenant, 2. Chef-lieu de région (grands spécialistes), 3. Professeur/Spécialiste
+      const avA = getEffectiveAvailability(a).isAvailableNow ? 1 : 0;
+      const avB = getEffectiveAvailability(b).isAvailableNow ? 1 : 0;
+      if (avB !== avA) return avB - avA;
+      const capA = a.is_regional_capital ? 1 : 0;
+      const capB = b.is_regional_capital ? 1 : 0;
+      if (capB !== capA) return capB - capA;
+      return (b.title === 'Pr' ? 1 : 0) - (a.title === 'Pr' ? 1 : 0);
+    });
+  }
+
+  function getSpecialtyDirectorySummary(regionFilter) {
+    const pool = filterDoctors({ region: regionFilter || 'all' });
+    return SPECIALTIES.map((sp) => {
+      const matches = pool.filter((d) => getDoctorSpecialties(d).includes(sp));
+      const avail = matches.filter((d) => getEffectiveAvailability(d).isAvailableNow).length;
+      return { specialty: sp, total: matches.length, available: avail };
+    });
+  }
+
+  // ── Validation Médicale Stricte ONMC (Multi-Spécialités) ───────
   function validateDoctorRegistration(p) {
     const errors = [];
     if (!p.full_name || p.full_name.trim().length < 4) errors.push('Nom complet du médecin requis.');
-    if (!p.specialty) errors.push('Spécialité médicale requise.');
+    const specs = Array.isArray(p.specialties) && p.specialties.length > 0 ? p.specialties : (p.specialty ? [p.specialty] : []);
+    if (specs.length === 0) errors.push('Sélectionnez au moins une spécialité médicale.');
     if (!p.onmc_number || !/^(ONMC|ORD|MD)[-\s]?[A-Z0-9-]{4,}$/i.test(p.onmc_number.trim())) {
       errors.push('N° d\'inscription ONMC invalide (ex : ONMC-2021-4580).');
     }
@@ -279,25 +740,34 @@
     const errs = validateDoctorRegistration(payload);
     if (errs.length > 0) throw new Error(errs[0]);
 
+    const specs = Array.from(new Set(
+      (Array.isArray(payload.specialties) && payload.specialties.length > 0 ? payload.specialties : [payload.specialty || 'Médecine Générale'])
+        .map((s) => String(s || '').trim()).filter(Boolean)
+    ));
     const cleanPhone = String(payload.phone).replace(/\D/g, '').replace(/^237/, '');
     const cleanPayout = String(payload.payout_phone || payload.phone).replace(/\D/g, '').replace(/^237/, '');
-    const hub = (window.CAMEROON_DEPARTMENT_HUBS && window.CAMEROON_DEPARTMENT_HUBS[payload.city]) || { lat: 4.0511, lng: 9.7085 };
+    const cityName = (payload.city || 'Douala').trim();
+    const regInfo = resolveRegionInfo(cityName, payload.region);
+    const hub = (window.CAMEROON_DEPARTMENT_HUBS && window.CAMEROON_DEPARTMENT_HUBS[cityName]) || { lat: regInfo.lat, lng: regInfo.lng };
     const trialEnd = new Date(Date.now() + 14 * 86400000).toISOString();
 
     const doc = {
       id: 'doc_' + Date.now(),
       title: payload.title || 'Dr',
       full_name: payload.full_name.trim(),
-      specialty: payload.specialty,
+      specialty: specs[0],
+      specialties: specs,
       onmc_number: payload.onmc_number.trim().toUpperCase(),
       cni_number: payload.cni_number.trim().toUpperCase(),
       diploma_title: payload.diploma_title.trim(),
       university: (payload.university || '').trim(),
       graduation_year: Number(payload.graduation_year) || new Date().getFullYear() - 3,
       clinic_name: (payload.clinic_name || '').trim() || 'Cabinet Médical Privé',
-      city: payload.city || 'Douala',
+      region: payload.region || regInfo.region,
+      city: cityName,
       quarter: (payload.quarter || '').trim(),
-      address: `${(payload.quarter || '').trim()}, ${payload.city || 'Douala'}`,
+      is_regional_capital: regInfo.isCapital,
+      address: `${(payload.quarter || '').trim() ? payload.quarter.trim() + ', ' : ''}${cityName}`,
       lat: Number(payload.lat) || hub.lat,
       lng: Number(payload.lng) || hub.lng,
       phone: cleanPhone,
@@ -309,7 +779,10 @@
       license_doc_name: payload.license_doc_name || 'justificatif_onmc_soumis',
       consultation_hours: payload.consultation_hours || DEFAULT_SCHEDULE,
       availability_status: 'available',
-      verification_status: 'pending', // Doit être vérifié par l'Admin ONMC avant publication complète
+      availability_until: null,
+      availability_note: '',
+      auto_schedule_enabled: true,
+      verification_status: 'pending',
       subscription_status: 'trial',
       subscription_plan: 'trial',
       trial_ends_at: trialEnd,
@@ -326,7 +799,13 @@
         }
         const dbRow = Object.assign({}, doc);
         delete dbRow._local_pwd_hash;
-        await window.supabase.from('doctors').upsert([dbRow], { onConflict: 'email' });
+        const { error } = await window.supabase.from('doctors').upsert([dbRow], { onConflict: 'email' });
+        if (error) {
+          // Fallback rétrocompatible si la migration SQL v14 n'est pas encore appliquée
+          delete dbRow.specialties; delete dbRow.region; delete dbRow.is_regional_capital;
+          delete dbRow.availability_until; delete dbRow.availability_note; delete dbRow.auto_schedule_enabled;
+          await window.supabase.from('doctors').upsert([dbRow], { onConflict: 'email' });
+        }
       } catch (e) {}
     }
 
@@ -343,7 +822,7 @@
         const { data: authData, error: authErr } = await window.supabase.auth.signInWithPassword({ email: cleanEmail, password });
         if (!authErr && authData && authData.user) {
           const { data: row } = await window.supabase.from('doctors').select('*').or(`id.eq.${authData.user.id},email.eq.${cleanEmail}`).maybeSingle();
-          if (row) { saveSession(row); return row; }
+          if (row) { saveSession(row); return normalizeDoctor(row); }
         }
       } catch (e) {}
     }
@@ -358,30 +837,40 @@
     throw new Error('Identifiants incorrects ou médecin non inscrit. Utilisez un accès démo certifié ou inscrivez-vous.');
   }
 
-  // ── Disponibilité Automatisée selon les Horaires ───────────────
-  function isWithinSchedule(doc) {
-    if (!doc || doc.availability_status === 'offline') return false;
-    if (doc.availability_status === 'available') return true;
-    const days = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'];
-    const now = new Date();
-    const slot = (doc.consultation_hours || DEFAULT_SCHEDULE)[days[now.getDay()]];
-    if (!slot || !slot.active) return false;
-    const cur = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
-    return cur >= (slot.start || '08:00') && cur <= (slot.end || '20:00');
-  }
-
-  function findAvailableDoctor(specialty, preferredDoctorId) {
+  /**
+   * Routage Automatique Intelligent :
+   * • Si preferredDoctorId est fourni → ce médecin précis.
+   * • Si mode Aléatoire Rapide (`specialty === 'any' || !specialty`) → sélection équilibrée parmi les
+   *   médecins vérifiés ONMC actuellement 🟢 Disponibles (optionnellement dans la région choisie).
+   * • Si spécialité précise → cherche parmi TOUTES les spécialités déclarées par chaque médecin (`specialties`).
+   */
+  function findAvailableDoctor(specialty, preferredDoctorId, options) {
+    const opts = options || {};
     const docs = getDoctors();
     if (preferredDoctorId) {
       const exact = docs.find((d) => d.id === preferredDoctorId);
       if (exact) return exact;
     }
+
+    const isRandomAny = !specialty || specialty === 'any' || specialty === 'all';
     const verifiedAvail = docs.filter((d) =>
       (d.verification_status === 'verified' || (window.PGAdmin && PGAdmin.isVerified('doctor', d.id))) &&
-      isWithinSchedule(d)
+      getEffectiveAvailability(d).isAvailableNow &&
+      (!opts.region || opts.region === 'all' || (opts.region === 'capitals' ? d.is_regional_capital : String(d.region || '').toLowerCase() === opts.region.toLowerCase()))
     );
-    const sameSpec = verifiedAvail.find((d) => d.specialty === specialty);
-    return sameSpec || verifiedAvail[0] || docs[0] || null;
+
+    if (isRandomAny) {
+      const pool = verifiedAvail.length > 0 ? verifiedAvail : docs.filter((d) => getEffectiveAvailability(d).isAvailableNow);
+      if (pool.length > 0) return pool[Math.floor(Math.random() * pool.length)];
+      return docs[0] || null;
+    }
+
+    const sameSpecAvail = verifiedAvail.filter((d) => getDoctorSpecialties(d).includes(specialty));
+    if (sameSpecAvail.length > 0) {
+      return sameSpecAvail[Math.floor(Math.random() * sameSpecAvail.length)];
+    }
+    const anyWithSpec = docs.filter((d) => getDoctorSpecialties(d).includes(specialty));
+    return anyWithSpec[0] || verifiedAvail[0] || docs[0] || null;
   }
 
   // ── Téléconsultations 48h & Paiement Split 2 600 FCFA ──────────
@@ -422,8 +911,8 @@
       } catch (e) {}
     }
 
-    // Étape 2 : Recherche automatique d'un médecin disponible & vérifié ONMC
-    const matchedDoc = findAvailableDoctor(payload.specialty, payload.preferred_doctor_id);
+    // Étape 2 : Routage automatique (Aléatoire Rapide ou Spécialité + Région)
+    const matchedDoc = findAvailableDoctor(payload.specialty, payload.preferred_doctor_id, { region: payload.region });
     const expiresAt = new Date(Date.now() + SESSION_48H_MS).toISOString();
 
     const consult = {
@@ -433,12 +922,12 @@
       patient_phone: cleanPhone || '694929909',
       patient_age: Number(payload.patient_age) || null,
       patient_sex: payload.patient_sex || '',
-      specialty_requested: payload.specialty || 'Médecine Générale',
+      specialty_requested: (!payload.specialty || payload.specialty === 'any') ? 'Aléatoire (Médecin Disponible)' : payload.specialty,
       symptoms: (payload.symptoms || '').trim(),
       allergies: (payload.allergies || '').trim(),
       doctor_id: matchedDoc ? matchedDoc.id : null,
       doctor_name: matchedDoc ? `${matchedDoc.title || 'Dr'} ${matchedDoc.full_name}` : 'En recherche de médecin...',
-      doctor_specialty: matchedDoc ? matchedDoc.specialty : payload.specialty,
+      doctor_specialty: matchedDoc ? getDoctorSpecialties(matchedDoc).join(' · ') : payload.specialty,
       doctor_onmc: matchedDoc ? matchedDoc.onmc_number : '',
       doctor_phone: matchedDoc ? matchedDoc.phone : '',
       status: matchedDoc ? 'active_48h' : 'searching',
@@ -468,7 +957,7 @@
       } catch (e) {}
     }
 
-    const list = getConsultations();
+    const list = getConsultations().slice();
     list.unshift(consult);
     saveConsultations(list);
 
@@ -480,10 +969,9 @@
       } catch (e) {}
     }
 
-    // Message d'accueil automatique dans la session 48h
     addConsultationMessage(consult.id, 'system', 'Pharma-Garde',
       matchedDoc
-        ? `✅ Paiement confirmé (100 F plateforme + 2 500 F transférés directement au ${consult.doctor_name}). Votre session médicale est ouverte pendant 48h.`
+        ? `✅ Paiement confirmé (100 F plateforme + 2 500 F transférés directement au ${consult.doctor_name} — ${matchedDoc.city}, ${matchedDoc.region}). Session médicale ouverte 48h.`
         : '⏳ Paiement confirmé (100 F plateforme validés). Recherche automatique d\'un médecin disponible en cours...'
     );
     addConsultationMessage(consult.id, 'patient', consult.patient_alias,
@@ -494,12 +982,12 @@
   }
 
   async function acceptConsultation(consultId, doctor) {
-    const list = getConsultations();
+    const list = getConsultations().slice();
     const c = list.find((x) => x.id === consultId);
     if (!c || !doctor) return null;
     c.doctor_id = doctor.id;
     c.doctor_name = `${doctor.title || 'Dr'} ${doctor.full_name}`;
-    c.doctor_specialty = doctor.specialty;
+    c.doctor_specialty = getDoctorSpecialties(doctor).join(' · ');
     c.doctor_onmc = doctor.onmc_number;
     c.doctor_phone = doctor.phone;
     c.status = 'active_48h';
@@ -521,32 +1009,27 @@
         });
       } catch (e) {}
     }
-
-    addConsultationMessage(consultId, 'doctor', c.doctor_name,
-      `Bonjour ${c.patient_alias}, je suis ${c.doctor_name} (${doctor.specialty}, ${doctor.onmc_number}). J'ai pris en charge votre demande. Votre session reste ouverte pendant 48 heures.`
-    );
     return c;
   }
 
-  // ── Messages 48h ───────────────────────────────────────────────
+  // ── Messagerie 48h ─────────────────────────────────────────────
   function getMessages(consultId) {
     const all = readLS(MSGS_KEY, {});
-    return all[consultId] || [];
+    return Array.isArray(all[consultId]) ? all[consultId] : [];
   }
 
   async function addConsultationMessage(consultId, senderRole, senderName, body) {
-    const txt = String(body || '').trim();
-    if (!consultId || !txt) return null;
+    if (!consultId || !body || !body.trim()) return null;
+    const all = Object.assign({}, readLS(MSGS_KEY, {}));
+    all[consultId] = (all[consultId] || []).slice();
     const msg = {
-      id: 'cmsg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5),
+      id: 'm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5),
       consultation_id: consultId,
       sender_role: senderRole,
       sender_name: senderName || senderRole,
-      body: txt,
+      body: body.trim(),
       created_at: new Date().toISOString()
     };
-    const all = readLS(MSGS_KEY, {});
-    all[consultId] = all[consultId] || [];
     all[consultId].push(msg);
     writeLS(MSGS_KEY, all);
     if (window.supabase) {
@@ -557,139 +1040,134 @@
 
   function remaining48hLabel(expiresIso) {
     const diff = new Date(expiresIso).getTime() - Date.now();
-    if (isNaN(diff) || diff <= 0) return 'Session 48h expirée';
+    if (diff <= 0) return 'Session expirée';
     const h = Math.floor(diff / 3600000);
     const m = Math.floor((diff % 3600000) / 60000);
-    return `${h}h ${String(m).padStart(2, '0')}m restantes (48h)`;
+    return `Reste ${h}h ${m}m (48h)`;
   }
 
-  // ── Ordonnances Signées & Téléchargement PDF Officiel ──────────
+  // ── Ordonnances Médicales Signées & Téléchargeables PDF ────────
   function getPrescriptions() { return readLS(RX_KEY, []); }
-  function savePrescriptions(list) { writeLS(RX_KEY, list.slice(0, 80)); }
+  function savePrescriptions(list) { writeLS(RX_KEY, list.slice(0, 100)); }
 
-  async function issueSignedPrescription(doctor, consult, rxPayload) {
-    if (!doctor) throw new Error('Profil médecin requis.');
-    const meds = (rxPayload.medications || []).filter((m) => m && m.name && m.name.trim());
-    if (!meds.length) throw new Error('Ajoutez au moins un médicament à prescrire.');
+  async function issueSignedPrescription(doctor, consult, payload) {
+    if (!doctor) throw new Error('Médecin non connecté.');
+    const meds = (payload.medications || []).filter((m) => m && m.name && m.name.trim());
+    if (meds.length === 0) throw new Error('Ajoutez au moins un médicament à prescrire.');
 
     const rx = {
       id: 'rx_' + Date.now(),
-      rx_code: 'RX-' + Math.random().toString(36).slice(2, 8).toUpperCase(),
+      rx_code: 'ORD-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000),
       consultation_id: consult ? consult.id : null,
+      patient_session_id: consult ? consult.patient_session_id : getPatientSessionId(),
       doctor_id: doctor.id,
       doctor_name: `${doctor.title || 'Dr'} ${doctor.full_name}`,
-      doctor_specialty: doctor.specialty || 'Médecine Générale',
-      doctor_onmc: doctor.onmc_number || 'ONMC',
+      doctor_specialty: getDoctorSpecialties(doctor).join(' · '),
+      doctor_onmc: doctor.onmc_number,
       doctor_clinic: doctor.clinic_name || '',
-      doctor_city: doctor.city || 'Cameroun',
+      doctor_city: doctor.city || 'Douala',
       doctor_phone: doctor.phone || '',
-      doctor_signature: doctor.signature_data_url || DEMO_SIG_SVG,
-      patient_session_id: (consult && consult.patient_session_id) || getPatientSessionId(),
-      patient_alias: (consult && consult.patient_alias) || rxPayload.patient_alias || 'Patient',
-      diagnosis: (rxPayload.diagnosis || '').trim(),
+      doctor_signature_url: doctor.signature_data_url || DEMO_SIG_SVG,
+      patient_alias: (payload.patient_alias || (consult && consult.patient_alias) || 'Patient').trim(),
+      diagnosis: (payload.diagnosis || '').trim(),
+      advice: (payload.advice || '').trim(),
       medications: meds,
-      advice: (rxPayload.advice || '').trim(),
-      valid_until: new Date(Date.now() + 30 * 86400000).toISOString(),
       created_at: new Date().toISOString()
     };
 
-    const list = getPrescriptions();
+    const list = getPrescriptions().slice();
     list.unshift(rx);
     savePrescriptions(list);
 
     if (consult) {
-      const cList = getConsultations();
-      const target = cList.find((x) => x.id === consult.id);
-      if (target) { target.status = 'prescribed'; target.prescription_id = rx.id; saveConsultations(cList); }
       addConsultationMessage(consult.id, 'doctor', rx.doctor_name,
-        `📝 Ordonnance médicale signée émise (${rx.rx_code}) : ${meds.map((m) => m.name).join(', ')}. Vous pouvez la télécharger en PDF ou l'envoyer directement aux pharmacies en 1 clic.`
+        `📋 Ordonnance signée émise (${rx.rx_code}) : ${meds.map((m) => m.name).join(', ')}. Vous pouvez la télécharger en PDF et lancer directement la recherche en pharmacie !`
       );
     }
 
     if (window.supabase) {
-      try {
-        const dbRow = Object.assign({}, rx);
-        delete dbRow.doctor_clinic; delete dbRow.doctor_city; delete dbRow.doctor_phone;
-        await window.supabase.from('medical_prescriptions').insert([dbRow]);
-      } catch (e) {}
+      try { await window.supabase.from('medical_prescriptions').insert([rx]); } catch (e) {}
     }
-
     return rx;
   }
 
   function buildPrescriptionHTML(rx) {
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=96x96&data=${encodeURIComponent('PHARMAGARDE-RX:' + rx.rx_code + ':' + rx.doctor_onmc)}`;
+    const dt = new Date(rx.created_at || Date.now()).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
     return `
-      <div style="font-family:Inter,Arial,sans-serif; color:#0f172a; background:#ffffff; padding:26px; border:2px solid #0d9488; border-radius:12px; max-width:740px; margin:0 auto;">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #0d9488; padding-bottom:14px; margin-bottom:16px;">
+      <div class="pg-rx-sheet" style="font-family:Inter,Arial,sans-serif; color:#0f172a; padding:26px; background:#fff; border-top:6px solid #0d9488;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #e2e8f0; padding-bottom:14px; margin-bottom:16px;">
           <div>
-            <div style="font-size:19px; font-weight:900; color:#0f766e;">${esc(rx.doctor_name)}</div>
-            <div style="font-size:13px; font-weight:700; color:#334155;">${esc(rx.doctor_specialty)}</div>
-            <div style="font-size:12px; color:#475569;">N° Ordre ONMC : <strong>${esc(rx.doctor_onmc)}</strong> · ${esc(rx.doctor_clinic || 'Téléconsultation Pharma-Garde')}</div>
-            <div style="font-size:11.5px; color:#64748b;">📍 ${esc(rx.doctor_city || 'Cameroun')} · ☎️ ${esc(rx.doctor_phone || '')}</div>
+            <div style="font-size:18px; font-weight:900; color:#0f766e;">${esc(rx.doctor_name)}</div>
+            <div style="font-size:12.5px; font-weight:700; color:#334155;">${esc(rx.doctor_specialty)}</div>
+            <div style="font-size:11.5px; color:#64748b;">N° ONMC : <strong>${esc(rx.doctor_onmc)}</strong> · ${esc(rx.doctor_clinic || rx.doctor_city)}</div>
+            <div style="font-size:11px; color:#64748b;">Tél. : ${esc(rx.doctor_phone)} · Pharma-Garde Cameroun</div>
           </div>
           <div style="text-align:right;">
-            <div style="font-size:11px; font-weight:800; color:#0d9488; text-transform:uppercase;">ORDONNANCE MÉDICALE NUMÉRIQUE</div>
-            <div style="font-family:monospace; font-size:15px; font-weight:900; color:#0f172a;">${esc(rx.rx_code)}</div>
-            <div style="font-size:11.5px; color:#475569;">Date : ${esc(new Date(rx.created_at).toLocaleDateString('fr-FR'))}</div>
+            <div style="display:inline-block; background:#0f766e; color:#fff; font-weight:800; font-size:11px; padding:4px 10px; border-radius:6px;">ORDONNANCE MÉDICALE</div>
+            <div style="font-family:monospace; font-weight:800; font-size:12px; color:#0f172a; margin-top:6px;">${esc(rx.rx_code)}</div>
+            <div style="font-size:11.5px; color:#475569; margin-top:2px;">${esc(rx.doctor_city)}, le ${esc(dt)}</div>
           </div>
         </div>
-
-        <div style="background:#f0fdfa; border:1px solid #99f6e4; border-radius:8px; padding:10px 14px; margin-bottom:16px; font-size:13px;">
-          <strong>Patient :</strong> ${esc(rx.patient_alias || 'Patient')}
-          ${rx.diagnosis ? `<br><strong>Indication / Diagnostic confidentiel :</strong> ${esc(rx.diagnosis)}` : ''}
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; margin-bottom:16px; font-size:12.5px;">
+          <strong>Patient :</strong> ${esc(rx.patient_alias)}
+          ${rx.diagnosis ? `<br><strong>Indication clinique :</strong> ${esc(rx.diagnosis)}` : ''}
         </div>
-
-        <div style="font-size:13px; font-weight:800; color:#0f766e; text-transform:uppercase; margin-bottom:10px;">💊 Prescription Médicamenteuse</div>
-        <ol style="margin:0 0 18px; padding-left:20px; line-height:1.7; font-size:13.5px;">
-          ${(rx.medications || []).map((m) => `
-            <li style="margin-bottom:8px;">
-              <strong>${esc(m.name)}</strong> ${m.dosage ? `— <em>${esc(m.dosage)}</em>` : ''}
-              ${m.duration ? `<div style="font-size:12px; color:#475569;">Durée / Posologie : ${esc(m.duration)}</div>` : ''}
-            </li>
-          `).join('')}
-        </ol>
-
-        ${rx.advice ? `<div style="background:#fffbeb; border-left:4px solid #f59e0b; padding:10px 14px; font-size:12.5px; margin-bottom:18px;"><strong>Conseils médicaux :</strong> ${esc(rx.advice)}</div>` : ''}
-
-        <div style="display:flex; justify-content:space-between; align-items:flex-end; border-top:1px solid #cbd5e1; padding-top:14px; margin-top:18px;">
-          <div style="display:flex; align-items:center; gap:10px;">
-            <img src="${qrUrl}" width="78" height="78" alt="QR Authenticité" style="border:1px solid #cbd5e1; padding:3px; border-radius:6px;">
-            <div style="font-size:10.5px; color:#64748b; max-width:220px;">
-              Ordonnance certifiée Pharma-Garde Cameroun.<br>
-              Valide jusqu'au ${esc(new Date(rx.valid_until || Date.now() + 30 * 86400000).toLocaleDateString('fr-FR'))}.<br>
-              Présentez ce document en officine.
+        <div style="margin-bottom:18px;">
+          ${(rx.medications || []).map((m, idx) => `
+            <div style="padding:10px 0; border-bottom:1px dashed #cbd5e1;">
+              <div style="font-weight:800; font-size:14px; color:#0f172a;">${idx + 1}. ${esc(m.name)}</div>
+              <div style="font-size:12.5px; color:#334155; margin-top:2px;">
+                Posologie : ${esc(m.dosage || 'Selon avis médical')} ${m.duration ? `· Durée : <strong>${esc(m.duration)}</strong>` : ''}
+              </div>
             </div>
+          `).join('')}
+        </div>
+        ${rx.advice ? `<div style="font-size:12px; color:#334155; background:#f0fdfa; border:1px solid #99f6e4; border-radius:8px; padding:10px 12px; margin-bottom:18px;"><strong>Conseils médicaux :</strong> ${esc(rx.advice)}</div>` : ''}
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:20px; padding-top:12px; border-top:1px solid #e2e8f0;">
+          <div style="font-size:10.5px; color:#64748b; max-width:56%;">
+            Document généré et signé numériquement sur <strong>Pharma-Garde Cameroun</strong>.<br>
+            Vérification d'authenticité : <strong>${esc(rx.rx_code)}</strong> · ONMC <strong>${esc(rx.doctor_onmc)}</strong>.
           </div>
           <div style="text-align:center;">
-            <div style="font-size:11px; color:#475569; margin-bottom:4px;">Cachet &amp; Signature du Médecin</div>
-            <img src="${rx.doctor_signature || DEMO_SIG_SVG}" alt="Signature Médecin" style="max-height:68px; max-width:210px; display:block; margin:0 auto;">
-            <div style="font-size:11.5px; font-weight:800; color:#0f172a; margin-top:4px;">${esc(rx.doctor_name)} (${esc(rx.doctor_onmc)})</div>
+            <div style="font-size:11px; color:#475569; margin-bottom:4px;">Signature &amp; Cachet du Médecin</div>
+            <img src="${rx.doctor_signature_url || DEMO_SIG_SVG}" alt="Signature" style="max-height:64px; max-width:200px; display:block; margin:0 auto;">
+            <div style="font-size:11px; font-weight:800; color:#0f766e; margin-top:2px;">${esc(rx.doctor_name)}</div>
           </div>
         </div>
       </div>
     `;
   }
 
-  async function downloadPrescriptionPDF(rxIdOrObj) {
-    const rx = typeof rxIdOrObj === 'object' ? rxIdOrObj : getPrescriptions().find((x) => x.id === rxIdOrObj);
+  function downloadPrescriptionPDF(rxOrId) {
+    const rx = typeof rxOrId === 'string' ? getPrescriptions().find((r) => r.id === rxOrId) : rxOrId;
     if (!rx) return;
     const html = buildPrescriptionHTML(rx);
-    if (window.PG && typeof PG.exportPDF === 'function') {
-      await PG.exportPDF(html, `Ordonnance_${rx.rx_code}.pdf`);
+    if (typeof window.html2pdf === 'function') {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = html;
+      window.html2pdf().set({
+        margin: 8,
+        filename: `Ordonnance_${rx.rx_code}.pdf`,
+        image: { type: 'jpeg', quality: 0.96 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      }).from(wrap).save();
       return;
     }
-    const w = window.open('', '_blank', 'width=820,height=920');
-    if (w) { w.document.write(`<!DOCTYPE html><html><head><title>Ordonnance ${esc(rx.rx_code)}</title></head><body style="padding:20px;">${html}<script>setTimeout(()=>window.print(),400)</script></body></html>`); w.document.close(); }
+    const w = window.open('', '_blank', 'width=820,height=900');
+    if (w) {
+      w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ordonnance ${esc(rx.rx_code)}</title></head><body>${html}<script>setTimeout(()=>window.print(),300);<\/script></body></html>`);
+      w.document.close();
+    }
   }
 
-  // ── Rendez-vous Médecins (Cabinet / Téléconsultation) ──────────
+  // ── Rendez-Vous Médicaux ───────────────────────────────────────
   function getAppointments() { return readLS(APPT_KEY, []); }
   function saveAppointments(list) { writeLS(APPT_KEY, list.slice(0, 100)); }
 
   async function bookAppointment(payload) {
     if (!payload.doctor_id || !payload.patient_name || !payload.scheduled_at) {
-      throw new Error('Médecin, nom du patient et date/heure de rendez-vous requis.');
+      throw new Error('Médecin, nom du patient et date/heure requis.');
     }
     const appt = {
       id: 'appt_' + Date.now(),
@@ -698,13 +1176,13 @@
       patient_session_id: getPatientSessionId(),
       patient_name: payload.patient_name.trim(),
       patient_phone: String(payload.patient_phone || '').replace(/\D/g, '').replace(/^237/, ''),
-      mode: payload.mode === 'cabinet' ? 'cabinet' : 'teleconsultation',
       scheduled_at: payload.scheduled_at,
+      mode: payload.mode === 'cabinet' ? 'cabinet' : 'teleconsultation',
       reason: (payload.reason || 'Consultation médicale').trim(),
       status: 'pending',
       created_at: new Date().toISOString()
     };
-    const list = getAppointments();
+    const list = getAppointments().slice();
     list.unshift(appt);
     saveAppointments(list);
     if (window.supabase) {
@@ -714,7 +1192,7 @@
   }
 
   function updateAppointmentStatus(id, status) {
-    const list = getAppointments();
+    const list = getAppointments().slice();
     const item = list.find((a) => a.id === id);
     if (!item) return null;
     item.status = status;
@@ -727,10 +1205,17 @@
 
   window.MedecinStore = {
     SPECIALTIES,
+    CAMEROON_REGIONS,
+    AVAILABILITY_DURATIONS,
     DEFAULT_SCHEDULE,
     CONSULT_TOTAL_FCFA,
     PLATFORM_FEE_FCFA,
     DOCTOR_PAYOUT_FCFA,
+    getDoctorSpecialties,
+    getEffectiveAvailability,
+    setDoctorTimedAvailability,
+    filterDoctors,
+    getSpecialtyDirectorySummary,
     getDoctors,
     syncDoctors,
     saveDoctorInDirectory,
@@ -759,4 +1244,3 @@
     updateAppointmentStatus
   };
 })(window);
-

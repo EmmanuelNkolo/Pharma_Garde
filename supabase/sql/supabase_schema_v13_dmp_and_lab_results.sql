@@ -340,3 +340,4 @@ BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE public.patient_medical_records;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
+
