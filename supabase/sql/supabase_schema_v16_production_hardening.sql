@@ -643,15 +643,15 @@ CREATE POLICY "ws_credits_owner_all" ON public.wholesaler_credits
   USING (
     wholesaler_id = (select auth.uid())::text
     OR EXISTS (
-      SELECT 1 FROM public.wholesalers w
-      WHERE w.id::text = wholesaler_credits.wholesaler_id AND w.user_id = (select auth.uid())
+      SELECT 1 FROM public.platform_admins pa
+      WHERE pa.user_id = (select auth.uid()) AND pa.is_active = true
     )
   )
   WITH CHECK (
     wholesaler_id = (select auth.uid())::text
     OR EXISTS (
-      SELECT 1 FROM public.wholesalers w
-      WHERE w.id::text = wholesaler_credits.wholesaler_id AND w.user_id = (select auth.uid())
+      SELECT 1 FROM public.platform_admins pa
+      WHERE pa.user_id = (select auth.uid()) AND pa.is_active = true
     )
   );
 
@@ -674,15 +674,15 @@ CREATE POLICY "ws_bl_owner_all" ON public.wholesaler_bl_signatures
   USING (
     wholesaler_id = (select auth.uid())::text
     OR EXISTS (
-      SELECT 1 FROM public.wholesalers w
-      WHERE w.id::text = wholesaler_bl_signatures.wholesaler_id AND w.user_id = (select auth.uid())
+      SELECT 1 FROM public.platform_admins pa
+      WHERE pa.user_id = (select auth.uid()) AND pa.is_active = true
     )
   )
   WITH CHECK (
     wholesaler_id = (select auth.uid())::text
     OR EXISTS (
-      SELECT 1 FROM public.wholesalers w
-      WHERE w.id::text = wholesaler_bl_signatures.wholesaler_id AND w.user_id = (select auth.uid())
+      SELECT 1 FROM public.platform_admins pa
+      WHERE pa.user_id = (select auth.uid()) AND pa.is_active = true
     )
   );
 
