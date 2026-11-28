@@ -109,6 +109,10 @@
     if (window.PGSubscription) {
       PGSubscription.renderHeaderBadge('fac-sub-badge-slot', currentFacility, 'facility');
       PGSubscription.checkAndShowReminders(currentFacility, 'facility', 'fac-reminder-banner');
+      PGSubscription.syncWithSupabase(currentFacility, 'facility').then(() => {
+        PGSubscription.renderHeaderBadge('fac-sub-badge-slot', currentFacility, 'facility');
+        PGSubscription.checkAndShowReminders(currentFacility, 'facility', 'fac-reminder-banner');
+      }).catch(() => {});
     }
     switchTab('analyses');
   }
@@ -136,7 +140,7 @@
   function persistFacility() {
     if (!currentFacility) return;
     FacilityStore.saveSession(currentFacility);
-    if (window.supabase && !String(currentFacility.id).startsWith('fac_cpc')) {
+    if (window.supabase && /^[0-9a-f-]{36}$/i.test(String(currentFacility.id || ''))) {
       try {
         window.supabase.from('health_facilities').update({
           services: currentFacility.services,
@@ -144,7 +148,7 @@
           opening_hours: currentFacility.opening_hours,
           emergency_24_7: currentFacility.emergency_24_7,
           home_sampling: currentFacility.home_sampling
-        }).eq('id', currentFacility.id);
+        }).eq('id', currentFacility.id).then(() => {}, () => {});
       } catch (e) {}
     }
   }

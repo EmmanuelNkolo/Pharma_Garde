@@ -58,7 +58,7 @@
       lng: Number(p.lng),
       isOpen: p.is_open !== false,
       isOnDuty: !!p.is_on_duty,
-      hours: p.opening_hours || '08h00 - 20h00',
+      hours: p.hours || p.opening_hours || '08h00 - 20h00',
       isRegistered: true
     };
   }

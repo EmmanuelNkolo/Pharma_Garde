@@ -170,6 +170,17 @@
         currentWholesaler.phone = document.getElementById('g-set-phone').value.trim() || currentWholesaler.phone;
         currentWholesaler.min_order_amount = Number(document.getElementById('g-set-minorder').value) || 50000;
         window.GrossisteAuth.saveSession(currentWholesaler);
+        if (window.supabase && /^[0-9a-f-]{36}$/i.test(String(currentWholesaler.id || ''))) {
+          try {
+            window.supabase.from('wholesalers').update({
+              company_name: currentWholesaler.company_name,
+              manager_name: currentWholesaler.manager_name,
+              phone: currentWholesaler.phone,
+              min_order_amount: currentWholesaler.min_order_amount,
+              updated_at: new Date().toISOString()
+            }).eq('id', currentWholesaler.id).then(() => {}, () => {});
+          } catch (e) {}
+        }
         updateHeaderIdentity();
         panelSet.style.display = 'none';
         toast('✅ Paramètres du grossiste sauvegardés.', 'success');
@@ -205,6 +216,9 @@
     if (dash) dash.classList.remove('hidden');
 
     updateHeaderIdentity();
+    if (window.PGSubscription && currentWholesaler) {
+      window.PGSubscription.syncWithSupabase(currentWholesaler, 'wholesaler').then(() => updateHeaderIdentity()).catch(() => {});
+    }
 
     if (window.GrossisteCatalog) {
       await window.GrossisteCatalog.syncWithSupabase(currentWholesaler && currentWholesaler.id);
@@ -255,6 +269,14 @@
     if (!currentWholesaler) return;
     currentWholesaler.status = newStatus;
     window.GrossisteAuth.saveSession(currentWholesaler);
+    if (window.supabase && /^[0-9a-f-]{36}$/i.test(String(currentWholesaler.id || ''))) {
+      try {
+        window.supabase.from('wholesalers').update({
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        }).eq('id', currentWholesaler.id).then(() => {}, () => {});
+      } catch (e) {}
+    }
     ['open', 'urgent_service', 'closed'].forEach(st => {
       const b = document.getElementById('g-status-' + st);
       if (b) b.classList.toggle('active', st === newStatus);

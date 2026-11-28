@@ -127,6 +127,15 @@ serve(async (req: Request) => {
         description: planConfig.label,
         email: subscriberEmail,
         phone: '+237' + phone,
+        metadata: {
+          type: 'subscription',
+          internal_reference: reference,
+          merchant_reference: reference,
+          subscriber_id: subscriberId,
+          role,
+          plan_id: planId,
+          phone
+        }
       };
 
       const initResponse = await fetch('https://api.notchpay.co/payments', {
@@ -233,15 +242,29 @@ serve(async (req: Request) => {
 
       const rawStatus = String(data?.transaction?.status || '').toLowerCase();
       let mappedStatus = 'PENDING';
-      if (rawStatus === 'complete' || rawStatus === 'successful' || rawStatus === 'paid') {
+      if (rawStatus === 'complete' || rawStatus === 'completed' || rawStatus === 'successful' || rawStatus === 'paid') {
         mappedStatus = 'SUCCESSFUL';
       } else if (rawStatus === 'canceled' || rawStatus === 'cancelled' || rawStatus === 'failed' || rawStatus === 'expired') {
         mappedStatus = 'FAILED';
       }
 
-      // Si payé, activer immédiatement l'abonnement dans Supabase
+      // Si payé, activer immédiatement l'abonnement dans Supabase et journaliser dans payments
       if (mappedStatus === 'SUCCESSFUL' && supabase) {
         await supabase.rpc('activate_subscription_by_reference', { p_reference: internalRef });
+        await supabase.from('payments').upsert({
+          reference,
+          status: 'SUCCESSFUL',
+          amount: data?.transaction?.amount || undefined,
+          operator: 'XAF',
+          updated_at: new Date().toISOString(),
+          metadata: {
+            type: 'subscription',
+            internal_reference: internalRef,
+            merchant_reference: internalRef,
+            notch_reference: reference,
+            raw_status: rawStatus
+          }
+        }, { onConflict: 'reference' });
       }
 
       return new Response(JSON.stringify({

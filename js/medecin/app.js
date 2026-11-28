@@ -385,6 +385,9 @@
     document.getElementById('doc-login-screen')?.classList.add('hidden');
     document.getElementById('doc-dashboard')?.classList.remove('hidden');
     updateHeader();
+    if (window.PGSubscription && currentDoctor) {
+      PGSubscription.syncWithSupabase(currentDoctor, 'doctor').then(() => updateHeader()).catch(() => {});
+    }
     switchTab('consults');
     if (!autoAvailTimer) {
       autoAvailTimer = setInterval(() => {

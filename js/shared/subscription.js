@@ -187,8 +187,10 @@
   /**
    * Synchronise l'état d'abonnement avec Supabase `subscriptions` si disponible
    */
-  async function syncWithSupabase(user, role) {
+  async function syncWithSupabase(userOrRole, roleOrUser) {
+    const { user, role } = normalizeUserAndRole(userOrRole, roleOrUser);
     if (!user || !user.id || !window.supabase) return getStatusInfo(user, role);
+    if (!/^[0-9a-f-]{36}$/i.test(String(user.id))) return getStatusInfo(user, role);
     try {
       const { data: subs } = await window.supabase
         .from('subscriptions')

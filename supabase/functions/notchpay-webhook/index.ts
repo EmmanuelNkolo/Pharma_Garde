@@ -26,8 +26,12 @@ async function verifyNotchPaySignature(payload: string, signature: string, secre
   return hashHex.toLowerCase() === signature.toLowerCase();
 }
 
+function normalizePhone(raw: unknown): string {
+  return String(raw || '').replace(/\D/g, '').replace(/^237/, '');
+}
+
 // =====================================================================
-// MAIN HANDLER (Client 24h Pass + Pro Subscriptions Délégué / Grossiste / Pharmacie)
+// MAIN HANDLER (Client 24h Pass + Pro Subscriptions Délégué / Grossiste / Pharmacie / Médecin / Établissement)
 // =====================================================================
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -54,7 +58,7 @@ serve(async (req: Request) => {
       return new Response(JSON.stringify({ error: 'Empty payload' }), { status: 400 });
     }
 
-    const secret = Deno.env.get('NOTCHPAY_WEBHOOK_HASH');
+    const secret = (Deno.env.get('NOTCHPAY_WEBHOOK_HASH') || '').replace(/^["']|["']$/g, '').trim();
     if (!secret) {
       console.error('NOTCHPAY_WEBHOOK_HASH is not configured in Supabase environment.');
       return new Response(JSON.stringify({ error: 'Server configuration error' }), { status: 500 });
@@ -70,10 +74,21 @@ serve(async (req: Request) => {
     console.log(`[NotchPay Webhook] Received valid notification for event: ${event.event}`);
 
     const txData = event?.data || {};
-    const reference = String(txData.reference || txData.merchant_reference || '');
+    const notchRef = String(txData.reference || '').trim();
+    const merchantRef = String(txData.merchant_reference || txData?.metadata?.merchant_reference || txData?.metadata?.internal_reference || '').trim();
+    const reference = notchRef || merchantRef;
+    const subRef = merchantRef.startsWith('sub_')
+      ? merchantRef
+      : (notchRef.startsWith('sub_') ? notchRef : (merchantRef || notchRef));
+    const isSubPayment = merchantRef.startsWith('sub_') || notchRef.startsWith('sub_') || txData?.metadata?.type === 'subscription';
+
+    const cleanPhone = normalizePhone(
+      txData.customer?.phone || txData.phone || txData?.metadata?.phone || txData?.data?.phone || ''
+    );
+
     const txStatus = String(txData.status || '').toLowerCase();
     const isCompleted = (event.event === 'payment.complete' || event.event === 'payment.successful') &&
-                        (txStatus === 'complete' || txStatus === 'successful' || txStatus === 'paid');
+                        (txStatus === 'complete' || txStatus === 'completed' || txStatus === 'successful' || txStatus === 'paid');
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -82,27 +97,35 @@ serve(async (req: Request) => {
       const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
       if (isCompleted) {
-        // 1. Enregistrer systématiquement dans la table `payments`
+        // 1. Enregistrer systématiquement dans la table `payments` avec téléphone normalisé et références complètes
+        const enrichedMetadata = {
+          ...(typeof txData === 'object' ? txData : {}),
+          phone: cleanPhone || txData?.metadata?.phone || undefined,
+          merchant_reference: merchantRef || undefined,
+          notch_reference: notchRef || undefined,
+          type: isSubPayment ? 'subscription' : (txData?.metadata?.type || 'client_pass_24h')
+        };
+
         const { error: dbError } = await supabase
           .from('payments')
           .upsert({
             reference,
             status: 'SUCCESSFUL',
             amount: txData.amount,
-            operator: txData.currency || 'XAF',
+            operator: txData.channel || txData.currency || 'XAF',
             updated_at: new Date().toISOString(),
-            metadata: txData
+            metadata: enrichedMetadata
           }, { onConflict: 'reference' });
 
         if (dbError) {
           console.error('Erreur lors de la mise à jour de payments:', dbError);
         }
 
-        // 2. Si c'est un abonnement Pro (référence commençant par `sub_`), activer l'abonnement
-        if (reference.startsWith('sub_') || txData?.metadata?.type === 'subscription') {
+        // 2. Si c'est un abonnement Pro (`merchant_reference` ou `reference` commençant par `sub_`), activer l'abonnement
+        if (isSubPayment && subRef) {
           const { data: rpcResult, error: rpcError } = await supabase.rpc(
             'activate_subscription_by_reference',
-            { p_reference: reference }
+            { p_reference: subRef }
           );
           if (rpcError) {
             console.error('[Webhook] Erreur activation abonnement:', rpcError);
@@ -110,12 +133,28 @@ serve(async (req: Request) => {
             console.log('[Webhook] Abonnement activé avec succès:', rpcResult);
           }
         }
-      } else if (txStatus === 'failed' || txStatus === 'canceled' || txStatus === 'cancelled') {
-        if (reference.startsWith('sub_')) {
+      } else if (txStatus === 'failed' || txStatus === 'canceled' || txStatus === 'cancelled' || txStatus === 'expired') {
+        await supabase
+          .from('payments')
+          .upsert({
+            reference,
+            status: 'FAILED',
+            amount: txData.amount,
+            operator: txData.channel || txData.currency || 'XAF',
+            updated_at: new Date().toISOString(),
+            metadata: {
+              ...(typeof txData === 'object' ? txData : {}),
+              phone: cleanPhone || undefined,
+              merchant_reference: merchantRef || undefined,
+              notch_reference: notchRef || undefined
+            }
+          }, { onConflict: 'reference' });
+
+        if (isSubPayment && subRef) {
           await supabase
             .from('subscriptions')
             .update({ status: 'failed', updated_at: new Date().toISOString() })
-            .eq('payment_reference', reference);
+            .eq('payment_reference', subRef);
         }
       }
     }

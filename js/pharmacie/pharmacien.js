@@ -841,6 +841,10 @@
     if (window.PGSubscription && currentPharmacy) {
       window.PGSubscription.renderHeaderBadge('pharmacy-sub-badge-slot', 'pharmacy', currentPharmacy);
       window.PGSubscription.checkAndShowReminders('pharmacy', currentPharmacy, 'pharmacy-reminder-slot');
+      window.PGSubscription.syncWithSupabase(currentPharmacy, 'pharmacy').then(() => {
+        window.PGSubscription.renderHeaderBadge('pharmacy-sub-badge-slot', 'pharmacy', currentPharmacy);
+        window.PGSubscription.checkAndShowReminders('pharmacy', currentPharmacy, 'pharmacy-reminder-slot');
+      }).catch(() => {});
     }
 
     // Initialize Header Status
@@ -1773,7 +1777,7 @@
     activeReservationsList = activeReservationsList.filter(r => r.id !== reservationId);
     renderActiveReservations();
     try {
-      supabase.from('reservations').update({ status: 'cancelled' }).eq('id', reservationId);
+      await supabase.from('reservations').update({ status: 'cancelled' }).eq('id', reservationId);
     } catch (e) {}
     showToast('Réservation annulée avec succès', 'info');
   }

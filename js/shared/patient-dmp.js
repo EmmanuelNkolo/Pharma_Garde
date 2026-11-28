@@ -358,7 +358,7 @@
       r.is_read = true;
       saveAllRecords(all);
       if (window.supabase && /^[0-9a-f-]{36}$/i.test(String(recordId))) {
-        try { window.supabase.from('patient_medical_records').update({ is_read: true }).eq('id', recordId); } catch (e) {}
+        try { window.supabase.from('patient_medical_records').update({ is_read: true }).eq('id', recordId).then(() => {}, () => {}); } catch (e) {}
       }
       document.dispatchEvent(new CustomEvent('pgDmpUpdated'));
     }

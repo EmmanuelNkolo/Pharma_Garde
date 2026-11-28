@@ -59,10 +59,11 @@ serve(async (req: Request) => {
 
       if (notchPub) {
         // 1. Initialisation paiement NotchPay (2 600 FCFA : 100 F plateforme + 2 500 F honoraires médecin)
-        const initRes = await fetch("https://api.notchpay.co/payments/initialize", {
+        const initRes = await fetch("https://api.notchpay.co/payments", {
           method: "POST",
           headers: {
             "Authorization": notchPub,
+            "Accept": "application/json",
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
@@ -74,6 +75,8 @@ serve(async (req: Request) => {
             description: `Téléconsultation Pharma-Garde (100F plateforme + 2500F médecin · Session 48h)`,
             metadata: {
               consultation_id: consultation_id || null,
+              phone: cleanPhone,
+              merchant_reference: ref,
               platform_fee: PLATFORM_FEE_XAF,
               doctor_payout: DOCTOR_PAYOUT_XAF,
               type: "doctor_consultation"
@@ -81,14 +84,36 @@ serve(async (req: Request) => {
           }),
         });
         const initJson = await initRes.json();
+        if (!initRes.ok) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: initJson?.message || initJson?.error || "Erreur lors de l'initialisation du paiement NotchPay."
+          }), { status: 200, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
+        }
         const txRef = initJson?.transaction?.reference || ref;
 
         // 2. Déclenchement push USSD Mobile Money direct
-        await fetch(`https://api.notchpay.co/payments/${txRef}`, {
+        await fetch(`https://api.notchpay.co/payments/${encodeURIComponent(txRef)}`, {
           method: "PUT",
-          headers: { "Authorization": notchPub, "Content-Type": "application/json" },
+          headers: { "Authorization": notchPub, "Accept": "application/json", "Content-Type": "application/json" },
           body: JSON.stringify({ channel, data: { phone: `+237${cleanPhone}` } }),
         }).catch(() => {});
+
+        if (sb) {
+          await sb.from("payments").upsert({
+            reference: txRef,
+            status: "PENDING",
+            amount: TOTAL_FEE_XAF,
+            operator: payment_method,
+            updated_at: new Date().toISOString(),
+            metadata: {
+              phone: cleanPhone,
+              merchant_reference: ref,
+              consultation_id: consultation_id || null,
+              type: "doctor_consultation"
+            }
+          }, { onConflict: "reference" }).catch(() => {});
+        }
 
         return new Response(JSON.stringify({
           success: true,

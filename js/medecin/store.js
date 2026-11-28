@@ -672,7 +672,7 @@
           availability_status: doc.availability_status,
           availability_until: doc.availability_until,
           availability_note: doc.availability_note || ''
-        }).eq('id', doc.id);
+        }).eq('id', doc.id).then(() => {}, () => {});
       } catch (e) {}
     }
     return doc;
@@ -1197,8 +1197,8 @@
     if (!item) return null;
     item.status = status;
     saveAppointments(list);
-    if (window.supabase) {
-      try { window.supabase.from('doctor_appointments').update({ status }).eq('id', id); } catch (e) {}
+    if (window.supabase && /^[0-9a-f-]{36}$/i.test(String(id || ''))) {
+      try { window.supabase.from('doctor_appointments').update({ status }).eq('id', id).then(() => {}, () => {}); } catch (e) {}
     }
     return item;
   }

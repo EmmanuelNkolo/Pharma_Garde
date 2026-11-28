@@ -3,7 +3,7 @@
  * afin que chaque mise à jour soit visible immédiatement. Le cache ne sert
  * qu'en mode hors-ligne. Les anciennes versions de cache sont supprimées.
  */
-const CACHE_NAME = 'pharma-garde-v15.1';
+const CACHE_NAME = 'pharma-garde-v15.2';
 const CORE = [
   '/',
   '/index.html',

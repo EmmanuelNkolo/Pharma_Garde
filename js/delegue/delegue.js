@@ -757,6 +757,12 @@
     if (window.PGSubscription) {
       window.PGSubscription.renderHeaderBadge('delegate-sub-badge-slot', currentDelegate, 'delegate');
       window.PGSubscription.checkAndShowReminders(currentDelegate, 'delegate', 'delegate-reminder-banner');
+      if (currentDelegate) {
+        window.PGSubscription.syncWithSupabase(currentDelegate, 'delegate').then(() => {
+          window.PGSubscription.renderHeaderBadge('delegate-sub-badge-slot', currentDelegate, 'delegate');
+          window.PGSubscription.checkAndShowReminders(currentDelegate, 'delegate', 'delegate-reminder-banner');
+        }).catch(() => {});
+      }
     }
 
     renderDelegateWholesalers();

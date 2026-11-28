@@ -194,6 +194,38 @@ const App = (() => {
     }
   }
 
+  // ── Automatic 24h Pass Restoration (Startup + Return from USSD / NotchPay tab) ──
+  let _lastSessionCheckAt = 0;
+  async function restoreClientSessionAndRefresh(silent) {
+    if (typeof Payment === 'undefined' || typeof Payment.restoreSessionIfAvailable !== 'function') return false;
+    const now = Date.now();
+    if (now - _lastSessionCheckAt < 4000) return Payment.hasActiveSession();
+    _lastSessionCheckAt = now;
+
+    const wasActive = Payment.hasActiveSession();
+    try {
+      const active = await Payment.restoreSessionIfAvailable();
+      updateSessionUI();
+      if (active && !wasActive) {
+        const info = Payment.getSessionInfo();
+        const redirectBox = $('#payment-redirect-box');
+        if (redirectBox) redirectBox.remove();
+        if (!silent) {
+          showToast(`✅ Pass 24h confirmé et actif (${info.formatted} restantes) !`, 'success');
+        }
+        // Si l'utilisateur était encore sur l'étape 2 de paiement avec des médicaments prêts, lancer la recherche automatiquement
+        const step2 = $('#search-step-2');
+        const searchModal = $('#search-modal');
+        if (searchModal && searchModal.classList.contains('active') && step2 && !step2.classList.contains('hidden') && selectedMedicines.length > 0) {
+          handleSearchRequest();
+        }
+      }
+      return active;
+    } catch (e) {
+      return Payment.hasActiveSession();
+    }
+  }
+
   // ── Initialize (0ms instant boot) ─────────────────────
   function init() {
     requestAnimationFrame(() => {
@@ -209,8 +241,19 @@ const App = (() => {
 
     bindEvents();
     updateSessionUI();
+    restoreClientSessionAndRefresh(true);
     setInterval(updateSessionUI, 30000); // Synchronisation automatique du compte à rebours 24h
-    
+
+    // Vérifier automatiquement au retour sur l'onglet (après code PIN USSD ou page NotchPay)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        restoreClientSessionAndRefresh(false);
+      }
+    });
+    window.addEventListener('focus', () => {
+      restoreClientSessionAndRefresh(false);
+    });
+
     document.addEventListener('languageChanged', () => {
       updatePharmacies();
       updateSessionUI();
@@ -230,6 +273,7 @@ const App = (() => {
         showLocationModal();
         const pharmBtn = document.querySelector('.pharmacist-btn');
         if (pharmBtn) pharmBtn.style.display = 'none';
+        restoreClientSessionAndRefresh(true);
       });
     }
 
@@ -323,6 +367,10 @@ const App = (() => {
 
     if (btnProceed) {
       btnProceed.addEventListener('click', () => {
+        const medInput = $('#medicine-input');
+        if (selectedMedicines.length === 0 && medInput && medInput.value.trim()) {
+          addMedicine(medInput.value.trim());
+        }
         if (selectedMedicines.length === 0) {
           showToast('⚠️ Ajoutez au moins un médicament', 'error');
           return;
@@ -336,6 +384,12 @@ const App = (() => {
         }
         proceedToPayment();
       });
+    }
+
+    // Bind static fixed Confirm Reservations button
+    const btnConfirmAllRes = $('#btn-confirm-all-reservations');
+    if (btnConfirmAllRes) {
+      btnConfirmAllRes.addEventListener('click', () => confirmAllReservations());
     }
 
 
@@ -377,6 +431,8 @@ const App = (() => {
         
         const banner = $('#responses-banner');
         if (banner) banner.style.display = 'none';
+        const confirmBarFixed = $('#confirm-reservations-bar');
+        if (confirmBarFixed) confirmBarFixed.style.display = 'none';
         const actions = $('#main-actions');
         if (actions) actions.style.display = '';
         const list = $('#pharmacy-list');
@@ -760,7 +816,17 @@ const App = (() => {
     showSearchStep(1);
     selectedMedicines = [];
     renderMedicineTags();
+    const proceedBtn = $('#proceed-search-btn');
+    if (proceedBtn) proceedBtn.disabled = false;
+    const redirectBox = $('#payment-redirect-box');
+    if (redirectBox) redirectBox.remove();
+    const confirmPayBtn = $('#btn-confirm-payment');
+    if (confirmPayBtn) {
+      confirmPayBtn.disabled = false;
+      confirmPayBtn.textContent = 'Confirmer le paiement';
+    }
     updateSessionUI();
+    restoreClientSessionAndRefresh(true);
   }
 
   function closeSearchModal() {
@@ -879,7 +945,7 @@ const App = (() => {
 
     container.innerHTML = selectedMedicines.map((med, i) => `
       <span class="medicine-tag">
-        ${med}
+        ${escapeHtml(med)}
         <span class="remove-tag" onclick="App.removeMedicine(${i})">✕</span>
       </span>
     `).join('');
@@ -1016,79 +1082,122 @@ const App = (() => {
       // Session active, skip payment completely!
       const sessionInfo = Payment.getSessionInfo();
       showToast(`✅ Pass 24h actif (${sessionInfo.formatted} restantes) ! Recherche lancée sans frais.`, 'success');
-      
+
       const phoneInput = $('#phone-input');
       if (phoneInput && !phoneInput.value && sessionInfo.phone) {
         phoneInput.value = sessionInfo.phone;
       }
-      
+
       handleSearchRequest();
       return;
     }
 
-    // Attempt remote auto-restore if phone was previously entered/saved
+    // Attempt pending TX recovery or remote auto-restore before ever asking to pay 100 FCFA
     const phoneInput = $('#phone-input');
-    const savedPhone = (phoneInput && phoneInput.value.trim()) || localStorage.getItem('pharmagarde_client_phone') || '';
-    if (savedPhone) {
-      const restored = await Payment.verifyRemoteSession(savedPhone);
-      if (restored) {
-        updateSessionUI();
-        const sessionInfo = Payment.getSessionInfo();
-        showToast(`✅ Pass 24h restauré (${sessionInfo.formatted} restantes) ! Recherche lancée sans frais.`, 'success');
-        if (phoneInput && !phoneInput.value) phoneInput.value = savedPhone;
-        handleSearchRequest();
-        return;
+    const savedPhone = (phoneInput && phoneInput.value.trim())
+      || (typeof Payment.getSavedClientPhone === 'function' ? Payment.getSavedClientPhone() : '')
+      || localStorage.getItem('pharmagarde_client_phone')
+      || '';
+
+    const restored = await Payment.restoreSessionIfAvailable(savedPhone);
+    if (restored) {
+      updateSessionUI();
+      const sessionInfo = Payment.getSessionInfo();
+      showToast(`✅ Pass 24h restauré (${sessionInfo.formatted} restantes) ! Recherche lancée sans frais.`, 'success');
+      if (phoneInput && !phoneInput.value && (sessionInfo.phone || savedPhone)) {
+        phoneInput.value = sessionInfo.phone || savedPhone;
       }
+      handleSearchRequest();
+      return;
     }
 
     // Show payment step (100 FCFA)
     const cost = Payment.getSearchCost();
     const amountEl = $('#payment-amount-val');
     if (amountEl) amountEl.textContent = cost;
+    const redirectBox = $('#payment-redirect-box');
+    if (redirectBox) redirectBox.remove();
+    const btn = $('#btn-confirm-payment');
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = (typeof Payment.getPendingTx === 'function' && Payment.getPendingTx())
+        ? '🔄 Vérifier mon paiement / Confirmer'
+        : 'Confirmer le paiement';
+    }
     showSearchStep(2);
   }
 
   // ── Payment ────────────────────────────────────────────
   async function handlePayment() {
     const phoneInput = $('#phone-input');
-    const phone = phoneInput ? phoneInput.value.trim() : '';
-    
-    if (!phone) {
+    const rawPhone = phoneInput ? phoneInput.value.trim() : '';
+    const cleanedPhone = (typeof Payment.normalizePhone === 'function') ? Payment.normalizePhone(rawPhone) : rawPhone;
+
+    if (!rawPhone) {
       showToast('⚠️ Entrez votre numéro de téléphone', 'error');
       return;
     }
 
     const btn = $('#btn-confirm-payment');
     if (btn) {
-      btn.textContent = 'Traitement en cours...';
+      btn.textContent = '⏳ Vérification / Traitement en cours...';
       btn.disabled = true;
     }
 
+    let keepCustomBtnLabel = false;
     try {
-      const result = await Payment.processPayment(phone, selectedPaymentMethod, Payment.SEARCH_COST);
-      
+      const result = await Payment.processPayment(rawPhone, selectedPaymentMethod, Payment.SEARCH_COST);
+
       if (result.success) {
-        // Explicitly create/refresh session and persist phone
-        Payment.createSession(result.transactionId, phone);
+        // Ne pas écraser l'horodatage d'origine si la session 24h existait déjà / a été restaurée
+        if (!result.restored && !Payment.hasActiveSession()) {
+          Payment.createSession(result.transactionId, cleanedPhone || rawPhone);
+        }
+        const redirectBox = $('#payment-redirect-box');
+        if (redirectBox) redirectBox.remove();
         updateSessionUI();
         showToast(`🎉 ${result.message || 'Paiement confirmé ! Votre Pass 24h est activé.'}`, 'success');
         handleSearchRequest();
-      } else {
-        if (result.redirect) {
-          // Si la popup a été bloquée par le navigateur, on propose le lien manuel
-          const btn = $('#btn-confirm-payment');
-          if (btn) {
-            btn.outerHTML = `<a href="${result.authorization_url}" target="_blank" class="btn btn-primary" style="display:block; text-align:center; padding: 16px; font-weight: bold; background: #10b981;">Payer sur la page sécurisée</a>
-                             <div style="text-align:center; margin-top: 10px; font-size: 13px; color: #a1a1aa;">Veuillez payer puis recommencer la recherche.</div>`;
-          }
-        } else {
-          showToast(`❌ ${result.error}`, 'error');
+      } else if (result.redirect && result.authorization_url) {
+        // Ne jamais détruire #btn-confirm-payment : afficher le lien sécurisé NotchPay + bouton de vérification directe
+        keepCustomBtnLabel = true;
+        const step2 = $('#search-step-2');
+        let redirectBox = $('#payment-redirect-box');
+        if (!redirectBox && step2 && btn) {
+          redirectBox = document.createElement('div');
+          redirectBox.id = 'payment-redirect-box';
+          step2.insertBefore(redirectBox, btn);
         }
+        if (redirectBox) {
+          redirectBox.style.cssText = 'margin-top:14px;padding:12px;border-radius:12px;background:rgba(16,185,129,0.12);border:1px solid rgba(52,211,153,0.4);text-align:center;';
+          redirectBox.innerHTML = `
+            <div style="font-size:12.5px;color:#e2e8f0;margin-bottom:10px;">
+              💳 Finalisez votre paiement sécurisé de <strong>100 FCFA</strong> sur NotchPay, puis revenez ici : votre <strong>Pass 24h</strong> s'activera automatiquement.
+            </div>
+            <a href="${escapeHtml(result.authorization_url)}" target="_blank" rel="noopener" class="btn btn--primary btn--block" style="margin-bottom:6px;text-decoration:none;">
+              🔐 Payer 100 FCFA sur la page sécurisée NotchPay
+            </a>
+          `;
+        }
+        if (btn) {
+          btn.textContent = '🔄 J\'ai payé — Vérifier & Activer mon Pass 24h';
+          btn.disabled = false;
+        }
+        try { window.open(result.authorization_url, '_blank', 'noopener'); } catch (e) {}
+      } else if (result.pending) {
+        keepCustomBtnLabel = true;
+        showToast(`⏳ ${result.error}`, 'info');
+        if (btn) {
+          btn.textContent = '🔄 J\'ai validé mon PIN — Vérifier mon Pass 24h';
+          btn.disabled = false;
+        }
+      } else {
+        showToast(`❌ ${result.error}`, 'error');
       }
     } catch (error) {
       showToast('❌ Erreur de paiement. Réessayez.', 'error');
     } finally {
-      if (btn) {
+      if (btn && !keepCustomBtnLabel) {
         btn.textContent = '✅ Confirmer le paiement';
         btn.style.fontSize = '';
         btn.disabled = false;
@@ -1145,18 +1254,22 @@ const App = (() => {
       // Request expires in 2 hours
       const expiresAt = new Date(Date.now() + 2 * 3600000).toISOString();
       
-      // Session ID handling (9 chars)
-      let sessionId = sessionStorage.getItem('pharma_session_id');
+      // Session ID handling (9 chars, persisted across reloads in localStorage + sessionStorage)
+      let sessionId = localStorage.getItem('pharma_session_id') || sessionStorage.getItem('pharma_session_id');
       if (!sessionId) {
         sessionId = Math.random().toString(36).substring(2, 11).toUpperCase();
-        while(sessionId.length < 9) sessionId += Math.random().toString(36).substring(2, 3).toUpperCase();
+        while (sessionId.length < 9) sessionId += Math.random().toString(36).substring(2, 3).toUpperCase();
         sessionId = sessionId.substring(0, 9);
-        sessionStorage.setItem('pharma_session_id', sessionId);
       }
-      
-      // Robust client phone retrieval (from input OR session OR localStorage)
+      try { localStorage.setItem('pharma_session_id', sessionId); } catch (e) {}
+      try { sessionStorage.setItem('pharma_session_id', sessionId); } catch (e) {}
+
+      // Robust normalized client phone retrieval (from input OR session OR localStorage)
       const sessionInfo = (typeof Payment !== 'undefined' && Payment.getSessionInfo) ? Payment.getSessionInfo() : {};
-      const clientPhone = (phoneInput && phoneInput.value.trim()) || sessionInfo.phone || localStorage.getItem('pharmagarde_client_phone') || null;
+      const rawClientPhone = (phoneInput && phoneInput.value.trim()) || sessionInfo.phone || localStorage.getItem('pharmagarde_client_phone') || '';
+      const clientPhone = (typeof Payment !== 'undefined' && Payment.normalizePhone)
+        ? (Payment.normalizePhone(rawClientPhone) || null)
+        : (rawClientPhone || null);
 
       const { data, error } = await supabase
         .from('requests')
@@ -1333,10 +1446,10 @@ const App = (() => {
     const listEl = $('#pharmacy-list');
     if (!listEl || realResponses.length === 0) return;
 
-    // Add confirm reservations button at top
-    let confirmBtnHtml = '<div id="confirm-reservations-bar" style="display:none; padding: 12px; background: rgba(16,185,129,0.15); border-radius: 12px; margin-bottom: 16px; text-align: center;">' +
-      '<p style="font-size: 13px; color: var(--green-400); margin-bottom: 8px;">Médicaments sélectionnés de plusieurs pharmacies</p>' +
-      '<button class="btn btn-primary btn-block" onclick="App.confirmAllReservations()">✅ Confirmer les réservations</button></div>';
+    // Add confirm reservations button at top (distinct ID from fixed bottom bar to avoid DOM ID collision)
+    let confirmBtnHtml = '<div id="confirm-reservations-inline" style="display:none; padding: 12px; background: rgba(16,185,129,0.15); border-radius: 12px; margin-bottom: 16px; text-align: center;">' +
+      '<p style="font-size: 13px; color: var(--green-400); margin-bottom: 8px;">Médicaments sélectionnés pour réservation (valable 60 min)</p>' +
+      '<button type="button" class="btn btn--primary btn--block" onclick="App.confirmAllReservations()">✅ Confirmer les réservations</button></div>';
 
     // Sort responses: newer requests first, then by creation date of the response
     const userPosNow = Geolocation.getPosition();
@@ -1410,7 +1523,7 @@ const App = (() => {
         </div>`;
       }
 
-      const sessionId = sessionStorage.getItem('pharma_session_id') || 'INCONNU';
+      const sessionId = localStorage.getItem('pharma_session_id') || sessionStorage.getItem('pharma_session_id') || 'INCONNU';
       
       return `
         <div class="pharma-card" data-pharmacy-id="${escapeHtml(resp.pharmacy_id)}">
@@ -1506,15 +1619,22 @@ const App = (() => {
       }
       reservedMedicines[pharmacyId].meds.push(med);
     }
-    var confirmBar = $('#confirm-reservations-bar');
+    var confirmInline = $('#confirm-reservations-inline');
+    var confirmBarFixed = $('#confirm-reservations-bar');
     var totalReserved = Object.values(reservedMedicines).reduce(function(sum, p) { return sum + p.meds.length; }, 0);
-    if (confirmBar) confirmBar.style.display = totalReserved > 0 ? 'block' : 'none';
+    if (confirmInline) confirmInline.style.display = totalReserved > 0 ? 'block' : 'none';
+    if (confirmBarFixed) confirmBarFixed.style.display = totalReserved > 0 ? 'block' : 'none';
   }
 
   async function confirmAllReservations() {
     if (Object.keys(reservedMedicines).length === 0) { showToast('⚠️ Sélectionnez au moins un médicament', 'error'); return; }
     var phoneInput = $('#phone-input');
-    var patientPhone = (phoneInput && phoneInput.value) ? phoneInput.value : null;
+    var sessionInfo = (typeof Payment !== 'undefined' && Payment.getSessionInfo) ? Payment.getSessionInfo() : {};
+    var rawPatientPhone = (phoneInput && phoneInput.value) || sessionInfo.phone || localStorage.getItem('pharmagarde_client_phone') || '';
+    var patientPhone = (typeof Payment !== 'undefined' && Payment.normalizePhone)
+      ? (Payment.normalizePhone(rawPatientPhone) || null)
+      : (rawPatientPhone || null);
+    var sessionId = localStorage.getItem('pharma_session_id') || sessionStorage.getItem('pharma_session_id') || null;
     var entries = Object.entries(reservedMedicines);
 
     // Generate unique reservation code for each pharmacy
@@ -1524,8 +1644,14 @@ const App = (() => {
 
     var insertPromises = entries.map(function(entry) {
       return supabase.from('reservations').insert([{
-        request_id: entry[1].request_id, pharmacy_id: entry[0], patient_phone: patientPhone,
-        medicines: entry[1].meds, status: 'active', created_at: new Date().toISOString(),
+        request_id: entry[1].request_id,
+        pharmacy_id: entry[0],
+        patient_phone: patientPhone,
+        session_id: sessionId,
+        reservation_code: entry[1].code,
+        medicines: entry[1].meds,
+        status: 'active',
+        created_at: new Date().toISOString(),
         expires_at: new Date(Date.now() + 3600000).toISOString(),
       }]);
     });
@@ -1544,14 +1670,19 @@ const App = (() => {
   }
 
   function showReservationConfirmation() {
+    var confirmInline = $('#confirm-reservations-inline');
+    var confirmBarFixed = $('#confirm-reservations-bar');
+    if (confirmInline) confirmInline.style.display = 'none';
+    if (confirmBarFixed) confirmBarFixed.style.display = 'none';
+
     var entries = Object.entries(reservedMedicines);
     var expiresIso = new Date(Date.now() + 3600000).toISOString();
     var confirmHtml = entries.map(function(entry) {
       var pid = entry[0]; var data = entry[1];
       var code = data.code || 'PG-????';
-      var medsHtml = data.meds.map(function(m) { return '<div style="padding:4px 0;font-size:13px;">💊 ' + m + '</div>'; }).join('');
+      var medsHtml = data.meds.map(function(m) { return '<div style="padding:4px 0;font-size:13px;">💊 ' + escapeHtml(m) + '</div>'; }).join('');
       var phoneBtn = data.phone ? '<button class="btn btn-call" onclick="App.callPharmacy(\'' + escapeHtml(data.phone) + '\')">📞 Appeler</button>' : '';
-      var waBtn = data.phone ? '<button class="btn btn-whatsapp" onclick="App.openWhatsApp(\'237' + escapeHtml(data.phone) + '\')">💬 WhatsApp</button>' : '';
+      var waBtn = data.phone ? '<button class="btn btn-whatsapp" onclick="App.openWhatsApp(\'' + escapeHtml(data.phone) + '\')">💬 WhatsApp</button>' : '';
       return '<div style="background:var(--dark-800);border:1px solid var(--color-border);border-radius:12px;padding:16px;margin-bottom:12px;">' +
         '<div style="font-weight:700;font-size:16px;margin-bottom:8px;">🏥 ' + escapeHtml(data.name || 'Pharmacie') + '</div>' +
         '<div style="font-size:13px;color:var(--dark-300);margin-bottom:8px;">📍 ' + escapeHtml(data.address || '') + '</div>' +
@@ -1584,12 +1715,15 @@ const App = (() => {
     reservedMedicines = {};
     realResponses = [];
     activeRequestIds = [];
+    try { localStorage.removeItem('pharma_active_requests'); } catch (e) {}
     responseChannels.forEach(ch => supabase.removeChannel(ch));
     responseChannels = [];
     var mainActions = $('#main-actions');
     var banner = $('#responses-banner');
+    var confirmBarFixed = $('#confirm-reservations-bar');
     if (mainActions) mainActions.style.display = '';
     if (banner) banner.style.display = 'none';
+    if (confirmBarFixed) confirmBarFixed.style.display = 'none';
     updatePharmacies();
     resetSearch();
   }
@@ -1827,7 +1961,7 @@ const App = (() => {
       callBtn.onclick = () => callPharmacy(pharmacy.phone);
     }
     if (whatsappBtn) {
-      whatsappBtn.onclick = () => openWhatsApp(pharmacy.whatsapp);
+      whatsappBtn.onclick = () => openWhatsApp(pharmacy.whatsapp || pharmacy.phone);
     }
     if (routeBtn) {
       routeBtn.onclick = () => {
