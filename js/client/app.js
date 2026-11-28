@@ -1646,6 +1646,8 @@ const App = (() => {
     });
 
     var insertPromises = entries.map(function(entry) {
+      var medStatusMap = {};
+      (entry[1].meds || []).forEach(function(m) { medStatusMap[m] = 'reserved'; });
       return supabase.from('reservations').insert([{
         request_id: entry[1].request_id,
         pharmacy_id: entry[0],
@@ -1653,6 +1655,7 @@ const App = (() => {
         session_id: sessionId,
         reservation_code: entry[1].code,
         medicines: entry[1].meds,
+        medicines_status: medStatusMap,
         status: 'active',
         created_at: new Date().toISOString(),
         expires_at: new Date(Date.now() + 3600000).toISOString(),
@@ -1812,6 +1815,7 @@ const App = (() => {
   async function handleOCRFile(e) {
     const file = e.target.files[0];
     if (!file) return;
+    try { e.target.value = ''; } catch (_e) {}
 
     closeOCRModal();
     showToast('📸 Analyse de l\'ordonnance en cours...', 'info');

@@ -1365,7 +1365,7 @@
             <div style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.3); border-radius:12px; padding:14px;">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                 <span class="chip chip--green" style="font-size:12px;">👤 Patient Pharma-Garde</span>
-                <span style="font-family:monospace; font-weight:900; color:#fbbf24; font-size:15px;">${cleanCode}</span>
+                <span style="font-family:monospace; font-weight:900; color:#fbbf24; font-size:15px;">${escapeHtml(cleanCode)}</span>
               </div>
               <div style="font-size:13px; color:#fff; margin-bottom:6px;"><strong>Assurance :</strong> ${escapeHtml(req.insurance_name || 'Patient direct / Aucune')}</div>
               <div style="font-size:12px; color:var(--text-muted); margin-bottom:10px;">Date : ${new Date(item.created_at || Date.now()).toLocaleString('fr-FR')}</div>
@@ -1375,7 +1375,7 @@
                   ✔️ Ce patient est déjà arrivé et a retiré ses médicaments.
                 </div>
               ` : `
-                <button class="btn btn--primary btn--block" style="background:linear-gradient(135deg, #10b981, #059669); font-weight:800; font-size:14px;" onclick="PharmDash.confirmPatientArrival('${item.id}', '${cleanCode}')">
+                <button class="btn btn--primary btn--block" style="background:linear-gradient(135deg, #10b981, #059669); font-weight:800; font-size:14px;" onclick="PharmDash.confirmPatientArrival('${escapeHtml(item.id)}', '${escapeHtml(String(cleanCode).replace(/'/g, "\\'"))}')">
                   ✅ Valider l'Arrivée du Patient &amp; Délivrance
                 </button>
               `}
@@ -1394,9 +1394,9 @@
         <div style="background:rgba(251,191,36,0.08); border:1px solid rgba(251,191,36,0.3); border-radius:12px; padding:14px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <span class="chip chip--gold" style="font-size:12px;">💼 Délégué Médical</span>
-            <span style="font-family:monospace; font-weight:900; color:#fbbf24; font-size:15px;">${cleanCode}</span>
+            <span style="font-family:monospace; font-weight:900; color:#fbbf24; font-size:15px;">${escapeHtml(cleanCode)}</span>
           </div>
-          <div style="font-size:13px; color:#fff; margin-bottom:4px;"><strong>Matricule Officiel :</strong> ${cleanCode}</div>
+          <div style="font-size:13px; color:#fff; margin-bottom:4px;"><strong>Matricule Officiel :</strong> ${escapeHtml(cleanCode)}</div>
           <div style="font-size:12.5px; color:var(--text-secondary); margin-bottom:10px;">Laboratoires Partenaires : Sanofi, Novartis, Denk Pharma</div>
           <div style="font-size:12px; font-weight:800; color:#34d399; margin-bottom:6px; text-transform:uppercase;">Sollicitations Récentes vers votre Officine :</div>
           <div style="font-size:12px; color:var(--text-muted); line-height:1.6;">
@@ -1738,25 +1738,29 @@
       const diffMin = Math.max(0, Math.floor((expires - now) / 60000));
       const isUrgent = diffMin <= 15;
 
-      const medEntries = Object.entries(res.medicines_status || {});
-      const medListHtml = medEntries.map(([m, st]) => {
+      const medNames = (Array.isArray(res.medicines) && res.medicines.length > 0)
+        ? res.medicines
+        : Object.keys(res.medicines_status || {});
+      const medListHtml = medNames.map((m) => {
         return `<span style="background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.25); color:#34d399; font-size:11.5px; font-weight:700; padding:2px 8px; border-radius:6px;">💊 ${escapeHtml(m)}</span>`;
       }).join(' ');
+      const safeResCode = escapeHtml(res.reservation_code || 'PG-CONFIRME');
+      const safeResCodeJs = escapeHtml(String(res.reservation_code || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
 
       return `
-        <div class="pharm-card" id="res-${res.id}" style="margin-bottom:12px; border-color:${isUrgent ? 'rgba(239,68,68,0.5)' : 'rgba(251,191,36,0.35)'};">
+        <div class="pharm-card" id="res-${escapeHtml(res.id)}" style="margin-bottom:12px; border-color:${isUrgent ? 'rgba(239,68,68,0.5)' : 'rgba(251,191,36,0.35)'};">
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
             <div style="display:flex; align-items:center; gap:8px;">
-              <span style="font-family:monospace; font-weight:900; color:#fbbf24; font-size:14px;">${res.reservation_code || 'PG-CONFIRME'}</span>
+              <span style="font-family:monospace; font-weight:900; color:#fbbf24; font-size:14px;">${safeResCode}</span>
               <span class="countdown-pill" style="${isUrgent ? 'background:rgba(239,68,68,0.18); color:#f87171; border-color:#ef4444;' : ''}">
                 ⏱️ ${diffMin} min restantes (max 60 min)
               </span>
             </div>
             <div style="display:flex; gap:6px;">
-              <button class="btn btn--sm" style="background:linear-gradient(135deg, #10b981, #059669); color:#fff; font-weight:800;" onclick="PharmDash.confirmPatientArrival('${res.id}', '${res.reservation_code || ''}')">
+              <button class="btn btn--sm" style="background:linear-gradient(135deg, #10b981, #059669); color:#fff; font-weight:800;" onclick="PharmDash.confirmPatientArrival('${escapeHtml(res.id)}', '${safeResCodeJs}')">
                 ✅ Valider Retrait
               </button>
-              <button class="btn btn--sm" style="background:rgba(239,68,68,0.15); color:#f87171; border:1px solid rgba(239,68,68,0.35);" onclick="PharmDash.cancelReservation('${res.id}')">
+              <button class="btn btn--sm" style="background:rgba(239,68,68,0.15); color:#f87171; border:1px solid rgba(239,68,68,0.35);" onclick="PharmDash.cancelReservation('${escapeHtml(res.id)}')">
                 ❌ Annuler
               </button>
             </div>
@@ -1936,6 +1940,8 @@
         const delCard = del.pro_card_number || (delId ? 'DM-' + delId.slice(-4).toUpperCase() : 'DM-8821');
         const delAvatar = del.avatar_url || (delId ? localStorage.getItem('pharmagarde_delegate_avatar_' + delId) : '') || '';
 
+        const jsSafe = (v) => escapeHtml(String(v || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, ' '));
+        const safeDocUrl = (promo.document_url && /^https?:\/\//i.test(String(promo.document_url))) ? escapeHtml(promo.document_url) : '';
         const avatarMarkup = (typeof PGConnect !== 'undefined')
           ? PGConnect.avatarHtml({ url: delAvatar, name: delName, size: 42, variant: 'delegate' })
           : `<div style="width:40px; height:40px; border-radius:50%; background:#b45309; display:flex; align-items:center; justify-content:center; font-weight:800; color:#fff;">💼</div>`;
@@ -1944,14 +1950,14 @@
           <div class="pharm-card" style="margin-bottom:12px; border-color:rgba(251,191,36,0.3); background: rgba(15, 23, 42, 0.85);">
             <!-- Profil Délégué Header cliquable (style WhatsApp) -->
             <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:10px; margin-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.07);">
-              <button type="button" class="pg-who" onclick="PharmDash.openDelegateChat('${delId || ''}', '${escapeHtml(delName)}', '${escapeHtml(promo.lab_name || '')}', '${escapeHtml(del.phone || '')}', '${escapeHtml(del.whatsapp || '')}', '${escapeHtml(delCard)}', '${escapeHtml(delAvatar)}')" title="Voir le profil du délégué et l'historique complet">
+              <button type="button" class="pg-who" onclick="PharmDash.openDelegateChat('${jsSafe(delId)}', '${jsSafe(delName)}', '${jsSafe(promo.lab_name)}', '${jsSafe(del.phone)}', '${jsSafe(del.whatsapp)}', '${jsSafe(delCard)}', '${jsSafe(delAvatar)}')" title="Voir le profil du délégué et l'historique complet">
                 ${avatarMarkup}
                 <div>
                   <span class="pg-who__name">💼 ${escapeHtml(delName)} <span style="color:#10b981; font-size:11px;">✔️ Vérifié</span></span>
                   <span class="pg-who__sub">Laboratoire : ${escapeHtml(promo.lab_name || 'Partenaire Officine')} • N° ${escapeHtml(delCard)}</span>
                 </div>
               </button>
-              <button type="button" class="btn btn--sm" style="background:rgba(251,191,36,0.14); color:#fbbf24; border:1px solid rgba(251,191,36,0.4); font-weight:800; font-size:11.5px;" onclick="PharmDash.openDelegateChat('${delId || ''}', '${escapeHtml(delName)}', '${escapeHtml(promo.lab_name || '')}', '${escapeHtml(del.phone || '')}', '${escapeHtml(del.whatsapp || '')}', '${escapeHtml(delCard)}', '${escapeHtml(delAvatar)}')">
+              <button type="button" class="btn btn--sm" style="background:rgba(251,191,36,0.14); color:#fbbf24; border:1px solid rgba(251,191,36,0.4); font-weight:800; font-size:11.5px;" onclick="PharmDash.openDelegateChat('${jsSafe(delId)}', '${jsSafe(delName)}', '${jsSafe(promo.lab_name)}', '${jsSafe(del.phone)}', '${jsSafe(del.whatsapp)}', '${jsSafe(delCard)}', '${jsSafe(delAvatar)}')">
                 💬 Échanges &amp; Profil
               </button>
             </div>
@@ -1968,18 +1974,18 @@
             <p style="font-size:12.5px; color:var(--text-secondary); margin-bottom:10px; line-height:1.5;">
               ${escapeHtml(promo.description || 'Présentation de la gamme et conditions tarifaires préférentielles pour officines.')}
             </p>
-            ${promo.document_url ? `<a href="${promo.document_url}" target="_blank" style="display:inline-block; font-size:12px; color:#34d399; margin-bottom:10px;">📎 Consulter le document PDF</a><br>` : ''}
+            ${safeDocUrl ? `<a href="${safeDocUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block; font-size:12px; color:#34d399; margin-bottom:10px;">📎 Consulter le document PDF</a><br>` : ''}
             <div style="display:flex; gap:8px; flex-wrap:wrap;">
-              <button class="btn btn--sm" style="background:${isInterested ? '#10b981' : 'rgba(16,185,129,0.15)'}; color:${isInterested ? '#fff' : '#10b981'}; border:1px solid #10b981; font-weight:800;" onclick="PharmDash.respondPromo('${t.id}', 'interested')">
+              <button class="btn btn--sm" style="background:${isInterested ? '#10b981' : 'rgba(16,185,129,0.15)'}; color:${isInterested ? '#fff' : '#10b981'}; border:1px solid #10b981; font-weight:800;" onclick="PharmDash.respondPromo('${jsSafe(t.id)}', 'interested')">
                 ✅ Intéressé
               </button>
-              <button class="btn btn--sm" style="background:${isIgnored ? '#4b5563' : 'rgba(255,255,255,0.05)'}; color:${isIgnored ? '#fff' : 'var(--text-muted)'}; border:1px solid rgba(255,255,255,0.1);" onclick="PharmDash.respondPromo('${t.id}', 'ignored')">
+              <button class="btn btn--sm" style="background:${isIgnored ? '#4b5563' : 'rgba(255,255,255,0.05)'}; color:${isIgnored ? '#fff' : 'var(--text-muted)'}; border:1px solid rgba(255,255,255,0.1);" onclick="PharmDash.respondPromo('${jsSafe(t.id)}', 'ignored')">
                 ❌ Ignorée
               </button>
-              <button type="button" class="btn btn--sm" style="background:rgba(59,130,246,0.15); color:#60a5fa; border:1px solid rgba(59,130,246,0.4); font-weight:800;" onclick="PGProGeo && PGProGeo.openActorModal('delegate', { id: '${escapeHtml(delId || 'del_1')}', name: '${escapeHtml(delName)}', code: '${escapeHtml(delCard)}', labs: ['${escapeHtml(promo.lab_name || 'Sanofi')}'], phone: '${escapeHtml(del.phone || '699445566')}' })">
+              <button type="button" class="btn btn--sm" style="background:rgba(59,130,246,0.15); color:#60a5fa; border:1px solid rgba(59,130,246,0.4); font-weight:800;" onclick="PGProGeo && PGProGeo.openActorModal('delegate', { id: '${jsSafe(delId || 'del_1')}', name: '${jsSafe(delName)}', code: '${jsSafe(delCard)}', labs: ['${jsSafe(promo.lab_name || 'Sanofi')}'], phone: '${jsSafe(del.phone || '699445566')}' })">
                 🪪 Identité &amp; Position GPS Délégué
               </button>
-              ${del.phone ? `<a href="tel:${del.phone}" class="btn btn--sm" style="background:rgba(255,255,255,0.05); color:#fff; text-decoration:none;">📞 Appeler</a>` : ''}
+              ${del.phone ? `<a href="tel:${escapeHtml(String(del.phone).replace(/[^\d+]/g, ''))}" class="btn btn--sm" style="background:rgba(255,255,255,0.05); color:#fff; text-decoration:none;">📞 Appeler</a>` : ''}
             </div>
           </div>
         `;
@@ -2073,7 +2079,7 @@
               <button class="btn btn--sm" style="background:rgba(239,68,68,0.15); color:#f87171; border:1px solid rgba(239,68,68,0.35);" onclick="PharmDash.respondVisit('${v.id}', 'cancelled')">
                 ❌ Rejeter
               </button>
-              <button type="button" class="btn btn--sm" style="background:rgba(59,130,246,0.15); color:#60a5fa; border:1px solid rgba(59,130,246,0.4); font-weight:800;" onclick="PGProGeo && PGProGeo.openActorModal('delegate', { id: '${escapeHtml(v.delegate_id || 'del_1')}', name: '${escapeHtml(delName)}', code: '${escapeHtml(delegateMatricule)}', labs: ['${escapeHtml(delLab)}'], phone: '${escapeHtml(delPhone)}' })">
+              <button type="button" class="btn btn--sm" style="background:rgba(59,130,246,0.15); color:#60a5fa; border:1px solid rgba(59,130,246,0.4); font-weight:800;" onclick="PGProGeo && PGProGeo.openActorModal('delegate', { id: '${escapeHtml(String(v.delegate_id || 'del_1').replace(/'/g, "\\'"))}', name: '${escapeHtml(String(delName).replace(/'/g, "\\'"))}', code: '${escapeHtml(String(delegateMatricule).replace(/'/g, "\\'"))}', labs: ['${escapeHtml(String(delLab).replace(/'/g, "\\'"))}'], phone: '${escapeHtml(String(delPhone).replace(/'/g, "\\'"))}' })">
                 🪪 Identité &amp; Position GPS Délégué
               </button>
             </div>
@@ -2329,10 +2335,10 @@
           <tbody>
             ${missingList.map(m => `
               <tr>
-                <td style="color:#f87171; font-weight:700;">⚠️ ${m.name}</td>
-                <td style="font-weight:800; color:#fff;">${m.requestsCount} patients</td>
+                <td style="color:#f87171; font-weight:700;">⚠️ ${escapeHtml(m.name)}</td>
+                <td style="font-weight:800; color:#fff;">${Number(m.requestsCount) || 0} patients</td>
                 <td>
-                  <button class="btn btn--sm" style="background:rgba(251,191,36,0.15); color:#fbbf24; border:1px solid rgba(251,191,36,0.4);" onclick="PharmDash.prepareStockAlert('${m.name}')">
+                  <button class="btn btn--sm" style="background:rgba(251,191,36,0.15); color:#fbbf24; border:1px solid rgba(251,191,36,0.4);" onclick="PharmDash.prepareStockAlert('${escapeHtml(String(m.name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"))}')">
                     Diffuser Alerte
                   </button>
                 </td>
