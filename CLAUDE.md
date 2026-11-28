@@ -82,16 +82,16 @@ Règle : le code d'un espace reste dans le dossier de cet espace ; ce qui sert �
 
 ## 5. Base de données Supabase
 
-Projet : `Pharma_Garde`, Postgres 17. **Les 40 tables du schéma `public` (au 28 novembre 2026) ont la RLS activée** : cela doit rester vrai pour toute nouvelle table.
+Projet : `Pharma_Garde`, Postgres 17. **Les 44 tables du schéma `public` (au 28 novembre 2026) ont la RLS activée** : cela doit rester vrai pour toute nouvelle table.
 
 ### Tables par domaine
 
 | Domaine | Tables |
 |---|---|
 | Patients / recherche | `requests`, `responses`, `reservations`, `guard_schedule`, `pharmacy_guard_schedules` |
-| Officines | `pharmacies`, `pharmacy_private`, `pharmacy_stock`, `pharmacy_confidential_stocks`, `pharmacy_peer_exchanges`, `stock_alerts` |
-| Délégués médicaux | `delegates`, `delegate_labs`, `delegate_promotions`, `promotion_targets`, `visit_requests`, `delegate_samples` |
-| Grossistes | `wholesalers`, `wholesaler_catalog`, `wholesaler_orders`, `wholesaler_campaigns` |
+| Officines | `pharmacies`, `pharmacy_private`, `pharmacy_stock`, `pharmacy_confidential_stocks`, `pharmacy_expiry_batches`, `pharmacy_peer_exchanges`, `stock_alerts` |
+| Délégués médicaux | `delegates`, `delegate_labs`, `delegate_promotions`, `promotion_targets`, `visit_requests`, `delegate_visit_reports`, `delegate_samples` |
+| Grossistes | `wholesalers`, `wholesaler_catalog`, `wholesaler_orders`, `wholesaler_campaigns`, `wholesaler_credits`, `wholesaler_bl_signatures` |
 | Messagerie | `direct_messages` (officine ↔ délégué), `b2b_messages` (grossiste ↔ partenaires), `consultation_messages` (médecin ↔ patient) |
 | Médecins / téléconsultation | `doctors`, `doctor_appointments`, `medical_consultations`, `medical_prescriptions` |
 | Dossier patient / établissements | `patient_profiles`, `patient_medical_records`, `patient_share_grants`, `patient_access_audit`, `health_facilities`, `lab_analysis_orders`, `facility_api_connectors` |
@@ -122,7 +122,7 @@ Code source dans `supabase/functions/`. **Les fonctions à `verify_jwt = false` 
 ### Règles de travail sur la base
 1. **Le schéma de référence est versionné dans `supabase/sql/`** (actuellement jusqu'à `supabase_schema_v17_cron_pg_cron.sql` ; il n'y a pas de fichier v15). Toute modification du schéma = **nouveau fichier SQL versionné** (`supabase_schema_v18_<sujet>.sql`), jamais de modification silencieuse en base seulement.
 2. Pour appliquer une modification : utiliser une **migration** (`apply_migration`), pas `execute_sql`. Réserver `execute_sql` à la lecture.
-3. Toute nouvelle table : activer la RLS **et** écrire les politiques dans le même fichier SQL. Tester avec un rôle non privilégié.
+3. Toute nouvelle table : activer la RLS **et** écrire les politiques dans le même fichier SQL. Tester avec un rôle non privilégié. **Ne jamais écrire de politique d'écriture (`INSERT`, `UPDATE`, `DELETE`) avec `true` pour `anon` ou `public`** : lier chaque écriture à `auth.uid()` ou à une fonction contrôlée.
 4. **Interdit sans confirmation explicite de l'utilisateur** : `DROP`, `TRUNCATE`, `DELETE` / `UPDATE` sans `WHERE`, suppression de colonne, désactivation de la RLS.
 5. Migrations **rétro-compatibles** (ajouter avant de supprimer) : voir la section 6, la base est partagée entre aperçu et production.
 6. **Données sensibles** : les identifiants d'accès aux systèmes de stock des officines (`api_endpoint`, `api_key`) ne doivent **jamais** être renvoyés côté client, affichés ou journalisés ; ils relèvent de `pharmacy_private`. Les données de santé (`patient_*`, `medical_*`, `lab_analysis_orders`, `consultation_messages`) ne sont jamais copiées dans les logs, commits, PR ou réponses ; tout accès d'un tiers passe par `patient_share_grants` et est tracé dans `patient_access_audit`. De même, les données d'identité professionnelle des délégués ne sont pas exposées au-delà de leur propriétaire. En cas de doute sur une politique RLS, le signaler à l'utilisateur en privé plutôt que dans ce dépôt public.
