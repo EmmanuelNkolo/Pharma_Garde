@@ -60,16 +60,26 @@ serve(async (req: Request) => {
           })
           .eq('id', sub.id);
 
-        const roleTable = sub.subscriber_role === 'wholesaler'
-          ? 'wholesalers'
-          : sub.subscriber_role === 'pharmacy'
-            ? 'pharmacies'
-            : 'delegates';
+        const roleMap: Record<string, string> = {
+          wholesaler: 'wholesalers',
+          pharmacy: 'pharmacies',
+          delegate: 'delegates',
+          doctor: 'doctors',
+          facility: 'health_facilities',
+        };
+        const roleTable = roleMap[String(sub.subscriber_role || '')] || 'delegates';
 
-        await supabase
-          .from(roleTable)
-          .update({ subscription_status: 'expired' })
-          .eq('id', sub.subscriber_id);
+        if (roleTable === 'doctors' || roleTable === 'health_facilities') {
+          await supabase
+            .from(roleTable)
+            .update({ subscription_status: 'expired' })
+            .or(`id.eq.${sub.subscriber_id},user_id.eq.${sub.subscriber_id}`);
+        } else {
+          await supabase
+            .from(roleTable)
+            .update({ subscription_status: 'expired' })
+            .eq('id', sub.subscriber_id);
+        }
 
         if (!sub.reminder_expired_sent) {
           await supabase.from('subscription_reminders_log').insert({

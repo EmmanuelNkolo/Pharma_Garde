@@ -792,10 +792,13 @@ const App = (() => {
       <div style="font-size:12px; color:#64748b;">km</div>
     </div>
   </div>
-  <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+  <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:16px;">
     ${p.isOnDuty
       ? `<div style="background:rgba(217,119,6,0.15); border:1px solid #d97706; border-radius:12px; padding:4px 10px; font-size:11px; font-weight:700; color:#fbbf24; display:flex; align-items:center; gap:4px;">${ICON_MOON} DE GARDE</div>`
       : '<div style="background:rgba(16,185,129,0.15); border:1px solid #10b981; border-radius:12px; padding:4px 10px; font-size:11px; font-weight:700; color:#10b981; display:flex; align-items:center; gap:4px;">OUVERT</div>'}
+    ${p.isRegistered
+      ? '<div style="background:rgba(56,189,248,0.14); border:1px solid rgba(56,189,248,0.45); border-radius:12px; padding:4px 9px; font-size:10.5px; font-weight:800; color:#38bdf8;" title="Officine inscrite sur Pharma-Garde — reçoit vos recherches en temps réel">⚡ Connectée</div>'
+      : '<div style="background:rgba(148,163,184,0.12); border:1px solid rgba(148,163,184,0.3); border-radius:12px; padding:4px 9px; font-size:10.5px; font-weight:700; color:#94a3b8;" title="Pharmacie référencée sur la carte (appel / itinéraire disponible)">🗺️ Annuaire</div>'}
     <div style="font-size:12px; color:#94a3b8; display:flex; align-items:center; gap:4px;">${ICON_CLOCK} ${escapeHtml(p.hours || '08h00 - 20h00')}</div>
   </div>
   <div style="display:flex; gap:8px; flex-wrap:wrap;">

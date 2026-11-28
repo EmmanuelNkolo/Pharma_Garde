@@ -38,6 +38,82 @@
   }
   function saveCredits(list) { try { localStorage.setItem(CREDITS_KEY, JSON.stringify(list)); } catch (e) {} }
 
+  function currentWholesalerId() {
+    const ws = window.GrossisteApp && GrossisteApp.getCurrentWholesaler ? GrossisteApp.getCurrentWholesaler() : null;
+    if (!ws || !ws.id || String(ws.id).startsWith('admin_') || String(ws.id).startsWith('ws_demo')) return null;
+    return String(ws.id);
+  }
+
+  async function syncFromSupabase() {
+    if (!window.supabase) return;
+    const wid = currentWholesalerId();
+    if (!wid) return;
+    try {
+      const [{ data: crRows }, { data: blRows }] = await Promise.all([
+        window.supabase.from('wholesaler_credits').select('*').eq('wholesaler_id', wid).order('updated_at', { ascending: false }),
+        window.supabase.from('wholesaler_bl_signatures').select('*').eq('wholesaler_id', wid)
+      ]);
+      if (Array.isArray(crRows) && crRows.length > 0) {
+        saveCredits(crRows.map((r) => ({
+          id: r.id,
+          pharmacy: r.pharmacy,
+          city: r.city || 'Douala',
+          limit: Number(r.credit_limit || 0),
+          used: Number(r.credit_used || 0),
+          last_payment: r.last_payment || ''
+        })));
+      }
+      if (Array.isArray(blRows) && blRows.length > 0) {
+        const map = Object.assign({}, loadSignatures());
+        blRows.forEach((b) => {
+          map[b.order_id] = { code: b.bl_code, receiver: b.receiver, signed_at: b.signed_at };
+        });
+        saveSignatures(map);
+      }
+    } catch (e) {}
+  }
+
+  async function persistCreditRow(acc) {
+    const wid = currentWholesalerId();
+    if (!window.supabase || !wid || !acc) return;
+    try {
+      await window.supabase.from('wholesaler_credits').upsert([{
+        id: acc.id,
+        wholesaler_id: wid,
+        pharmacy: acc.pharmacy,
+        city: acc.city || 'Douala',
+        credit_limit: Number(acc.limit || 0),
+        credit_used: Number(acc.used || 0),
+        last_payment: acc.last_payment || '',
+        updated_at: new Date().toISOString()
+      }], { onConflict: 'id' });
+    } catch (e) {}
+  }
+
+  async function addCreditAccount() {
+    const pharmacy = (window.PG && PG.promptModal)
+      ? await PG.promptModal('Ajouter une officine au suivi crédit', 'Nom de l\'officine cliente (ex: Pharmacie de la Paix) :')
+      : null;
+    if (!pharmacy || !pharmacy.trim()) return;
+    const rawLim = (window.PG && PG.promptModal)
+      ? await PG.promptModal('Plafond de crédit', `Plafond autorisé pour ${pharmacy.trim()} (FCFA) :`, { defaultValue: '2500000' })
+      : '2500000';
+    const acc = {
+      id: 'cr_' + Date.now(),
+      pharmacy: pharmacy.trim(),
+      city: 'Douala',
+      limit: Math.max(0, Number(rawLim) || 2500000),
+      used: 0,
+      last_payment: new Date().toISOString().slice(0, 10)
+    };
+    const list = loadCredits();
+    list.unshift(acc);
+    saveCredits(list);
+    await persistCreditRow(acc);
+    notify(`✅ Compte crédit ajouté pour ${acc.pharmacy}.`, 'success');
+    renderFinancePanel();
+  }
+
   async function recordPayment(id) {
     const list = loadCredits();
     const acc = list.find((c) => c.id === id);
@@ -50,6 +126,7 @@
     acc.used = Math.max(0, acc.used - amt);
     acc.last_payment = new Date().toISOString().slice(0, 10);
     saveCredits(list);
+    await persistCreditRow(acc);
     notify(`✅ Règlement de ${amt.toLocaleString('fr-FR')} FCFA imputé pour ${acc.pharmacy}.`, 'success');
     renderFinancePanel();
   }
@@ -65,6 +142,7 @@
     if (!lim || lim < 0) return;
     acc.limit = lim;
     saveCredits(list);
+    await persistCreditRow(acc);
     notify(`✅ Plafond mis à jour : ${lim.toLocaleString('fr-FR')} FCFA.`, 'success');
     renderFinancePanel();
   }
@@ -122,8 +200,21 @@
       return;
     }
     const signs = loadSignatures();
-    signs[match.id] = { code: blSignatureCode(match.id), receiver, signed_at: new Date().toISOString() };
+    const blEntry = { code: blSignatureCode(match.id), receiver, signed_at: new Date().toISOString() };
+    signs[match.id] = blEntry;
     saveSignatures(signs);
+    const wid = currentWholesalerId();
+    if (window.supabase && wid) {
+      try {
+        await window.supabase.from('wholesaler_bl_signatures').upsert([{
+          wholesaler_id: wid,
+          order_id: String(match.id),
+          bl_code: blEntry.code,
+          receiver: blEntry.receiver,
+          signed_at: blEntry.signed_at
+        }], { onConflict: 'wholesaler_id,order_id' });
+      } catch (e) {}
+    }
     if (window.GrossisteOrders && typeof GrossisteOrders.advanceOrderStatus === 'function' && match.status !== 'delivered') {
       GrossisteOrders.advanceOrderStatus(match.id, 'delivered');
     }
@@ -170,7 +261,10 @@
       <div class="pharm-card" style="margin-bottom:16px;">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
           <h3 style="margin:0; font-size:15px; font-weight:800; color:#fbbf24;">🏦 Suivi d'Encours Crédit Officines</h3>
-          <span style="font-size:12px; color:#cbd5e1;">Encours global : <strong style="color:#fbbf24;">${totalUsed.toLocaleString('fr-FR')} F</strong> / ${totalLimit.toLocaleString('fr-FR')} F (${totalLimit ? Math.round((totalUsed / totalLimit) * 100) : 0}%)</span>
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <span style="font-size:12px; color:#cbd5e1;">Encours global : <strong style="color:#fbbf24;">${totalUsed.toLocaleString('fr-FR')} F</strong> / ${totalLimit.toLocaleString('fr-FR')} F (${totalLimit ? Math.round((totalUsed / totalLimit) * 100) : 0}%)</span>
+            <button type="button" class="btn btn--secondary btn--sm" onclick="PGWholesalerPro.addCreditAccount()">+ Officine Crédit</button>
+          </div>
         </div>
         <div class="pharm-table-wrap">
           <table class="pharm-table">
@@ -309,6 +403,7 @@
             if (p) p.style.display = 'none';
           });
           renderFinancePanel();
+          syncFromSupabase().then(() => renderFinancePanel()).catch(() => {});
           return;
         }
         return orig.apply(this, arguments);
@@ -324,6 +419,8 @@
 
   window.PGWholesalerPro = {
     renderFinancePanel,
+    syncFromSupabase,
+    addCreditAccount,
     recordPayment,
     editCreditLimit,
     generateProformaPDF,

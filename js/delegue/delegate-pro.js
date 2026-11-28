@@ -92,6 +92,45 @@
   function loadSamples() { try { return JSON.parse(localStorage.getItem(SAMPLES_KEY) || '[]'); } catch (e) { return []; } }
   function saveSamples(l) { try { localStorage.setItem(SAMPLES_KEY, JSON.stringify(l)); } catch (e) {} }
 
+  async function getCurrentDelegateId() {
+    try {
+      const saved = JSON.parse(localStorage.getItem('pharmagarde_delegate_session') || 'null');
+      if (saved && saved.id && !String(saved.id).startsWith('admin_')) return String(saved.id);
+    } catch (e) {}
+    if (window.supabase && window.supabase.auth) {
+      try {
+        const { data } = await window.supabase.auth.getUser();
+        if (data && data.user && data.user.id) return String(data.user.id);
+      } catch (e) {}
+    }
+    return null;
+  }
+
+  async function syncFromSupabase() {
+    if (!window.supabase) return;
+    const did = await getCurrentDelegateId();
+    if (!did) return;
+    try {
+      const [{ data: repRows }, { data: smpRows }] = await Promise.all([
+        window.supabase.from('delegate_visit_reports').select('*').eq('delegate_id', did).order('visited_at', { ascending: false }).limit(80),
+        window.supabase.from('delegate_samples').select('*').eq('delegate_id', did).order('date', { ascending: false }).limit(80)
+      ]);
+      if (Array.isArray(repRows) && repRows.length > 0) {
+        const mapped = repRows.map((r) => ({ id: r.id, date: r.visited_at || r.created_at, pharmacy: r.pharmacy, lab: r.lab, summary: r.summary }));
+        const map = new Map();
+        mapped.forEach((x) => map.set(x.id, x));
+        loadReports().forEach((x) => { if (!map.has(x.id)) map.set(x.id, x); });
+        saveReports(Array.from(map.values()).sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)));
+      }
+      if (Array.isArray(smpRows) && smpRows.length > 0) {
+        const map = new Map();
+        smpRows.forEach((x) => map.set(x.id, x));
+        loadSamples().forEach((x) => { if (!map.has(x.id)) map.set(x.id, x); });
+        saveSamples(Array.from(map.values()).sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)));
+      }
+    } catch (e) {}
+  }
+
   function openProModal(tab) {
     activeSubTab = tab || 'tour';
     let modal = document.getElementById('delegate-pro-modal');
@@ -121,6 +160,7 @@
     }
     modal.classList.add('active');
     switchTab(activeSubTab);
+    syncFromSupabase().then(() => renderBody()).catch(() => {});
   }
 
   function switchTab(tab) {
@@ -190,15 +230,32 @@
     if (area) area.value = (area.value ? area.value + ' · ' : '') + tag;
   }
 
-  function saveVisitReport() {
+  async function saveVisitReport() {
     const pharm = (document.getElementById('dpro-report-pharm')?.value || '').trim();
     const lab = (document.getElementById('dpro-report-lab')?.value || '').trim();
     const text = (document.getElementById('dpro-report-text')?.value || '').trim();
     if (!pharm || !text) { notify('⚠️ Officine et compte-rendu requis.', 'error'); return; }
+    const nowIso = new Date().toISOString();
+    const report = { id: 'cr_' + Date.now(), date: nowIso, pharmacy: pharm, lab: lab || 'Laboratoire', summary: text };
     const list = loadReports();
-    list.unshift({ id: 'cr_' + Date.now(), date: new Date().toISOString(), pharmacy: pharm, lab: lab || 'Laboratoire', summary: text });
+    list.unshift(report);
     saveReports(list);
-    notify('✅ Compte-rendu de visite enregistré !', 'success');
+    if (window.supabase) {
+      const did = await getCurrentDelegateId();
+      if (did) {
+        try {
+          await window.supabase.from('delegate_visit_reports').upsert([{
+            id: report.id,
+            delegate_id: did,
+            pharmacy: report.pharmacy,
+            lab: report.lab,
+            summary: report.summary,
+            visited_at: nowIso
+          }], { onConflict: 'id' });
+        } catch (e) {}
+      }
+    }
+    notify('✅ Compte-rendu de visite enregistré (synchronisé Cloud) !', 'success');
     renderBody();
   }
 
@@ -227,8 +284,10 @@
     const rType = document.getElementById('smp-type')?.value || 'Pharmacie';
     const qty = Number(document.getElementById('smp-qty')?.value) || 1;
     if (!product || !recipient) { notify('⚠️ Produit et destinataire requis.', 'error'); return; }
+    const did = await getCurrentDelegateId();
     const entry = {
       id: 'smp_' + Date.now(),
+      delegate_id: did || undefined,
       date: new Date().toISOString(),
       lab,
       product,
@@ -241,8 +300,8 @@
     const list = loadSamples();
     list.unshift(entry);
     saveSamples(list);
-    if (window.supabase) {
-      try { await supabase.from('delegate_samples').insert([entry]); } catch (e) {}
+    if (window.supabase && did) {
+      try { await window.supabase.from('delegate_samples').upsert([entry], { onConflict: 'id' }); } catch (e) {}
     }
     notify(`🧪 Remise enregistrée (${qty} boîte(s) · Code ${entry.receipt_code})`, 'success');
     renderBody();

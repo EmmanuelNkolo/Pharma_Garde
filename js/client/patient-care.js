@@ -98,6 +98,24 @@
 
     updateFacilityMarkersOnMap();
     if (!isPharm) renderCarePanel();
+    if (currentMode === 'doctors' && window.MedecinStore) {
+      Promise.allSettled([
+        MedecinStore.syncConsultations ? MedecinStore.syncConsultations() : Promise.resolve(),
+        MedecinStore.syncPrescriptions ? MedecinStore.syncPrescriptions() : Promise.resolve()
+      ]).then(() => {
+        if (activeConsultId && MedecinStore.syncMessages) {
+          MedecinStore.syncMessages(activeConsultId).then(() => { if (currentMode === 'doctors') renderCarePanel(); });
+        } else if (currentMode === 'doctors') {
+          renderCarePanel();
+        }
+      });
+      if (MedecinStore.subscribeRealtime) {
+        MedecinStore.subscribeRealtime({
+          getActiveConsultId: () => activeConsultId,
+          onUpdate: () => { if (currentMode === 'doctors') renderCarePanel(); }
+        });
+      }
+    }
   }
 
   function renderCarePanel() {
@@ -392,6 +410,7 @@
               </div>
               <div class="form-group"><label class="form-label">Votre N° OM / MoMo *</label><input type="tel" id="tc-phone" class="form-input" placeholder="6XX XXX XXX"></div>
             </div>
+            <div id="tc-payment-feedback" style="display:none; padding:10px 12px; border-radius:10px; margin-bottom:12px; font-size:12px; line-height:1.45;"></div>
             <button type="button" id="btn-submit-teleconsult" class="btn btn--primary btn--block" onclick="PGPatientCare.submitTeleconsult()">
               ✅ Payer 2 600 FCFA &amp; Trouver un Médecin Disponible
             </button>
@@ -403,15 +422,74 @@
     }
     document.getElementById('tc-pref-doc').value = preferredDocId || '';
     if (specialty) document.getElementById('tc-specialty').value = specialty;
+    const fb = document.getElementById('tc-payment-feedback');
+    const btn = document.getElementById('btn-submit-teleconsult');
+    const pending = window.MedecinStore && MedecinStore.getPendingConsultPayment && MedecinStore.getPendingConsultPayment();
+    if (fb) {
+      if (pending) {
+        fb.style.display = 'block';
+        fb.style.background = 'rgba(245,158,11,0.16)';
+        fb.style.color = '#fde68a';
+        fb.innerHTML = `⏳ Paiement 2 600 FCFA en attente (Réf. <code>${esc(pending.reference)}</code>). Validez votre PIN puis cliquez ci-dessous pour ouvrir la téléconsultation sans repayer.`;
+      } else {
+        fb.style.display = 'none';
+        fb.innerHTML = '';
+      }
+    }
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = pending
+        ? '🔄 J\'ai payé — Vérifier & Ouvrir ma Téléconsultation'
+        : '✅ Payer 2 600 FCFA & Trouver un Médecin Disponible';
+    }
     modal.classList.add('active');
   }
 
   async function submitTeleconsult() {
+    const btn = document.getElementById('btn-submit-teleconsult');
+    const fb = document.getElementById('tc-payment-feedback');
+    const setFb = (html, bg, color) => {
+      if (!fb) return;
+      fb.style.display = 'block';
+      fb.style.background = bg || 'rgba(59,130,246,0.15)';
+      fb.style.color = color || '#93c5fd';
+      fb.innerHTML = html;
+    };
+
+    // 1. Si un paiement 2 600 FCFA est déjà en attente : vérifier sans jamais recréer de débit
+    const pending = window.MedecinStore && MedecinStore.getPendingConsultPayment && MedecinStore.getPendingConsultPayment();
+    if (pending) {
+      if (btn) { btn.disabled = true; btn.textContent = '⏳ Vérification NotchPay...'; }
+      try {
+        const res = await MedecinStore.verifyPendingConsultationPayment();
+        if (res.confirmed && res.consultation) {
+          activeConsultId = res.consultation.id;
+          document.getElementById('patient-teleconsult-modal').classList.remove('active');
+          notify(`✅ Paiement confirmé ! ${res.consultation.doctor_name} assigné (Session 48h ouverte).`, 'success');
+          renderCarePanel();
+          return;
+        }
+        if (res.failed) {
+          setFb('❌ ' + esc(res.error), 'rgba(239,68,68,0.16)', '#fca5a5');
+          if (btn) { btn.disabled = false; btn.textContent = '✅ Réessayer (2 600 FCFA via NotchPay)'; }
+          return;
+        }
+        setFb(esc(res.error), 'rgba(245,158,11,0.16)', '#fde68a');
+        if (btn) { btn.disabled = false; btn.textContent = '🔄 Revérifier mon paiement NotchPay'; }
+      } catch (err) {
+        setFb('❌ ' + esc(err.message), 'rgba(239,68,68,0.16)', '#fca5a5');
+        if (btn) { btn.disabled = false; btn.textContent = '🔄 Revérifier mon paiement NotchPay'; }
+      }
+      return;
+    }
+
     const symptoms = (document.getElementById('tc-symptoms')?.value || '').trim();
     const alias = (document.getElementById('tc-name')?.value || '').trim() || 'Patient';
     if (!symptoms) { notify('⚠️ Veuillez décrire vos symptômes.', 'error'); return; }
+
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Connexion NotchPay (2 600 FCFA)...'; }
     try {
-      const c = await MedecinStore.initiatePatientConsultation({
+      const result = await MedecinStore.initiatePatientConsultation({
         patient_alias: alias,
         patient_age: document.getElementById('tc-age')?.value,
         specialty: document.getElementById('tc-specialty')?.value || 'any',
@@ -421,13 +499,36 @@
         allergies: document.getElementById('tc-allergies')?.value,
         payment_method: document.getElementById('tc-method')?.value,
         patient_phone: document.getElementById('tc-phone')?.value
+      }, {
+        onStatus: (msg) => setFb(esc(msg), 'rgba(59,130,246,0.15)', '#93c5fd')
       });
-      activeConsultId = c.id;
+
+      if (result && result.pending) {
+        const checkoutLink = result.authorization_url
+          ? `<a href="${esc(result.authorization_url)}" target="_blank" rel="noopener" class="btn btn--primary btn--sm btn--block" style="margin:8px 0; text-decoration:none;">🔐 Finaliser 2 600 FCFA sur NotchPay</a>`
+          : '';
+        setFb(`${esc(result.message)}${checkoutLink}`, 'rgba(245,158,11,0.16)', '#fde68a');
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = '🔄 J\'ai payé — Vérifier & Ouvrir ma Téléconsultation';
+        }
+        if (result.redirect && result.authorization_url) {
+          try { window.open(result.authorization_url, '_blank', 'noopener'); } catch (e) {}
+        }
+        return;
+      }
+
+      activeConsultId = result.id;
       document.getElementById('patient-teleconsult-modal').classList.remove('active');
-      notify(`✅ ${c.doctor_name} assigné ! Session ouverte pendant 48h.`, 'success');
+      notify(`✅ ${result.doctor_name} assigné ! Session ouverte pendant 48h.`, 'success');
       renderCarePanel();
     } catch (err) {
+      setFb('❌ ' + esc(err.message), 'rgba(239,68,68,0.16)', '#fca5a5');
       notify('❌ ' + err.message, 'error');
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '✅ Payer 2 600 FCFA & Trouver un Médecin Disponible';
+      }
     }
   }
 

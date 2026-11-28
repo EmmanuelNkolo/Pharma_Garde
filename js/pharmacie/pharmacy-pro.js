@@ -248,16 +248,73 @@
     try { localStorage.setItem(PEER_KEY, JSON.stringify(list)); } catch (e) {}
   }
 
-  function addExpiryBatch() {
+  let peerRtChannel = null;
+
+  async function syncFromSupabase() {
+    if (!window.supabase) return;
+    const p = currentPharm();
+    const pid = p && p.id && !String(p.id).startsWith('admin_') ? String(p.id) : null;
+    try {
+      if (pid) {
+        const [{ data: gRows }, { data: eRows }] = await Promise.all([
+          window.supabase.from('pharmacy_guard_schedules').select('*').eq('pharmacy_id', pid).order('start_at', { ascending: true }),
+          window.supabase.from('pharmacy_expiry_batches').select('*').eq('pharmacy_id', pid).order('expiry_date', { ascending: true })
+        ]);
+        if (Array.isArray(gRows) && gRows.length > 0) saveGuardSchedules(gRows);
+        if (Array.isArray(eRows) && eRows.length > 0) saveExpiryBatches(eRows);
+      }
+      const { data: peerRows } = await window.supabase
+        .from('pharmacy_peer_exchanges')
+        .select('*')
+        .eq('status', 'open')
+        .order('created_at', { ascending: false })
+        .limit(60);
+      if (Array.isArray(peerRows) && peerRows.length > 0) {
+        const map = new Map();
+        peerRows.forEach((r) => map.set(r.id, r));
+        loadPeerExchanges().forEach((r) => { if (!map.has(r.id) && !String(r.id).startsWith('peer_demo_')) map.set(r.id, r); });
+        savePeerExchanges(Array.from(map.values()).sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)));
+      }
+    } catch (e) {}
+
+    if (!peerRtChannel && typeof window.supabase.channel === 'function') {
+      try {
+        peerRtChannel = window.supabase
+          .channel('pg_peer_exchanges_live')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'pharmacy_peer_exchanges' }, async () => {
+            await syncFromSupabase();
+            const host = document.getElementById('subpanel-mgmt-expiry');
+            if (host && host.style.display !== 'none') renderExpiryPeerPanel();
+          })
+          .subscribe();
+      } catch (e) {}
+    }
+  }
+
+  async function addExpiryBatch() {
     const product = (document.getElementById('exp-product')?.value || '').trim();
     const batch = (document.getElementById('exp-batch')?.value || '').trim() || ('LOT-' + Date.now().toString().slice(-4));
     const expiry = document.getElementById('exp-date')?.value;
     const qty = Number(document.getElementById('exp-qty')?.value) || 1;
     const price = Number(document.getElementById('exp-price')?.value) || 0;
     if (!product || !expiry) { notify('⚠️ Produit et date de péremption requis.', 'error'); return; }
+    const p = currentPharm();
+    const row = {
+      id: 'exp_' + Date.now(),
+      pharmacy_id: (p && p.id) ? String(p.id) : 'local',
+      product,
+      batch_no: batch,
+      expiry_date: expiry,
+      qty,
+      unit_price: price,
+      shared: false
+    };
     const list = loadExpiryBatches();
-    list.unshift({ id: 'exp_' + Date.now(), product, batch_no: batch, expiry_date: expiry, qty, unit_price: price, shared: false });
+    list.unshift(row);
     saveExpiryBatches(list);
+    if (window.supabase && p && p.id && !String(p.id).startsWith('admin_')) {
+      try { await window.supabase.from('pharmacy_expiry_batches').upsert([row], { onConflict: 'id' }); } catch (e) {}
+    }
     notify(`✅ Lot ${product} ajouté au suivi des péremptions.`, 'success');
     renderExpiryPeerPanel();
   }
@@ -269,6 +326,9 @@
     b.shared = true;
     saveExpiryBatches(batches);
     const p = currentPharm();
+    if (window.supabase && p && p.id && !String(p.id).startsWith('admin_')) {
+      try { await window.supabase.from('pharmacy_expiry_batches').update({ shared: true }).eq('id', batchId); } catch (e) {}
+    }
     const item = {
       id: 'peer_' + Date.now(),
       type: 'offer_short_expiry',
@@ -452,12 +512,19 @@
       if (b) b.classList.toggle('active', t === tab);
       if (p) p.style.display = (t === tab) ? 'block' : 'none';
     });
-    if (tab === 'guard-plan') renderGuardPanel();
-    if (tab === 'expiry') renderExpiryPeerPanel();
+    if (tab === 'guard-plan') {
+      renderGuardPanel();
+      syncFromSupabase().then(() => renderGuardPanel()).catch(() => {});
+    }
+    if (tab === 'expiry') {
+      renderExpiryPeerPanel();
+      syncFromSupabase().then(() => renderExpiryPeerPanel()).catch(() => {});
+    }
   }
 
   window.PGPharmacyPro = {
     switchMgmtProTab,
+    syncFromSupabase,
     addGuardSlot,
     deleteGuardSlot,
     exportGuardCSV,

@@ -877,6 +877,10 @@
   function getConsultations() { return readLS(CONSULT_KEY, []); }
   function saveConsultations(list) { writeLS(CONSULT_KEY, list.slice(0, 80)); }
 
+  const PENDING_CONSULT_KEY = 'pg_pending_consult_pay_v16';
+  let realtimeChannel = null;
+  let realtimePollTimer = null;
+
   function getPatientSessionId() {
     let sid = localStorage.getItem('pg_patient_uid_v12');
     if (!sid) {
@@ -886,32 +890,229 @@
     return sid;
   }
 
-  async function initiatePatientConsultation(payload) {
-    const isAdmin = window.PGAdmin && PGAdmin.isAdmin();
-    const cleanPhone = String(payload.patient_phone || '').replace(/\D/g, '').replace(/^237/, '');
-    if (!isAdmin && !/^6\d{8}$/.test(cleanPhone)) {
-      throw new Error('Veuillez saisir un numéro MTN MoMo ou Orange Money valide (9 chiffres : 6XX XXX XXX).');
+  function savePendingConsultPayment(obj) {
+    try { localStorage.setItem(PENDING_CONSULT_KEY, JSON.stringify(obj)); } catch (e) {}
+  }
+  function getPendingConsultPayment() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(PENDING_CONSULT_KEY) || 'null');
+      if (!raw || !raw.reference) return null;
+      if (Date.now() - Number(raw.createdAt || 0) > 2 * 3600 * 1000) {
+        clearPendingConsultPayment();
+        return null;
+      }
+      return raw;
+    } catch (e) { return null; }
+  }
+  function clearPendingConsultPayment() {
+    try { localStorage.removeItem(PENDING_CONSULT_KEY); } catch (e) {}
+  }
+
+  function mergeById(localList, remoteList, limit) {
+    const map = new Map();
+    (localList || []).forEach((item) => { if (item && item.id) map.set(item.id, item); });
+    (remoteList || []).forEach((item) => {
+      if (item && item.id) {
+        const prev = map.get(item.id) || {};
+        map.set(item.id, Object.assign({}, prev, item));
+      }
+    });
+    const out = Array.from(map.values()).sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    return limit ? out.slice(0, limit) : out;
+  }
+
+  function broadcastLiveEvent(eventName, payload) {
+    if (!realtimeChannel || typeof realtimeChannel.send !== 'function') return;
+    try {
+      realtimeChannel.send({ type: 'broadcast', event: eventName, payload: payload || {} });
+    } catch (e) {}
+  }
+
+  async function syncConsultations(doctorId) {
+    if (!window.supabase) return getConsultations();
+    const collected = [];
+    try {
+      // 1. Côté patient (RPC sécurisée scopée au patient_session_id)
+      const sid = getPatientSessionId();
+      if (typeof window.supabase.rpc === 'function') {
+        const { data: patData } = await window.supabase.rpc('patient_get_consultations', { p_session_id: sid });
+        if (Array.isArray(patData)) collected.push(...patData);
+      }
+      // 2. Côté médecin authentifié (RLS vérifie auth.uid())
+      if (doctorId) {
+        const { data: docData } = await window.supabase
+          .from('medical_consultations')
+          .select('*')
+          .or(`doctor_id.eq.${doctorId},status.eq.searching`)
+          .order('created_at', { ascending: false })
+          .limit(50);
+        if (Array.isArray(docData)) collected.push(...docData);
+      }
+    } catch (e) {}
+    if (collected.length > 0) {
+      const merged = mergeById(getConsultations(), collected, 80);
+      saveConsultations(merged);
+      return merged;
     }
+    return getConsultations();
+  }
 
-    const consultId = 'CONS-' + Date.now();
-    let paymentRef = isAdmin ? 'ADMIN_FREE_' + Date.now() : 'PG_DOC_' + Date.now();
-
-    // Étape 1 : Encaissement 2 600 FCFA (100 FCFA transférés vers NotchPay AVANT recherche médecin)
-    if (!isAdmin && window.supabase && window.supabase.functions) {
-      try {
-        const { data: payData } = await window.supabase.functions.invoke('doctor-consultation-payment', {
-          body: {
-            action: 'init_consultation_payment',
-            patient_phone: cleanPhone,
-            payment_method: payload.payment_method || 'momo',
-            consultation_id: consultId
-          }
+  async function syncMessages(consultId) {
+    if (!consultId || !window.supabase) return getMessages(consultId);
+    const remote = [];
+    try {
+      const sid = getPatientSessionId();
+      if (typeof window.supabase.rpc === 'function') {
+        const { data: patMsgs } = await window.supabase.rpc('patient_get_messages', {
+          p_consultation_id: consultId,
+          p_session_id: sid
         });
-        if (payData && payData.reference) paymentRef = payData.reference;
-      } catch (e) {}
+        if (Array.isArray(patMsgs)) remote.push(...patMsgs);
+      }
+      if (remote.length === 0) {
+        const { data: docMsgs } = await window.supabase
+          .from('consultation_messages')
+          .select('*')
+          .eq('consultation_id', consultId)
+          .order('created_at', { ascending: true });
+        if (Array.isArray(docMsgs)) remote.push(...docMsgs);
+      }
+    } catch (e) {}
+    if (remote.length > 0) {
+      const all = Object.assign({}, readLS(MSGS_KEY, {}));
+      const map = new Map();
+      (all[consultId] || []).forEach((m) => { if (m && m.id) map.set(m.id, m); });
+      remote.forEach((m) => { if (m && m.id) map.set(m.id, m); });
+      all[consultId] = Array.from(map.values()).sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+      writeLS(MSGS_KEY, all);
+      return all[consultId];
+    }
+    return getMessages(consultId);
+  }
+
+  async function syncPrescriptions(doctorId) {
+    if (!window.supabase) return getPrescriptions();
+    const collected = [];
+    try {
+      const sid = getPatientSessionId();
+      if (typeof window.supabase.rpc === 'function') {
+        const { data: patRx } = await window.supabase.rpc('patient_get_prescriptions', { p_session_id: sid });
+        if (Array.isArray(patRx)) collected.push(...patRx);
+      }
+      if (doctorId) {
+        const { data: docRx } = await window.supabase
+          .from('medical_prescriptions')
+          .select('*')
+          .eq('doctor_id', doctorId)
+          .order('created_at', { ascending: false })
+          .limit(50);
+        if (Array.isArray(docRx)) collected.push(...docRx);
+      }
+    } catch (e) {}
+    if (collected.length > 0) {
+      const merged = mergeById(getPrescriptions(), collected, 100);
+      savePrescriptions(merged);
+      return merged;
+    }
+    return getPrescriptions();
+  }
+
+  async function syncAppointments(doctorId) {
+    if (!window.supabase || !doctorId) return getAppointments();
+    try {
+      const { data } = await window.supabase
+        .from('doctor_appointments')
+        .select('*')
+        .eq('doctor_id', doctorId)
+        .order('scheduled_at', { ascending: false })
+        .limit(50);
+      if (Array.isArray(data) && data.length > 0) {
+        const merged = mergeById(getAppointments(), data, 100);
+        saveAppointments(merged);
+        return merged;
+      }
+    } catch (e) {}
+    return getAppointments();
+  }
+
+  function subscribeRealtime(opts) {
+    const o = opts || {};
+    const onUpdate = typeof o.onUpdate === 'function' ? o.onUpdate : () => {};
+    if (!window.supabase || typeof window.supabase.channel !== 'function') return null;
+
+    if (realtimeChannel) {
+      try { window.supabase.removeChannel(realtimeChannel); } catch (e) {}
+      realtimeChannel = null;
+    }
+    if (realtimePollTimer) {
+      clearInterval(realtimePollTimer);
+      realtimePollTimer = null;
     }
 
-    // Étape 2 : Routage automatique (Aléatoire Rapide ou Spécialité + Région)
+    const ch = window.supabase
+      .channel('pg_consult_live', { config: { broadcast: { self: false } } })
+      .on('broadcast', { event: 'new_message' }, async (evt) => {
+        const msg = evt && evt.payload;
+        if (msg && msg.consultation_id) {
+          const all = Object.assign({}, readLS(MSGS_KEY, {}));
+          const list = (all[msg.consultation_id] || []).slice();
+          if (!list.some((x) => x.id === msg.id)) {
+            list.push(msg);
+            all[msg.consultation_id] = list;
+            writeLS(MSGS_KEY, all);
+          }
+          await syncMessages(msg.consultation_id);
+          onUpdate({ type: 'message', consultationId: msg.consultation_id });
+        }
+      })
+      .on('broadcast', { event: 'new_consultation' }, async () => {
+        await syncConsultations(o.doctorId);
+        onUpdate({ type: 'consultation' });
+      })
+      .on('broadcast', { event: 'new_prescription' }, async () => {
+        await syncPrescriptions(o.doctorId);
+        onUpdate({ type: 'prescription' });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'medical_consultations' }, async () => {
+        await syncConsultations(o.doctorId);
+        onUpdate({ type: 'consultation' });
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'consultation_messages' }, async (payload) => {
+        const row = payload && payload.new;
+        if (row && row.consultation_id) {
+          await syncMessages(row.consultation_id);
+          onUpdate({ type: 'message', consultationId: row.consultation_id });
+        }
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'medical_prescriptions' }, async () => {
+        await syncPrescriptions(o.doctorId);
+        onUpdate({ type: 'prescription' });
+      })
+      .subscribe();
+
+    realtimeChannel = ch;
+
+    // Filet de sécurité léger (6s) pour les sessions anonymes scopées par RPC
+    realtimePollTimer = setInterval(async () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      const cid = typeof o.getActiveConsultId === 'function' ? o.getActiveConsultId() : o.consultId;
+      if (cid) {
+        const before = getMessages(cid).length;
+        const after = (await syncMessages(cid)).length;
+        if (after !== before) onUpdate({ type: 'message', consultationId: cid });
+      }
+      if (o.doctorId) {
+        const prevC = getConsultations().length;
+        const nextC = (await syncConsultations(o.doctorId)).length;
+        if (nextC !== prevC) onUpdate({ type: 'consultation' });
+      }
+    }, 6000);
+
+    return ch;
+  }
+
+  async function finalizeConfirmedConsultation(payload, consultId, paymentRef, isAdmin) {
+    const cleanPhone = String(payload.patient_phone || '').replace(/\D/g, '').replace(/^237/, '');
     const matchedDoc = findAvailableDoctor(payload.specialty, payload.preferred_doctor_id, { region: payload.region });
     const expiresAt = new Date(Date.now() + SESSION_48H_MS).toISOString();
 
@@ -942,18 +1143,23 @@
       created_at: new Date().toISOString()
     };
 
-    // Étape 3 : Transfert automatique direct des 2 500 FCFA au compte OM/MoMo du médecin assigné
+    // Étape 3 : Transfert automatique direct des 2 500 FCFA au compte OM/MoMo du médecin assigné (après paiement confirmé)
     if (matchedDoc && !isAdmin && window.supabase && window.supabase.functions) {
       try {
-        await window.supabase.functions.invoke('doctor-consultation-payment', {
+        const { data: payoutData } = await window.supabase.functions.invoke('doctor-consultation-payment', {
           body: {
             action: 'transfer_doctor_payout',
             consultation_id: consultId,
+            payment_ref: paymentRef,
             doctor_id: matchedDoc.id,
             doctor_payout_phone: matchedDoc.payout_phone || matchedDoc.phone,
             doctor_payout_operator: matchedDoc.payout_operator || 'momo'
           }
         });
+        if (payoutData && payoutData.payout_ref) {
+          consult.doctor_payout_ref = payoutData.payout_ref;
+          consult.doctor_payout_status = payoutData.status || 'transferred_direct';
+        }
       } catch (e) {}
     }
 
@@ -965,20 +1171,141 @@
       try {
         const dbRow = Object.assign({}, consult);
         delete dbRow.doctor_specialty; delete dbRow.doctor_onmc; delete dbRow.doctor_phone;
-        await window.supabase.from('medical_consultations').insert([dbRow]);
+        if (typeof window.supabase.rpc === 'function') {
+          await window.supabase.rpc('patient_create_consultation', { p_payload: dbRow });
+        } else {
+          await window.supabase.from('medical_consultations').insert([dbRow]);
+        }
       } catch (e) {}
     }
 
-    addConsultationMessage(consult.id, 'system', 'Pharma-Garde',
+    clearPendingConsultPayment();
+    broadcastLiveEvent('new_consultation', { id: consult.id, doctor_id: consult.doctor_id });
+
+    await addConsultationMessage(consult.id, 'system', 'Pharma-Garde',
       matchedDoc
-        ? `✅ Paiement confirmé (100 F plateforme + 2 500 F transférés directement au ${consult.doctor_name} — ${matchedDoc.city}, ${matchedDoc.region}). Session médicale ouverte 48h.`
-        : '⏳ Paiement confirmé (100 F plateforme validés). Recherche automatique d\'un médecin disponible en cours...'
+        ? `✅ Paiement NotchPay confirmé (100 F plateforme + 2 500 F transférés directement au ${consult.doctor_name} — ${matchedDoc.city}, ${matchedDoc.region}). Session médicale ouverte 48h.`
+        : '⏳ Paiement NotchPay confirmé (100 F plateforme validés). Recherche automatique d\'un médecin disponible en cours...'
     );
-    addConsultationMessage(consult.id, 'patient', consult.patient_alias,
+    await addConsultationMessage(consult.id, 'patient', consult.patient_alias,
       `Motif / Symptômes : ${consult.symptoms}${consult.allergies ? ' · Allergies : ' + consult.allergies : ''}`
     );
 
     return consult;
+  }
+
+  async function verifyPendingConsultationPayment(opts) {
+    const o = opts || {};
+    const pending = getPendingConsultPayment();
+    if (!pending) return { confirmed: false, error: 'Aucun paiement téléconsultation en attente.' };
+    if (!window.supabase || !window.supabase.functions) {
+      return { confirmed: false, error: 'Passerelle de paiement indisponible hors-ligne.' };
+    }
+
+    const { data: stData, error: stErr } = await window.supabase.functions.invoke('doctor-consultation-payment', {
+      body: { action: 'status', reference: pending.reference }
+    });
+    if (stErr || !stData) {
+      return { confirmed: false, pending: true, error: 'Impossible de joindre NotchPay. Réessayez.' };
+    }
+    if (stData.status === 'SUCCESSFUL') {
+      const consult = await finalizeConfirmedConsultation(pending.payload, pending.consultId, pending.reference, false);
+      return { confirmed: true, consultation: consult };
+    }
+    if (stData.status === 'FAILED') {
+      clearPendingConsultPayment();
+      return { confirmed: false, failed: true, error: 'Le paiement Mobile Money de 2 600 FCFA a été refusé ou annulé.' };
+    }
+    return {
+      confirmed: false,
+      pending: true,
+      reference: pending.reference,
+      authorization_url: pending.authorization_url,
+      error: '⏳ Paiement toujours en attente sur NotchPay. Validez votre code PIN sur votre téléphone puis recliquez.'
+    };
+  }
+
+  async function initiatePatientConsultation(payload, opts) {
+    const o = opts || {};
+    const onStatus = typeof o.onStatus === 'function' ? o.onStatus : () => {};
+    const isAdmin = window.PGAdmin && PGAdmin.isAdmin();
+    const cleanPhone = String(payload.patient_phone || '').replace(/\D/g, '').replace(/^237/, '');
+    if (!isAdmin && !/^6\d{8}$/.test(cleanPhone)) {
+      throw new Error('Veuillez saisir un numéro MTN MoMo ou Orange Money valide (9 chiffres : 6XX XXX XXX).');
+    }
+
+    const consultId = 'CONS-' + Date.now();
+    let paymentRef = isAdmin ? 'ADMIN_FREE_' + Date.now() : 'PG_DOC_' + Date.now();
+
+    // Étape 1 : Encaissement strict 2 600 FCFA via NotchPay (100 F plateforme + 2 500 F médecin)
+    if (!isAdmin && window.supabase && window.supabase.functions) {
+      onStatus('📲 Initialisation du paiement sécurisé 2 600 FCFA via NotchPay...');
+      const { data: payData, error: payErr } = await window.supabase.functions.invoke('doctor-consultation-payment', {
+        body: {
+          action: 'init_consultation_payment',
+          patient_phone: cleanPhone,
+          payment_method: payload.payment_method || 'momo',
+          consultation_id: consultId
+        }
+      });
+
+      if (payErr || !payData || !payData.success) {
+        throw new Error((payData && payData.error) || (payErr && payErr.message) || 'Erreur lors de l\'initialisation du paiement NotchPay.');
+      }
+
+      if (payData.reference) paymentRef = payData.reference;
+
+      // Si NotchPay live est configuré : polling strict obligatoire jusqu'à confirmation SUCCESSFUL
+      if (!payData.simulated && payData.status === 'pending_payment') {
+        savePendingConsultPayment({
+          reference: paymentRef,
+          consultId,
+          authorization_url: payData.authorization_url || null,
+          payload: Object.assign({}, payload, { patient_phone: cleanPhone }),
+          createdAt: Date.now()
+        });
+
+        if (!payData.direct_charge && payData.authorization_url) {
+          return {
+            pending: true,
+            redirect: true,
+            reference: paymentRef,
+            authorization_url: payData.authorization_url,
+            message: payData.message || 'Finalisez le paiement de 2 600 FCFA sur la page sécurisée NotchPay.'
+          };
+        }
+
+        onStatus(payData.message || `📲 Push USSD 2 600 FCFA envoyé (+237 ${cleanPhone}). Entrez votre code PIN...`);
+
+        let confirmed = false;
+        for (let i = 0; i < 20; i++) {
+          await new Promise((r) => setTimeout(r, 3000));
+          const { data: stData } = await window.supabase.functions.invoke('doctor-consultation-payment', {
+            body: { action: 'status', reference: paymentRef }
+          });
+          if (stData && stData.status === 'SUCCESSFUL') {
+            confirmed = true;
+            break;
+          }
+          if (stData && stData.status === 'FAILED') {
+            clearPendingConsultPayment();
+            throw new Error('Le paiement Mobile Money de 2 600 FCFA a été annulé ou refusé (solde insuffisant).');
+          }
+        }
+
+        if (!confirmed) {
+          return {
+            pending: true,
+            redirect: Boolean(payData.authorization_url),
+            reference: paymentRef,
+            authorization_url: payData.authorization_url || null,
+            message: '⏳ Paiement en attente de validation PIN. Validez sur votre téléphone puis cliquez sur « Vérifier mon paiement » (sans repayer).'
+          };
+        }
+      }
+    }
+
+    return await finalizeConfirmedConsultation(payload, consultId, paymentRef, isAdmin);
   }
 
   async function acceptConsultation(consultId, doctor) {
@@ -996,12 +1323,24 @@
     c.session_expires_at = new Date(Date.now() + SESSION_48H_MS).toISOString();
     saveConsultations(list);
 
+    if (window.supabase) {
+      try {
+        await window.supabase.from('medical_consultations').update({
+          doctor_id: doctor.id,
+          doctor_name: c.doctor_name,
+          status: 'active_48h',
+          session_expires_at: c.session_expires_at
+        }).eq('id', consultId);
+      } catch (e) {}
+    }
+
     if (window.supabase && window.supabase.functions) {
       try {
         await window.supabase.functions.invoke('doctor-consultation-payment', {
           body: {
             action: 'transfer_doctor_payout',
             consultation_id: consultId,
+            payment_ref: c.payment_ref || '',
             doctor_id: doctor.id,
             doctor_payout_phone: doctor.payout_phone || doctor.phone,
             doctor_payout_operator: doctor.payout_operator || 'momo'
@@ -1009,6 +1348,7 @@
         });
       } catch (e) {}
     }
+    broadcastLiveEvent('new_consultation', { id: consultId, doctor_id: doctor.id });
     return c;
   }
 
@@ -1033,8 +1373,22 @@
     all[consultId].push(msg);
     writeLS(MSGS_KEY, all);
     if (window.supabase) {
-      try { await window.supabase.from('consultation_messages').insert([msg]); } catch (e) {}
+      try {
+        if ((senderRole === 'patient' || senderRole === 'system') && typeof window.supabase.rpc === 'function') {
+          await window.supabase.rpc('patient_send_message', {
+            p_consultation_id: consultId,
+            p_session_id: getPatientSessionId(),
+            p_sender_role: senderRole,
+            p_sender_name: msg.sender_name,
+            p_body: msg.body,
+            p_msg_id: msg.id
+          });
+        } else {
+          await window.supabase.from('consultation_messages').insert([msg]);
+        }
+      } catch (e) {}
     }
+    broadcastLiveEvent('new_message', msg);
     return msg;
   }
 
@@ -1086,8 +1440,30 @@
     }
 
     if (window.supabase) {
-      try { await window.supabase.from('medical_prescriptions').insert([rx]); } catch (e) {}
+      try {
+        await window.supabase.from('medical_prescriptions').insert([{
+          id: rx.id,
+          rx_code: rx.rx_code,
+          consultation_id: rx.consultation_id,
+          doctor_id: rx.doctor_id,
+          doctor_name: rx.doctor_name,
+          doctor_specialty: rx.doctor_specialty,
+          doctor_onmc: rx.doctor_onmc,
+          doctor_clinic: rx.doctor_clinic,
+          doctor_city: rx.doctor_city,
+          doctor_phone: rx.doctor_phone,
+          doctor_signature: rx.doctor_signature_url,
+          doctor_signature_url: rx.doctor_signature_url,
+          patient_session_id: rx.patient_session_id,
+          patient_alias: rx.patient_alias,
+          diagnosis: rx.diagnosis,
+          medications: rx.medications,
+          advice: rx.advice,
+          created_at: rx.created_at
+        }]);
+      } catch (e) {}
     }
+    broadcastLiveEvent('new_prescription', { id: rx.id, rx_code: rx.rx_code, patient_session_id: rx.patient_session_id });
     return rx;
   }
 
@@ -1186,7 +1562,13 @@
     list.unshift(appt);
     saveAppointments(list);
     if (window.supabase) {
-      try { await window.supabase.from('doctor_appointments').insert([appt]); } catch (e) {}
+      try {
+        if (typeof window.supabase.rpc === 'function') {
+          await window.supabase.rpc('patient_book_appointment', { p_payload: appt });
+        } else {
+          await window.supabase.from('doctor_appointments').insert([appt]);
+        }
+      } catch (e) {}
     }
     return appt;
   }
@@ -1197,7 +1579,7 @@
     if (!item) return null;
     item.status = status;
     saveAppointments(list);
-    if (window.supabase && /^[0-9a-f-]{36}$/i.test(String(id || ''))) {
+    if (window.supabase && id && !String(id).startsWith('demo_')) {
       try { window.supabase.from('doctor_appointments').update({ status }).eq('id', id).then(() => {}, () => {}); } catch (e) {}
     }
     return item;
@@ -1230,8 +1612,16 @@
     getConsultations,
     saveConsultations,
     getPatientSessionId,
+    getPendingConsultPayment,
+    clearPendingConsultPayment,
+    verifyPendingConsultationPayment,
     initiatePatientConsultation,
     acceptConsultation,
+    syncConsultations,
+    syncMessages,
+    syncPrescriptions,
+    syncAppointments,
+    subscribeRealtime,
     getMessages,
     addConsultationMessage,
     remaining48hLabel,

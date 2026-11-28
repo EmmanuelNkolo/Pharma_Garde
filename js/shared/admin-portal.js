@@ -25,8 +25,8 @@
   const SESSION_TTL_MS = 4 * 60 * 60 * 1000; // 4 heures
   const SALT = 'PG_CM_SUPERADMIN_V10::';
 
-  // Empreinte SHA-256 salée du code maître initial (PHARMA-ADMIN-2026)
-  const DEFAULT_MASTER_HASH = '7ffec7cb477954650c215b3ef13ae2d04b15e7d70d25003096fe290a628f0c22';
+  // v16.0 : Zéro code maître ou empreinte par défaut dans le bundle client.
+  // L'authentification Super-Admin est vérifiée côté serveur par l'Edge Function `admin-auth` + Supabase `platform_admins`.
 
   const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -54,7 +54,7 @@
   }
 
   function getExpectedMasterHash() {
-    try { return localStorage.getItem(HASH_KEY) || DEFAULT_MASTER_HASH; } catch (e) { return DEFAULT_MASTER_HASH; }
+    try { return localStorage.getItem(HASH_KEY) || ''; } catch (e) { return ''; }
   }
 
   // ── Registre Multi-Super-Administrateurs ───────────────────────
@@ -173,22 +173,23 @@
     if (!code) throw new Error('Veuillez saisir le code maître Administrateur.');
 
     const cleanEmail = String(adminEmail || '').trim().toLowerCase();
-    const computed = await sha256Hex(code);
-
-    // 1. Vérifier contre le code maître principal ou contre tout Super-Admin inscrit dans le registre
-    const registry = getAdminsRegistry();
     let matchedAdmin = null;
-    if (computed === getExpectedMasterHash()) {
-      matchedAdmin = registry.find((a) => a.is_founder) || registry[0];
-    } else {
-      matchedAdmin = registry.find((a) =>
-        a.is_active !== false &&
-        a.access_code_hash === computed &&
-        (!cleanEmail || (a.email || '').toLowerCase() === cleanEmail)
-      );
+    let serverToken = null;
+
+    // 1. Vérification prioritaire côté serveur via Edge Function `admin-auth` (HMAC + `platform_admins`)
+    if (window.supabase && window.supabase.functions) {
+      try {
+        const { data, error } = await window.supabase.functions.invoke('admin-auth', {
+          body: { action: 'login', email: cleanEmail, code, space: currentPageSpace() }
+        });
+        if (!error && data && data.success && data.admin) {
+          matchedAdmin = data.admin;
+          serverToken = data.token || null;
+        }
+      } catch (e) {}
     }
 
-    // 2. Vérification Supabase (`platform_admins` ou `app_metadata.role`)
+    // 2. Vérification Supabase Auth + `platform_admins` (si email + mot de passe Supabase fournis)
     if (!matchedAdmin && window.supabase && cleanEmail) {
       try {
         const { data: authData } = await window.supabase.auth.signInWithPassword({ email: cleanEmail, password: code });
@@ -209,6 +210,23 @@
       } catch (e) {}
     }
 
+    // 3. Repli hors-ligne uniquement si une empreinte personnalisée a déjà été configurée par l'admin sur ce poste
+    if (!matchedAdmin) {
+      const computed = await sha256Hex(code);
+      const localHash = getExpectedMasterHash();
+      const registry = getAdminsRegistry();
+      if (localHash && computed === localHash) {
+        matchedAdmin = registry.find((a) => a.is_founder) || registry[0];
+      } else {
+        matchedAdmin = registry.find((a) =>
+          a.is_active !== false &&
+          a.access_code_hash &&
+          a.access_code_hash === computed &&
+          (!cleanEmail || (a.email || '').toLowerCase() === cleanEmail)
+        );
+      }
+    }
+
     if (!matchedAdmin) {
       recordAuthFailure();
       throw new Error('Code ou identifiant Administrateur invalide.');
@@ -220,8 +238,9 @@
       full_name: matchedAdmin.full_name || 'Super Administrateur',
       role: matchedAdmin.role || 'super_admin',
       email: cleanEmail || matchedAdmin.email || 'admin@pharmagarde.cm',
+      token: serverToken,
       startedAt: Date.now(),
-      expiresAt: Date.now() + SESSION_TTL_MS
+      expiresAt: matchedAdmin.expiresAt || (Date.now() + SESSION_TTL_MS)
     };
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
     logAudit('ADMIN_LOGIN', `Connexion privilégiée (${session.email}) sur ${currentPageSpace()}`);
@@ -778,7 +797,16 @@
 
           saveAdminsRegistry(list.filter((a) => a.id !== targetId));
           if (window.supabase) {
-            try { await window.supabase.from('platform_admins').delete().eq('email', target.email); } catch (e) {}
+            try {
+              const curSess = getSession();
+              if (window.supabase.functions && curSess && curSess.token) {
+                await window.supabase.functions.invoke('admin-auth', {
+                  body: { action: 'remove_admin', token: curSess.token, email: target.email, space: currentPageSpace() }
+                });
+              } else {
+                await window.supabase.from('platform_admins').delete().eq('email', target.email);
+              }
+            } catch (e) {}
           }
           logAudit('ADMIN_DELETED', `${target.full_name} <${target.email}>`);
           notify(`🗑️ Accès administrateur de ${target.full_name} supprimé.`, 'info');
@@ -857,12 +885,20 @@
         const val = (document.getElementById('pg-adm-new-code').value || '').trim();
         if (val.length < 8) { notify('⚠️ Le code maître doit contenir au moins 8 caractères.', 'error'); return; }
         const h = await sha256Hex(val);
+        const sess = getSession();
+        if (window.supabase && window.supabase.functions && sess && sess.token) {
+          try {
+            await window.supabase.functions.invoke('admin-auth', {
+              body: { action: 'change_master_code', token: sess.token, new_code: val, space: currentPageSpace() }
+            });
+          } catch (e) {}
+        }
         localStorage.setItem(HASH_KEY, h);
         const list = getAdminsRegistry();
         const founder = list.find((a) => a.is_founder);
         if (founder) { founder.access_code_hash = h; saveAdminsRegistry(list); }
         document.getElementById('pg-adm-new-code').value = '';
-        logAudit('ADMIN_CODE_CHANGED', 'Mise à jour de l\'empreinte SHA-256');
+        logAudit('ADMIN_CODE_CHANGED', 'Mise à jour de l\'empreinte SHA-256 (serveur + local)');
         notify('✅ Code Maître Administrateur mis à jour avec succès.', 'success');
       });
       document.getElementById('pg-adm-clear-cache').addEventListener('click', async () => {

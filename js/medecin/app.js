@@ -388,6 +388,32 @@
     if (window.PGSubscription && currentDoctor) {
       PGSubscription.syncWithSupabase(currentDoctor, 'doctor').then(() => updateHeader()).catch(() => {});
     }
+    // Synchronisation temps réel Cloud des téléconsultations, messages 48h, ordonnances & RDV
+    if (currentDoctor && typeof MedecinStore.syncConsultations === 'function') {
+      Promise.allSettled([
+        MedecinStore.syncConsultations(currentDoctor.id),
+        MedecinStore.syncPrescriptions(currentDoctor.id),
+        MedecinStore.syncAppointments(currentDoctor.id)
+      ]).then(() => {
+        if (activeTab === 'consults') renderConsultsPanel();
+        else if (activeTab === 'prescriptions') renderPrescriptionsPanel();
+        else if (activeTab === 'schedule') renderSchedulePanel();
+      });
+
+      if (typeof MedecinStore.subscribeRealtime === 'function') {
+        MedecinStore.subscribeRealtime({
+          doctorId: currentDoctor.id,
+          getActiveConsultId: () => selectedConsultId,
+          onUpdate: (evt) => {
+            if (activeTab === 'consults') renderConsultsPanel();
+            else if (activeTab === 'prescriptions') renderPrescriptionsPanel();
+            if (evt && evt.type === 'consultation') {
+              toast('🔔 Nouvelle requête de téléconsultation reçue !', 'info');
+            }
+          }
+        });
+      }
+    }
     switchTab('consults');
     if (!autoAvailTimer) {
       autoAvailTimer = setInterval(() => {
@@ -501,6 +527,11 @@
   function selectConsult(id) {
     selectedConsultId = id;
     renderConsultsPanel();
+    if (typeof MedecinStore.syncMessages === 'function') {
+      MedecinStore.syncMessages(id).then(() => {
+        if (selectedConsultId === id && activeTab === 'consults') renderConsultsPanel();
+      }).catch(() => {});
+    }
   }
 
   async function sendChatMessage() {

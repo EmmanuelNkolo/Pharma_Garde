@@ -1,0 +1,9 @@
+# Fichiers et dossiers exclus du déploiement statique Vercel (v16.0)
+archive/
+supabase/
+.git/
+.vscode/
+.env
+.env.*
+*.md
+connecteur/*.bat

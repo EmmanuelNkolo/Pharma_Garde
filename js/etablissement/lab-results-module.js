@@ -129,11 +129,89 @@
     saveConnectorCfg(facId, cfg);
   }
 
+  async function sha256Hex(text) {
+    const bytes = new TextEncoder().encode(String(text || ''));
+    if (window.crypto && window.crypto.subtle) {
+      const buf = await window.crypto.subtle.digest('SHA-256', bytes);
+      return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+    }
+    let h = 2166136261;
+    for (let i = 0; i < bytes.length; i++) { h ^= bytes[i]; h = Math.imul(h, 16777619); }
+    return (h >>> 0).toString(16).padStart(8, '0');
+  }
+
+  async function syncConnectorToCloud(facility, cfg) {
+    if (!window.supabase || !facility || !cfg || !cfg.api_key) return;
+    try {
+      const { data: userRes } = window.supabase.auth ? await window.supabase.auth.getUser() : { data: null };
+      const uid = (userRes && userRes.user && userRes.user.id) || (/^[0-9a-f-]{36}$/i.test(String(facility.id || '')) ? facility.id : null);
+      if (!uid) return;
+      const apiKeyHash = await sha256Hex(cfg.api_key);
+      await window.supabase.from('facility_api_connectors').upsert([{
+        facility_id: String(facility.id),
+        facility_user_id: uid,
+        facility_name: facility.name || 'Établissement',
+        software_vendor: cfg.software_vendor || 'openlis',
+        protocol: cfg.protocol || 'webhook_json',
+        endpoint_url: cfg.endpoint_url || 'http://localhost:8090',
+        api_key_hash: apiKeyHash,
+        auto_notify_patient: cfg.auto_notify_patient !== false,
+        is_active: true,
+        updated_at: new Date().toISOString()
+      }], { onConflict: 'facility_id' });
+    } catch (e) {}
+  }
+
+  let _ordersSyncedFor = null;
+  async function syncOrdersFromCloud(facility) {
+    if (!window.supabase || !facility) return;
+    try {
+      const { data } = await window.supabase
+        .from('lab_analysis_orders')
+        .select('*')
+        .eq('facility_id', String(facility.id))
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (Array.isArray(data) && data.length > 0) {
+        const mapped = data.map((r) => ({
+          id: r.id,
+          order_code: r.order_code,
+          facility_id: r.facility_id,
+          facility_name: r.facility_name,
+          facility_type: r.facility_type,
+          patient_code: r.patient_code,
+          patient_name: r.patient_name,
+          patient_phone: r.patient_phone,
+          exam_category: r.exam_category,
+          exam_name: r.exam_name,
+          status: r.status,
+          parameters: r.parameters_json || [],
+          conclusion: r.conclusion || '',
+          validator_name: r.validator_name || '',
+          source_system: r.source_system || 'internal',
+          published_at: r.published_at,
+          created_at: r.created_at
+        }));
+        const map = new Map();
+        mapped.forEach((o) => map.set(o.order_code || o.id, o));
+        getOrders().forEach((o) => { if (!map.has(o.order_code || o.id)) map.set(o.order_code || o.id, o); });
+        saveOrders(Array.from(map.values()).sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)));
+      }
+    } catch (e) {}
+  }
+
   // ════════════════════════════════════════════════════════════════
   // ONGLET 1 : MINI-SIL / MINI-SIH AUTONOME (ANALYSES & IMAGERIE)
   // ════════════════════════════════════════════════════════════════
   function renderAnalysesPanel(host, facility) {
     if (!host || !facility) return;
+    if (_ordersSyncedFor !== facility.id) {
+      _ordersSyncedFor = facility.id;
+      syncOrdersFromCloud(facility).then(() => {
+        const h = document.getElementById('fpanel-analyses');
+        if (h && h.style.display !== 'none') renderAnalysesPanel(h, facility);
+      }).catch(() => {});
+    }
     const mine = getOrders().filter((o) => o.facility_id === facility.id || (window.PGAdmin && PGAdmin.isAdmin()));
     const pubCount = mine.filter((o) => o.status === 'published').length;
     const inProgCount = mine.filter((o) => o.status !== 'published').length;
@@ -402,9 +480,12 @@
 
     if (window.supabase) {
       try {
+        const { data: userRes } = window.supabase.auth ? await window.supabase.auth.getUser() : { data: null };
+        const fUid = (userRes && userRes.user && userRes.user.id) || null;
         await window.supabase.from('lab_analysis_orders').insert([{
           order_code: order.order_code,
           facility_id: order.facility_id,
+          facility_user_id: fUid,
           facility_name: order.facility_name,
           facility_type: order.facility_type,
           patient_code: order.patient_code,
@@ -439,6 +520,13 @@
     const rec = await publishOrderToDmp(order, facility);
     if (rec) order.dmp_record_id = rec.id;
     saveOrders(list);
+    if (window.supabase && order.order_code) {
+      try {
+        await window.supabase.from('lab_analysis_orders')
+          .update({ status: 'published', published_at: order.published_at, updated_at: order.published_at })
+          .eq('order_code', order.order_code);
+      } catch (e) {}
+    }
     toast(`🔔 Résultat ${order.order_code} validé et téléversé instantanément dans le Carnet Patient !`, 'success');
     renderAnalysesPanel(document.getElementById('fpanel-analyses'), facility);
   }
@@ -553,7 +641,7 @@
 
   function notifyCopied(label) { toast(`📋 ${label} copiée dans le presse-papiers !`, 'info'); }
 
-  function saveConnectorSettings() {
+  async function saveConnectorSettings() {
     const facility = window.FacilityApp && FacilityApp.getCurrentFacility();
     if (!facility) return;
     const cfg = getConnectorCfg(facility.id);
@@ -561,19 +649,21 @@
     cfg.protocol = document.getElementById('sil-protocol')?.value || 'webhook_json';
     cfg.endpoint_url = (document.getElementById('sil-endpoint')?.value || 'http://localhost:8090').trim().replace(/\/$/, '');
     saveConnectorCfg(facility.id, cfg);
-    appendConnLog(facility.id, 'info', `Configuration sauvegardée : ${cfg.software_vendor.toUpperCase()} (${cfg.protocol})`);
-    toast('💾 Configuration Connecteur SIL/SIH enregistrée !', 'success');
+    await syncConnectorToCloud(facility, cfg);
+    appendConnLog(facility.id, 'info', `Configuration sauvegardée & clé SHA-256 synchronisée dans Supabase : ${cfg.software_vendor.toUpperCase()} (${cfg.protocol})`);
+    toast('💾 Configuration Connecteur SIL/SIH enregistrée et synchronisée Cloud !', 'success');
     renderConnectorPanel(document.getElementById('fpanel-connector'), facility);
   }
 
-  function rotateApiKey() {
+  async function rotateApiKey() {
     const facility = window.FacilityApp && FacilityApp.getCurrentFacility();
     if (!facility) return;
     const cfg = getConnectorCfg(facility.id);
     cfg.api_key = 'PG-SIL-' + Math.random().toString(36).slice(2, 10).toUpperCase() + '-' + Date.now().toString(36).toUpperCase();
     saveConnectorCfg(facility.id, cfg);
-    appendConnLog(facility.id, 'warn', 'Nouvelle clé API secrète générée. Pensez à mettre à jour sil-sih-config.json.');
-    toast('🔑 Nouvelle clé API générée.', 'info');
+    await syncConnectorToCloud(facility, cfg);
+    appendConnLog(facility.id, 'warn', 'Nouvelle clé API secrète générée et enregistrée côté serveur (SHA-256). Pensez à mettre à jour sil-sih-config.json.');
+    toast('🔑 Nouvelle clé API générée et enregistrée Cloud.', 'info');
     renderConnectorPanel(document.getElementById('fpanel-connector'), facility);
   }
 

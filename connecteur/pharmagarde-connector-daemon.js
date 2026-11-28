@@ -158,8 +158,9 @@ function isAuthorizedRequest(req) {
 
 // Création du serveur HTTP
 const server = http.createServer((req, res) => {
-  // En-têtes CORS & Sécurité
+  // En-têtes CORS, Private Network Access (HTTPS -> LAN/localhost) & Sécurité
   res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Private-Network', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Connector-Token');
   res.setHeader('X-Content-Type-Options', 'nosniff');
