@@ -6,4 +6,6 @@ supabase/
 .env
 .env.*
 *.md
-connecteur/*.bat
+connecteur/
+tests/
+.github/

@@ -3,14 +3,15 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
 };
 
 /**
- * Edge Function : subscription-reminders
- * Exécutée périodiquement (cron quotidien) ou à la demande pour :
+ * Edge Function : subscription-reminders (v17.0)
+ * Exécutée automatiquement chaque matin à 08h00 (Douala) par cron quotidien
+ * (GitHub Actions / pg_cron) ou manuellement depuis la Console Super-Admin :
  * 1. Envoyer les rappels d'expiration à J-7, J-3, J-1
- * 2. Basculer les abonnements arrivés à échéance en statut 'expired' (ou 'grace' 48h)
+ * 2. Basculer les abonnements arrivés à échéance en statut 'expired' (5 rôles Pro)
  * 3. Journaliser les alertes dans `subscription_reminders_log`
  */
 serve(async (req: Request) => {
@@ -21,9 +22,26 @@ serve(async (req: Request) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const cronSecret = (Deno.env.get('CRON_SECRET') ?? '').replace(/^["']|["']$/g, '').trim();
 
     if (!supabaseUrl || !supabaseServiceKey) {
       throw new Error('Variables SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY manquantes');
+    }
+
+    // Protection optionnelle par CRON_SECRET (toujours autorisé pour service_role)
+    if (cronSecret) {
+      const authHeader = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
+      const cronHeader = (req.headers.get('x-cron-secret') || '').trim();
+      const isAuthorized =
+        authHeader === supabaseServiceKey ||
+        authHeader === cronSecret ||
+        cronHeader === cronSecret;
+      if (!isAuthorized) {
+        return new Response(JSON.stringify({ success: false, error: 'Unauthorized cron trigger' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401,
+        });
+      }
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);

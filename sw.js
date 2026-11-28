@@ -3,7 +3,7 @@
  * afin que chaque mise à jour soit visible immédiatement. Le cache ne sert
  * qu'en mode hors-ligne. Les anciennes versions de cache sont supprimées.
  */
-const CACHE_NAME = 'pharma-garde-v16.1';
+const CACHE_NAME = 'pharma-garde-v17.0';
 const CORE = [
   '/',
   '/index.html',
@@ -23,6 +23,7 @@ const CORE = [
   '/js/core/i18n.js',
   '/js/core/geolocation.js',
   '/js/shared/subscription.js',
+  '/js/shared/push-notifications.js',
   '/js/client/location-intel.js',
   '/js/client/pharmacy-service.js',
   '/js/client/patient-pro.js',
@@ -72,5 +73,48 @@ self.addEventListener('fetch', (event) => {
       }
       return res;
     }).catch(() => caches.match(req).then((r) => r || caches.match('/index.html')))
+  );
+});
+
+// v17.0 — Réception Web Push & Ouverture / Focus direct de l'application
+self.addEventListener('push', (event) => {
+  let data = { title: 'Pharma-Garde Cameroun', body: 'Nouvelle notification temps réel.', url: '/index.html' };
+  try {
+    if (event.data) {
+      const parsed = event.data.json();
+      data = Object.assign(data, parsed || {});
+    }
+  } catch (e) {
+    if (event.data) data.body = event.data.text();
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: data.icon || '/icon-192.png',
+      badge: data.badge || '/icon-192.png',
+      tag: data.tag || 'pg_push',
+      vibrate: [180, 80, 180],
+      data: { url: data.url || '/index.html' }
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = (event.notification && event.notification.data && event.notification.data.url) || '/index.html';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientsList) => {
+      for (const client of clientsList) {
+        if (client.url && client.url.includes(targetUrl.replace(/^\//, '')) && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clientsList.length > 0 && 'focus' in clientsList[0]) {
+        return clientsList[0].focus();
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl);
+      }
+    })
   );
 });

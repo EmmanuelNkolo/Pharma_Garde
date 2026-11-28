@@ -1,0 +1,27 @@
+name: Pharma-Garde CI — Tests & Build Verification
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  verify:
+    name: Tests complets & Build Production 3G/4G
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Exécuter la suite complète de tests Pharma-Garde (7 suites)
+        run: node tests/run-all.mjs
+
+      - name: Vérifier le build de production minifié
+        run: node scripts/build-prod.mjs

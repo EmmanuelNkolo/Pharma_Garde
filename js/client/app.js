@@ -1342,6 +1342,9 @@ const App = (() => {
           </div>`;
       }
 
+      if (window.PGNotify && PGNotify.getPermission() === 'default') {
+        PGNotify.requestPermission(true);
+      }
       subscribeToResponses();
       
       // Update map to hide non-responding pharmacies immediately
@@ -1400,7 +1403,10 @@ const App = (() => {
         
         updatePharmacies(); // Refresh map based on loaded active requests
         
-        subscribeToResponses();
+        if (window.PGNotify && PGNotify.getPermission() === 'default') {
+        PGNotify.requestPermission(true);
+      }
+      subscribeToResponses();
       } else {
         localStorage.removeItem('pharma_active_requests');
       }
@@ -1425,6 +1431,13 @@ const App = (() => {
           renderPatientResponses();
           updatePharmacies(); // Update map markers to show the new responder
           showToast('🔔 Nouvelle réponse d\'une pharmacie !', 'info');
+          if (window.PGNotify) {
+            PGNotify.notify('💊 Une pharmacie vient de répondre !', {
+              body: `${resp.pharmacy_name || 'Une pharmacie'} a vérifié la disponibilité de votre ordonnance.`,
+              tag: 'pg_resp_' + (resp.id || reqId),
+              url: '/index.html'
+            });
+          }
         })
         .on('postgres_changes', {
           event: 'UPDATE', schema: 'public', table: 'responses',

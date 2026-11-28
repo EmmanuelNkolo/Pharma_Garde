@@ -414,6 +414,7 @@
           </div>
           <div class="pg-admin-modal__tabs">
             <button type="button" class="pg-admin-tab active" data-atab="overview">📊 Vue Globale</button>
+            <button type="button" class="pg-admin-tab" data-atab="revenue">💰 Revenus &amp; KPIs</button>
             <button type="button" class="pg-admin-tab" data-atab="verification">✅ Validation ONCP/DPML</button>
             <button type="button" class="pg-admin-tab" data-atab="pharmacies">🏥 Modération Officines</button>
             <button type="button" class="pg-admin-tab" data-atab="admins">👑 Super-Admins</button>
@@ -531,6 +532,202 @@
       `;
       const goCur = document.getElementById('pg-adm-go-cur');
       if (goCur) goCur.addEventListener('click', () => { closeModals(); enterCurrentSpaceAsAdmin(); });
+      return;
+    }
+
+    // 1B. REVENUS NOTCHPAY & KPIs (v17.0 — Lecture Serveur Sécurisée via admin-auth)
+    if (currentConsoleTab === 'revenue') {
+      body.innerHTML = '<div style="text-align:center; padding:28px; color:#94a3b8;">⏳ Chargement des revenus NotchPay et KPIs opérationnels...</div>';
+      const sess = getSession();
+      const fmtFcfa = (n) => Number(n || 0).toLocaleString('fr-FR') + ' FCFA';
+
+      if (!window.supabase || !window.supabase.functions || !sess || !sess.token) {
+        body.innerHTML = `
+          <div class="pg-admin-kpi" style="border-color:rgba(251,191,36,0.45);">
+            <div style="font-weight:800; color:#fbbf24; margin-bottom:6px;">🔐 Session Serveur Requise</div>
+            <p style="font-size:12.5px; color:#cbd5e1; margin:0;">
+              Les revenus NotchPay sont lus exclusivement côté serveur (<code>service_role</code>). Verrouillez puis reconnectez-vous en mode Super-Admin connecté pour afficher les statistiques financières en direct.
+            </p>
+          </div>`;
+        return;
+      }
+
+      try {
+        const { data, error } = await window.supabase.functions.invoke('admin-auth', {
+          body: { action: 'revenue_analytics', token: sess.token, space: currentPageSpace() }
+        });
+        if (error || !data || !data.success) {
+          throw new Error((data && data.error) || (error && error.message) || 'Impossible de charger les analytics');
+        }
+
+        const t = data.totals || {};
+        const bd = data.breakdown || {};
+        const ops = data.operations_30d || {};
+        const subsRole = data.active_subscriptions_by_role || {};
+        const daily = Array.isArray(data.daily_14d) ? data.daily_14d : [];
+        const txs = Array.isArray(data.recent_transactions) ? data.recent_transactions : [];
+        const rems = Array.isArray(data.recent_reminders) ? data.recent_reminders : [];
+
+        // Construction du graphique SVG 14 jours (zéro dépendance externe)
+        const maxDay = Math.max(100, ...daily.map((d) => Number(d.total) || 0));
+        const chartW = 680, chartH = 150, padB = 26, padT = 16;
+        const barSlot = daily.length ? (chartW - 20) / daily.length : 44;
+        const barW = Math.max(14, Math.floor(barSlot * 0.62));
+        const svgBars = daily.map((d, i) => {
+          const val = Number(d.total) || 0;
+          const h = val > 0 ? Math.max(6, Math.round((val / maxDay) * (chartH - padB - padT))) : 2;
+          const x = Math.round(10 + i * barSlot + (barSlot - barW) / 2);
+          const y = chartH - padB - h;
+          const fill = val > 0 ? 'url(#pgRevGrad)' : 'rgba(148,163,184,0.22)';
+          return `
+            <g>
+              <title>${esc(d.date)} : ${esc(fmtFcfa(val))} (${d.count || 0} tx)</title>
+              <rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="4" fill="${fill}"></rect>
+              ${val > 0 ? `<text x="${x + barW / 2}" y="${Math.max(11, y - 4)}" text-anchor="middle" fill="#fde68a" font-size="9" font-weight="700">${val >= 1000 ? Math.round(val / 1000) + 'k' : val}</text>` : ''}
+              <text x="${x + barW / 2}" y="${chartH - 8}" text-anchor="middle" fill="#94a3b8" font-size="9.5">${esc(d.label)}</text>
+            </g>`;
+        }).join('');
+
+        const totalConfirmed = Math.max(1, Number(t.all_time) || 0);
+        const pct = (v) => Math.min(100, Math.round(((Number(v) || 0) / totalConfirmed) * 100));
+        const typeLabel = (k) => k === 'subscription' ? '💎 Abonnement Pro' : (k === 'doctor_consultation' ? '🩺 Téléconsultation' : '⚡ Pass 24h Client');
+
+        body.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+            <div>
+              <div style="font-weight:900; color:#fbbf24; font-size:15px;">💰 Tableau de Bord Financier NotchPay &amp; KPIs</div>
+              <div style="font-size:11.5px; color:#94a3b8;">Mis à jour : ${esc(new Date(data.generated_at || Date.now()).toLocaleString('fr-FR'))} · ${t.confirmed_count || 0} confirmés · ${t.pending_count || 0} en attente</div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button type="button" class="btn btn--sm btn--primary" id="pg-adm-run-cron">⚡ Exécuter Cron Rappels</button>
+              <button type="button" class="btn btn--sm btn--secondary" id="pg-adm-export-tx">📥 Exporter CSV</button>
+              <button type="button" class="btn btn--sm btn--secondary" id="pg-adm-refresh-rev">🔄</button>
+            </div>
+          </div>
+
+          <div class="pg-admin-kpi-grid">
+            <div class="pg-admin-kpi"><div class="pg-admin-kpi__label">💎 Volume Total Confirmé</div><div class="pg-admin-kpi__val pg-admin-kpi__val--gold" style="font-size:20px;">${esc(fmtFcfa(t.all_time))}</div></div>
+            <div class="pg-admin-kpi"><div class="pg-admin-kpi__label">📅 30 Derniers Jours</div><div class="pg-admin-kpi__val" style="font-size:20px;">${esc(fmtFcfa(t.last_30d))}</div></div>
+            <div class="pg-admin-kpi"><div class="pg-admin-kpi__label">📈 7 Derniers Jours</div><div class="pg-admin-kpi__val pg-admin-kpi__val--blue" style="font-size:20px;">${esc(fmtFcfa(t.last_7d))}</div></div>
+            <div class="pg-admin-kpi"><div class="pg-admin-kpi__label">☀️ Aujourd'hui</div><div class="pg-admin-kpi__val" style="font-size:20px;">${esc(fmtFcfa(t.today))}</div></div>
+            <div class="pg-admin-kpi"><div class="pg-admin-kpi__label">⚡ Taux Réponse Officines (30j)</div><div class="pg-admin-kpi__val pg-admin-kpi__val--gold" style="font-size:20px;">${ops.response_rate_pct || 0}%</div><div style="font-size:10.5px;color:#94a3b8;">${ops.answered_requests_count || 0}/${ops.requests_count || 0} demandes · ${ops.reservations_count || 0} résa</div></div>
+            <div class="pg-admin-kpi"><div class="pg-admin-kpi__label">🛡️ Abonnements Pro Actifs</div><div class="pg-admin-kpi__val pg-admin-kpi__val--blue" style="font-size:20px;">${subsRole.total_active || 0}</div><div style="font-size:10.5px;color:#fbbf24;">${subsRole.expiring_7d || 0} expire(nt) sous 7j</div></div>
+          </div>
+
+          <div class="pg-admin-kpi" style="margin-bottom:14px;">
+            <div style="font-weight:800; color:#34d399; font-size:13px; margin-bottom:8px;">📊 Encaissements Confirmés — 14 Derniers Jours (FCFA)</div>
+            <div style="overflow-x:auto;">
+              <svg viewBox="0 0 ${chartW} ${chartH}" style="width:100%; min-width:460px; height:auto; display:block;">
+                <defs>
+                  <linearGradient id="pgRevGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#fbbf24"></stop>
+                    <stop offset="100%" stop-color="#10b981"></stop>
+                  </linearGradient>
+                </defs>
+                <line x1="8" y1="${chartH - padB}" x2="${chartW - 8}" y2="${chartH - padB}" stroke="rgba(148,163,184,0.25)" stroke-width="1"></line>
+                ${svgBars}
+              </svg>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px; margin-bottom:14px;">
+            <div class="pg-admin-kpi">
+              <div style="font-weight:800; color:#fbbf24; font-size:13px; margin-bottom:10px;">🧭 Répartition par Source de Revenus</div>
+              ${[
+                { k: 'Pass 24h Patients (100F)', v: bd.client_pass_24h?.amount || 0, c: bd.client_pass_24h?.count || 0, col: '#34d399' },
+                { k: 'Téléconsultations Médecins (2 600F)', v: bd.doctor_consultation?.amount || 0, c: bd.doctor_consultation?.count || 0, col: '#60a5fa', extra: bd.doctor_consultation?.platform_fee_est ? ` · Comm. PG ~${fmtFcfa(bd.doctor_consultation.platform_fee_est)}` : '' },
+                { k: 'Abonnements Pro (5 espaces)', v: bd.subscription?.amount || 0, c: bd.subscription?.count || 0, col: '#fbbf24' }
+              ].map((row) => `
+                <div style="margin-bottom:9px;">
+                  <div style="display:flex; justify-content:space-between; font-size:11.5px; margin-bottom:3px;">
+                    <span style="color:#e2e8f0; font-weight:700;">${row.k}</span>
+                    <strong style="color:${row.col};">${esc(fmtFcfa(row.v))} (${row.c})</strong>
+                  </div>
+                  <div style="height:6px; border-radius:999px; background:rgba(148,163,184,0.16); overflow:hidden;">
+                    <div style="height:100%; width:${pct(row.v)}%; background:${row.col}; border-radius:999px;"></div>
+                  </div>
+                  ${row.extra ? `<div style="font-size:10px; color:#94a3b8; margin-top:2px;">${esc(row.extra)}</div>` : ''}
+                </div>`).join('')}
+            </div>
+
+            <div class="pg-admin-kpi">
+              <div style="font-weight:800; color:#60a5fa; font-size:13px; margin-bottom:10px;">👥 Abonnements Pro Actifs par Rôle</div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:12px;">
+                <div>🏥 Officines : <strong style="color:#fff;">${subsRole.pharmacy || 0}</strong></div>
+                <div>🩺 Médecins : <strong style="color:#fff;">${subsRole.doctor || 0}</strong></div>
+                <div>🔬 Labos / Hôp. : <strong style="color:#fff;">${subsRole.facility || 0}</strong></div>
+                <div>💼 Délégués : <strong style="color:#fff;">${subsRole.delegate || 0}</strong></div>
+                <div>🏭 Grossistes : <strong style="color:#fff;">${subsRole.wholesaler || 0}</strong></div>
+                <div>⏳ Expirent ≤ 7j : <strong style="color:#fbbf24;">${subsRole.expiring_7d || 0}</strong></div>
+              </div>
+              <div style="margin-top:10px; padding-top:8px; border-top:1px solid rgba(148,163,184,0.14); font-size:11px; color:#94a3b8;">
+                🤖 Cron automatique actif chaque matin à <strong>08h00 (Douala)</strong> · Derniers rappels : <strong>${rems.length}</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="pg-admin-kpi" style="margin-bottom:14px;">
+            <div style="font-weight:800; color:#34d399; font-size:13px; margin-bottom:8px;">🧾 Dernières Transactions NotchPay (${txs.length})</div>
+            <div style="max-height:240px; overflow-y:auto;">
+              <table class="pg-admin-table">
+                <thead><tr><th>Date</th><th>Référence</th><th>Type</th><th>Montant</th><th>Tél.</th><th>Statut</th></tr></thead>
+                <tbody>
+                  ${txs.length === 0 ? '<tr><td colspan="6" style="text-align:center;color:#94a3b8;">Aucune transaction enregistrée.</td></tr>' : txs.map((tx) => {
+                    const ok = /^(successful|complete|completed|paid)$/i.test(String(tx.status || ''));
+                    const fail = /^(failed|canceled|cancelled|expired)$/i.test(String(tx.status || ''));
+                    const col = ok ? '#34d399' : (fail ? '#f87171' : '#fbbf24');
+                    return `<tr>
+                      <td style="font-size:11px; color:#94a3b8;">${esc(new Date(tx.created_at || Date.now()).toLocaleString('fr-FR'))}</td>
+                      <td style="font-family:monospace; font-size:11px;">${esc(String(tx.reference || '').slice(0, 22))}</td>
+                      <td>${typeLabel(tx.type)}</td>
+                      <td><strong>${esc(fmtFcfa(tx.amount))}</strong></td>
+                      <td style="font-size:11px;">${esc(tx.phone || '—')}</td>
+                      <td><span style="color:${col}; font-weight:800;">${esc(tx.status)}</span></td>
+                    </tr>`;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+
+        const btnRefresh = document.getElementById('pg-adm-refresh-rev');
+        if (btnRefresh) btnRefresh.addEventListener('click', () => renderConsoleTab());
+
+        const btnExport = document.getElementById('pg-adm-export-tx');
+        if (btnExport) {
+          btnExport.addEventListener('click', () => {
+            if (window.PG && PG.exportCSV) {
+              PG.exportCSV('pharmagarde_revenus_notchpay.csv',
+                ['Date', 'Reference', 'Type', 'Montant_FCFA', 'Operateur', 'Telephone', 'Statut'],
+                txs.map((x) => [x.created_at, x.reference, x.type, x.amount, x.operator, x.phone, x.status]));
+            }
+          });
+        }
+
+        const btnCron = document.getElementById('pg-adm-run-cron');
+        if (btnCron) {
+          btnCron.addEventListener('click', async () => {
+            btnCron.disabled = true;
+            btnCron.textContent = '⏳ Exécution...';
+            try {
+              const res = await window.supabase.functions.invoke('admin-auth', {
+                body: { action: 'run_subscription_reminders', token: sess.token, space: currentPageSpace() }
+              });
+              const st = res?.data?.result?.stats || {};
+              logAudit('ADMIN_RUN_REMINDERS_CRON', JSON.stringify(st));
+              notify(`✅ Cron exécuté : ${st.checked || 0} vérifiés · J-7:${st.j7_sent || 0} · J-3:${st.j3_sent || 0} · J-1:${st.j1_sent || 0} · Expirés:${st.expired_marked || 0}`, 'success');
+              renderConsoleTab();
+            } catch (err) {
+              notify('❌ Erreur cron rappels : ' + (err.message || err), 'error');
+              btnCron.disabled = false;
+              btnCron.textContent = '⚡ Exécuter Cron Rappels';
+            }
+          });
+        }
+      } catch (err) {
+        body.innerHTML = `<div class="pg-admin-kpi" style="border-color:rgba(239,68,68,0.45); color:#fca5a5;">❌ Erreur chargement Revenus &amp; KPIs : ${esc(err.message || err)}</div>`;
+      }
       return;
     }
 

@@ -637,7 +637,14 @@
     const msg = `🔔 Résultat disponible (${rec.issuer_name}) : ${rec.title}`;
     if (window.App && typeof App.showToast === 'function') App.showToast(msg, 'success');
     else if (window.PG && typeof PG.toast === 'function') PG.toast(msg, 'success');
-    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    if (window.PGNotify && typeof PGNotify.notify === 'function') {
+      PGNotify.notify('🧪 Résultat Médical Disponible — Carnet DMP', {
+        body: `${rec.issuer_name} a déposé "${rec.title}" dans votre Carnet Médical sécurisé.`,
+        tag: 'pg_dmp_' + (rec.id || Date.now()),
+        url: '/index.html',
+        force: true
+      });
+    } else if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
       try {
         new Notification('Pharma-Garde — Résultat Médical Disponible', {
           body: `${rec.issuer_name} a déposé "${rec.title}" dans votre Carnet Médical sécurisé.`,

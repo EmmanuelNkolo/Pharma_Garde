@@ -1073,20 +1073,47 @@
         await syncPrescriptions(o.doctorId);
         onUpdate({ type: 'prescription' });
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'medical_consultations' }, async () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'medical_consultations' }, async (payload) => {
         await syncConsultations(o.doctorId);
         onUpdate({ type: 'consultation' });
+        if (window.PGNotify && payload && payload.eventType === 'INSERT' && o.doctorId) {
+          const row = payload.new || {};
+          PGNotify.notify('🩺 Nouvelle téléconsultation payée !', {
+            body: `${row.patient_alias || 'Un patient'} attend votre prise en charge médicale.`,
+            tag: 'pg_consult_' + (row.id || Date.now()),
+            url: '/medecin.html'
+          });
+        }
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'consultation_messages' }, async (payload) => {
         const row = payload && payload.new;
         if (row && row.consultation_id) {
           await syncMessages(row.consultation_id);
           onUpdate({ type: 'message', consultationId: row.consultation_id });
+          if (window.PGNotify) {
+            const isDocPage = !!o.doctorId;
+            if ((isDocPage && row.sender_role === 'patient') || (!isDocPage && row.sender_role === 'doctor')) {
+              PGNotify.notify(isDocPage ? '💬 Nouveau message patient' : '🩺 Réponse de votre médecin', {
+                body: String(row.body || 'Nouveau message en téléconsultation').slice(0, 120),
+                tag: 'pg_msg_' + row.consultation_id,
+                url: isDocPage ? '/medecin.html' : '/index.html'
+              });
+            }
+          }
         }
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'medical_prescriptions' }, async () => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'medical_prescriptions' }, async (payload) => {
         await syncPrescriptions(o.doctorId);
         onUpdate({ type: 'prescription' });
+        if (window.PGNotify && !o.doctorId) {
+          const rx = (payload && payload.new) || {};
+          PGNotify.notify('📄 Ordonnance signée disponible !', {
+            body: `${rx.doctor_name || 'Votre médecin'} a déposé votre ordonnance numérique (${rx.rx_code || 'ONMC'}).`,
+            tag: 'pg_rx_' + (rx.id || Date.now()),
+            url: '/index.html',
+            force: true
+          });
+        }
       })
       .subscribe();
 

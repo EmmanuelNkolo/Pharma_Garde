@@ -1,0 +1,38 @@
+name: Daily Subscription Reminders Cron
+
+on:
+  schedule:
+    # Chaque jour à 07:00 UTC = 08:00 heure de Douala / Yaoundé (WAT, UTC+1)
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+
+jobs:
+  run-reminders:
+    name: Exécuter rappels J-7 / J-3 / J-1 et expirations
+    runs-on: ubuntu-latest
+    steps:
+      - name: Déclencher Edge Function subscription-reminders
+        env:
+          SUPABASE_URL: https://kcbcvdinuhckrpotngbw.supabase.co
+          SUPABASE_ANON_KEY: sb_publishable_kqCs9fGvxPvxOUfolarnPA_5N_d846O
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          HEADERS=(-H "Content-Type: application/json" -H "apikey: $SUPABASE_ANON_KEY" -H "Authorization: Bearer $SUPABASE_ANON_KEY")
+          if [ -n "$CRON_SECRET" ]; then
+            HEADERS+=(-H "x-cron-secret: $CRON_SECRET")
+          fi
+          RESPONSE=$(curl -sS -w "\n%{http_code}" -X POST \
+            "$SUPABASE_URL/functions/v1/subscription-reminders" \
+            "${HEADERS[@]}" \
+            -d '{"trigger":"github_actions_daily_cron"}')
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          echo "HTTP $HTTP_CODE — $BODY"
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "::error::Échec du cron subscription-reminders (HTTP $HTTP_CODE)"
+            exit 1
+          fi
+          echo "$BODY" | grep -q '"success":true' || {
+            echo "::error::Réponse non réussie de subscription-reminders"
+            exit 1
+          }

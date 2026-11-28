@@ -2478,6 +2478,14 @@
         updateStatCounters();
         showToast('🔔 Nouvelle demande de patient reçue !', 'info');
         playNotificationSound();
+        if (window.PGNotify) {
+          const meds = Array.isArray(req.medicines) ? req.medicines.map(m => m.name || m).slice(0, 3).join(', ') : 'Ordonnance patient';
+          PGNotify.notify('💊 Nouvelle demande patient à proximité', {
+            body: meds || 'Un patient recherche des médicaments autour de votre officine.',
+            tag: 'pg_req_' + req.id,
+            url: '/pharmacien.html'
+          });
+        }
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'requests' }, (payload) => {
         const idx = activeRequests.findIndex(r => r.id === payload.new.id);
@@ -2497,6 +2505,13 @@
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reservations', filter: `pharmacy_id=eq.${currentPharmacy.id}` }, (payload) => {
         showToast('🔔 Nouvelle réservation patient de 60 min reçue !', 'info');
         playNotificationSound();
+        if (window.PGNotify) {
+          PGNotify.notify('📦 Nouvelle réservation patient (60 min)', {
+            body: 'Un patient vient de réserver ses médicaments dans votre officine.',
+            tag: 'pg_resv_' + ((payload && payload.new && payload.new.id) || Date.now()),
+            url: '/pharmacien.html'
+          });
+        }
         loadActiveReservations();
         updateStatCounters();
       })

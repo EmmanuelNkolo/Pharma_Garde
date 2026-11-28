@@ -266,6 +266,197 @@ serve(async (req: Request) => {
       });
     }
 
+    // v17.0 — Tableau de Bord Revenus & KPIs NotchPay (lecture service_role sécurisée)
+    if (action === "revenue_analytics" && sb) {
+      const now = Date.now();
+      const dayMs = 24 * 60 * 60 * 1000;
+      const startToday = new Date();
+      startToday.setUTCHours(0, 0, 0, 0);
+      const startTodayMs = startToday.getTime();
+      const d7Ms = now - 7 * dayMs;
+      const d30Ms = now - 30 * dayMs;
+      const d30Iso = new Date(d30Ms).toISOString();
+
+      const [payRes, subRes, reqRes, respRes, resvRes, remRes] = await Promise.all([
+        sb.from("payments").select("reference, status, amount, operator, created_at, updated_at, metadata").order("created_at", { ascending: false }).limit(600),
+        sb.from("subscriptions").select("id, subscriber_role, plan_id, plan_label, amount_fcfa, status, expires_at, created_at").order("created_at", { ascending: false }).limit(400),
+        sb.from("requests").select("id, created_at, status").gte("created_at", d30Iso).limit(1000),
+        sb.from("responses").select("id, request_id, created_at").gte("created_at", d30Iso).limit(1000),
+        sb.from("reservations").select("id, status, created_at").gte("created_at", d30Iso).limit(500),
+        sb.from("subscription_reminders_log").select("id, subscriber_role, reminder_type, message, created_at").order("created_at", { ascending: false }).limit(12),
+      ]);
+
+      const payments = payRes.data || [];
+      const subs = subRes.data || [];
+      const reqs = reqRes.data || [];
+      const resps = respRes.data || [];
+      const resvs = resvRes.data || [];
+      const reminders = remRes.data || [];
+
+      const isPaid = (st: unknown) => {
+        const s = String(st || "").toLowerCase();
+        return s === "successful" || s === "complete" || s === "completed" || s === "paid";
+      };
+      const isFailed = (st: unknown) => {
+        const s = String(st || "").toLowerCase();
+        return s === "failed" || s === "canceled" || s === "cancelled" || s === "expired";
+      };
+      const classifyPayment = (p: any): "subscription" | "doctor_consultation" | "client_pass_24h" => {
+        const ref = String(p?.reference || "").toLowerCase();
+        const meta = p?.metadata || {};
+        const mRef = String(meta.merchant_reference || "").toLowerCase();
+        const t = String(meta.type || "").toLowerCase();
+        if (t === "subscription" || ref.startsWith("sub_") || mRef.startsWith("sub_")) return "subscription";
+        if (
+          t === "doctor_consultation" ||
+          ref.startsWith("pg_doc_") ||
+          mRef.startsWith("pg_doc_") ||
+          ref.startsWith("consult_") ||
+          mRef.startsWith("consult_") ||
+          Number(p?.amount) === 2600
+        ) {
+          return "doctor_consultation";
+        }
+        return "client_pass_24h";
+      };
+
+      // Préparer les 14 jours glissants
+      const dailyMap = new Map<string, { date: string; label: string; total: number; count: number }>();
+      for (let i = 13; i >= 0; i--) {
+        const dt = new Date(now - i * dayMs);
+        const key = dt.toISOString().slice(0, 10);
+        const label = `${String(dt.getUTCDate()).padStart(2, "0")}/${String(dt.getUTCMonth() + 1).padStart(2, "0")}`;
+        dailyMap.set(key, { date: key, label, total: 0, count: 0 });
+      }
+
+      let totalAll = 0, total30d = 0, total7d = 0, totalToday = 0;
+      let confirmedCount = 0, pendingCount = 0, failedCount = 0;
+      const breakdown = {
+        client_pass_24h: { amount: 0, count: 0 },
+        doctor_consultation: { amount: 0, count: 0, platform_fee_est: 0 },
+        subscription: { amount: 0, count: 0 },
+      };
+
+      for (const p of payments) {
+        const amt = Math.max(0, Number(p.amount) || 0);
+        const ts = new Date(p.created_at || p.updated_at || now).getTime();
+        const kind = classifyPayment(p);
+
+        if (isPaid(p.status)) {
+          confirmedCount++;
+          totalAll += amt;
+          if (ts >= d30Ms) total30d += amt;
+          if (ts >= d7Ms) total7d += amt;
+          if (ts >= startTodayMs) totalToday += amt;
+
+          breakdown[kind].amount += amt;
+          breakdown[kind].count += 1;
+          if (kind === "doctor_consultation") {
+            breakdown.doctor_consultation.platform_fee_est += Number(p?.metadata?.platform_fee) || Math.min(amt, 100);
+          }
+
+          const dayKey = new Date(ts).toISOString().slice(0, 10);
+          const bucket = dailyMap.get(dayKey);
+          if (bucket) {
+            bucket.total += amt;
+            bucket.count += 1;
+          }
+        } else if (isFailed(p.status)) {
+          failedCount++;
+        } else {
+          pendingCount++;
+        }
+      }
+
+      const activeSubsByRole: Record<string, number> = {
+        pharmacy: 0, doctor: 0, facility: 0, delegate: 0, wholesaler: 0, total_active: 0, expiring_7d: 0,
+      };
+      const in7d = now + 7 * dayMs;
+      for (const s of subs) {
+        const st = String(s.status || "").toLowerCase();
+        const expMs = new Date(s.expires_at || 0).getTime();
+        if ((st === "active" || st === "trial") && expMs > now) {
+          const r = String(s.subscriber_role || "other");
+          if (r in activeSubsByRole) activeSubsByRole[r]++;
+          activeSubsByRole.total_active++;
+          if (expMs <= in7d) activeSubsByRole.expiring_7d++;
+        }
+      }
+
+      const answeredReqIds = new Set(resps.map((r: any) => r.request_id).filter(Boolean));
+      const responseRatePct = reqs.length > 0 ? Math.round((answeredReqIds.size / reqs.length) * 100) : 0;
+
+      const recentTransactions = payments.slice(0, 25).map((p: any) => {
+        const meta = p.metadata || {};
+        return {
+          reference: p.reference,
+          type: classifyPayment(p),
+          amount: Number(p.amount) || 0,
+          operator: p.operator || meta.channel || "XAF",
+          phone: meta.phone || meta.customer?.phone || "—",
+          status: p.status || "PENDING",
+          created_at: p.created_at || p.updated_at,
+        };
+      });
+
+      return new Response(JSON.stringify({
+        success: true,
+        generated_at: new Date().toISOString(),
+        totals: {
+          all_time: totalAll,
+          last_30d: total30d,
+          last_7d: total7d,
+          today: totalToday,
+          confirmed_count: confirmedCount,
+          pending_count: pendingCount,
+          failed_count: failedCount,
+        },
+        breakdown,
+        daily_14d: Array.from(dailyMap.values()),
+        active_subscriptions_by_role: activeSubsByRole,
+        operations_30d: {
+          requests_count: reqs.length,
+          responses_count: resps.length,
+          answered_requests_count: answeredReqIds.size,
+          response_rate_pct: responseRatePct,
+          reservations_count: resvs.length,
+        },
+        recent_transactions: recentTransactions,
+        recent_reminders: reminders,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // v17.0 — Exécution manuelle du Cron Rappels Abonnements (J-7 / J-3 / J-1 / Expirations)
+    if (action === "run_subscription_reminders" && sbUrl && sbServiceKey) {
+      const cronSecret = (Deno.env.get("CRON_SECRET") || "").replace(/^["']|["']$/g, "").trim();
+      const headers: Record<string, string> = {
+        "Authorization": `Bearer ${sbServiceKey}`,
+        "Content-Type": "application/json",
+      };
+      if (cronSecret) headers["x-cron-secret"] = cronSecret;
+
+      const res = await fetch(`${sbUrl}/functions/v1/subscription-reminders`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ trigger: "super_admin_manual", actor: caller.email }),
+      });
+      const data = await res.json().catch(() => ({ success: false, error: "Invalid response" }));
+
+      if (sb) {
+        await sb.from("admin_audit_logs").insert([{
+          admin_email: String(caller.email),
+          space: String(body?.space || "admin"),
+          action: "RUN_SUBSCRIPTION_REMINDERS",
+          details: JSON.stringify(data?.stats || data),
+        }]).catch(() => {});
+      }
+
+      return new Response(JSON.stringify({
+        success: Boolean(data?.success),
+        result: data,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     return new Response(JSON.stringify({ success: false, error: "Action non reconnue." }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
     });

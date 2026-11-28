@@ -1,5 +1,7 @@
 {
   "version": 2,
+  "buildCommand": "node scripts/build-prod.mjs",
+  "outputDirectory": "dist",
   "cleanUrls": false,
   "trailingSlash": false,
   "headers": [
