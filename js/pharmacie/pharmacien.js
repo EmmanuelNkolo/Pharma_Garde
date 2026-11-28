@@ -828,8 +828,15 @@
   function showDashboard() {
     const loginScreen = document.getElementById('login-screen');
     const dashScreen = document.getElementById('dashboard');
-    if (loginScreen) loginScreen.classList.add('hidden');
-    if (dashScreen) dashScreen.classList.remove('hidden');
+    if (loginScreen) {
+      loginScreen.classList.add('hidden');
+      loginScreen.style.display = 'none';
+    }
+    if (dashScreen) {
+      dashScreen.classList.remove('hidden');
+      dashScreen.style.display = '';
+    }
+    try { window.scrollTo(0, 0); } catch (e) {}
 
     // Display Pharmacy Name in Gold
     const nameEl = document.getElementById('dash-pharmacy-name');
@@ -904,9 +911,13 @@
     const loginScreen = document.getElementById('login-screen');
     const settingsPanel = document.getElementById('settings-panel');
     if (settingsPanel) settingsPanel.style.display = 'none';
-    if (dashScreen) dashScreen.classList.add('hidden');
+    if (dashScreen) {
+      dashScreen.classList.add('hidden');
+      dashScreen.style.display = 'none';
+    }
     if (loginScreen) {
       loginScreen.classList.remove('hidden');
+      loginScreen.style.display = '';
       showAuthView('login');
     }
     showToast('Déconnexion réussie', 'info');

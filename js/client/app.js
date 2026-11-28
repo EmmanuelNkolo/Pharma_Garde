@@ -63,6 +63,7 @@ const App = (() => {
       attribution: '© OpenStreetMap contributors',
       maxZoom: 19
     }).addTo(leafletMap);
+    if (window.PG && typeof PG.registerMap === 'function') PG.registerMap(leafletMap);
 
     // Zoom controls
     const zoomIn = $('#btn-zoom-in');

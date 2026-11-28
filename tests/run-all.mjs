@@ -84,11 +84,13 @@ function makeSandbox(extra = {}) {
     createElement() { return { style: {}, setAttribute() {}, addEventListener() {}, appendChild() {}, querySelector() { return null; } }; },
     body: { appendChild() {} },
   };
+  const safeSetTimeout = (fn, ms, ...a) => { const t = setTimeout(fn, ms, ...a); if (t && t.unref) t.unref(); return t; };
+  const safeSetInterval = (fn, ms, ...a) => { const t = setInterval(fn, ms, ...a); if (t && t.unref) t.unref(); return t; };
   const win = {
     console,
-    setTimeout,
+    setTimeout: safeSetTimeout,
     clearTimeout,
-    setInterval,
+    setInterval: safeSetInterval,
     clearInterval,
     Date,
     Math,
@@ -386,6 +388,143 @@ console.log('▶ Suite 7 : Runtime E2E Notifications Push PWA (PGNotify)');
   assert(r3 === false && shown.length === 1, 'PGNotify respects muted preference');
 }
 
+// ════════════════════════════════════════════════════════════════
+// SUITE 8 — Rotation PWA, Responsive Mobile/Tablette & Accès Comptes (v18.0)
+// ════════════════════════════════════════════════════════════════
+console.log('▶ Suite 8 : Rotation PWA, Anti-Coupure UI & Connexions Comptes (6 espaces)');
+{
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8'));
+  assert(manifest.orientation === 'any', `manifest.json allows automatic rotation (orientation="${manifest.orientation}")`);
+
+  for (const page of htmlPages) {
+    const html = fs.readFileSync(path.join(ROOT, page), 'utf8');
+    assert(!html.includes('user-scalable=no'), `${page} viewport allows natural scaling/rotation`);
+  }
+
+  const polishCss = fs.readFileSync(path.join(ROOT, 'css/pro-polish-v15.css'), 'utf8');
+  assert(!/(^|\n)\.pa-screen\s*\{/.test(polishCss), 'pro-polish-v15.css does NOT override .pa-screen.hidden');
+  assert(polishCss.includes('.pa-screen:not(.hidden)'), 'pro-polish-v15.css scopes .pa-screen styles to :not(.hidden)');
+  assert(polishCss.includes('.pa-screen.hidden,') && polishCss.includes('display: none !important;'), 'pro-polish-v15.css guarantees .hidden hides all elements at end of cascade');
+  assert(polishCss.includes('white-space: normal !important;') && polishCss.includes('overflow: visible !important;'), 'Buttons wrap text cleanly without left/right clipping');
+  assert(polishCss.includes('(orientation: landscape)'), 'Responsive landscape layout rules present');
+
+  // Vérifier que les 5 contrôleurs Pro masquent explicitement l'écran de connexion (classList + style.display)
+  for (const [label, relPath] of [
+    ['Médecin', 'js/medecin/app.js'],
+    ['Établissement', 'js/etablissement/app.js'],
+    ['Grossiste', 'js/grossiste/app.js'],
+    ['Pharmacie', 'js/pharmacie/pharmacien.js'],
+    ['Délégué', 'js/delegue/delegue.js'],
+  ]) {
+    const code = fs.readFileSync(path.join(ROOT, relPath), 'utf8');
+    assert(code.includes("classList.add('hidden')") && code.includes(".style.display = 'none'"), `${label} showDashboard hides auth screen via both classList and style.display`);
+  }
+
+  // Simulation runtime : clic réel sur Dr Hervé Kamga -> doc-login-screen masqué, doc-dashboard visible !
+  const makeEl = (id, initClasses = []) => {
+    const cls = new Set(initClasses);
+    const evs = {};
+    return {
+      id,
+      style: {},
+      textContent: '',
+      innerHTML: '',
+      value: '',
+      checked: false,
+      attrs: {},
+      getAttribute(k) { return this.attrs[k] ?? null; },
+      setAttribute(k, v) { this.attrs[k] = String(v); },
+      classList: {
+        add(c) { cls.add(c); },
+        remove(c) { cls.delete(c); },
+        contains(c) { return cls.has(c); },
+        toggle(c, f) { if (f === undefined) { if (cls.has(c)) cls.delete(c); else cls.add(c); } else if (f) cls.add(c); else cls.delete(c); }
+      },
+      addEventListener(e, fn) { (evs[e] = evs[e] || []).push(fn); },
+      click() { (evs.click || []).forEach((fn) => fn({ preventDefault() {} })); },
+      querySelector() { return null; },
+      querySelectorAll() { return []; },
+      appendChild() {}
+    };
+  };
+
+  // Test clic Dr Hervé Kamga
+  const docEls = {
+    'doc-login-screen': makeEl('doc-login-screen', ['pa-screen']),
+    'doc-dashboard': makeEl('doc-dashboard', ['hidden']),
+    'doc-login-form': makeEl('doc-login-form'),
+    'doc-register-form': makeEl('doc-register-form', ['hidden']),
+    'doc-header-name': makeEl('doc-header-name'),
+    'doc-header-meta': makeEl('doc-header-meta'),
+    'doc-verif-pill': makeEl('doc-verif-pill'),
+    'doc-badge-consults': makeEl('doc-badge-consults'),
+    'dpanel-consults': makeEl('dpanel-consults'),
+    'toast': makeEl('toast'),
+    'toast-message': makeEl('toast-message'),
+  };
+  const demoDocBtn = makeEl('btn-demo-herve');
+  demoDocBtn.setAttribute('data-demo-doc', 'doc_kamga_dla');
+  const docCtx = makeSandbox();
+  docCtx.scrollTo = () => {};
+  docCtx.document.getElementById = (id) => docEls[id] || null;
+  docCtx.document.querySelectorAll = (sel) => (sel === '[data-demo-doc]' ? [demoDocBtn] : []);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'js/medecin/store.js'), 'utf8'), docCtx);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'js/medecin/app.js'), 'utf8'), docCtx);
+  docCtx.document.dispatchEvent(new docCtx.CustomEvent('DOMContentLoaded'));
+  demoDocBtn.click();
+  assert(docEls['doc-login-screen'].classList.contains('hidden') && docEls['doc-login-screen'].style.display === 'none', 'Clicking Dr Hervé Kamga hides doc-login-screen completely');
+  assert(!docEls['doc-dashboard'].classList.contains('hidden') && docEls['doc-dashboard'].style.display === '', 'Clicking Dr Hervé Kamga opens doc-dashboard');
+  assert(docEls['doc-header-name'].textContent.includes('Hervé Kamga'), `Doctor dashboard displays Dr Hervé Kamga ("${docEls['doc-header-name'].textContent}")`);
+
+  // Test clic Labo Pasteur Santé
+  const facEls = {
+    'fac-login-screen': makeEl('fac-login-screen', ['pa-screen']),
+    'fac-dashboard': makeEl('fac-dashboard', ['hidden']),
+    'fac-header-name': makeEl('fac-header-name'),
+    'fac-header-meta': makeEl('fac-header-meta'),
+    'fpanel-analyses': makeEl('fpanel-analyses'),
+    'toast': makeEl('toast'),
+    'toast-message': makeEl('toast-message'),
+  };
+  const demoFacBtn = makeEl('btn-demo-fac');
+  demoFacBtn.setAttribute('data-demo-fac', 'fac_cpc_dla');
+  const facCtx = makeSandbox();
+  facCtx.scrollTo = () => {};
+  facCtx.document.getElementById = (id) => facEls[id] || null;
+  facCtx.document.querySelectorAll = (sel) => (sel === '[data-demo-fac]' ? [demoFacBtn] : []);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'js/etablissement/store.js'), 'utf8'), facCtx);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'js/etablissement/app.js'), 'utf8'), facCtx);
+  facCtx.document.dispatchEvent(new facCtx.CustomEvent('DOMContentLoaded'));
+  demoFacBtn.click();
+  assert(facEls['fac-login-screen'].classList.contains('hidden') && facEls['fac-login-screen'].style.display === 'none', 'Clicking Labo Pasteur hides fac-login-screen completely');
+  assert(!facEls['fac-dashboard'].classList.contains('hidden'), 'Clicking Labo Pasteur opens fac-dashboard');
+  assert(facEls['fac-header-name'].textContent.length > 3, `Facility dashboard displays facility name ("${facEls['fac-header-name'].textContent}")`);
+
+  // Test clic Ubipharm Grossiste
+  const wsEls = {
+    'g-login-screen': makeEl('g-login-screen', ['pa-screen']),
+    'g-dashboard': makeEl('g-dashboard', ['hidden']),
+    'grossiste-header-name': makeEl('grossiste-header-name'),
+    'grossiste-header-code': makeEl('grossiste-header-code'),
+    'gpanel-catalog': makeEl('gpanel-catalog'),
+    'toast': makeEl('toast'),
+    'toast-message': makeEl('toast-message'),
+  };
+  const demoWsBtn = makeEl('btn-demo-ws');
+  demoWsBtn.setAttribute('data-demo-ws', 'ws_ubipharm_dla');
+  const wsCtx = makeSandbox();
+  wsCtx.scrollTo = () => {};
+  wsCtx.document.getElementById = (id) => wsEls[id] || null;
+  wsCtx.document.querySelectorAll = (sel) => (sel === '[data-demo-ws]' ? [demoWsBtn] : []);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'js/grossiste/auth.js'), 'utf8'), wsCtx);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'js/grossiste/app.js'), 'utf8'), wsCtx);
+  wsCtx.document.dispatchEvent(new wsCtx.CustomEvent('DOMContentLoaded'));
+  demoWsBtn.click();
+  assert(wsEls['g-login-screen'].classList.contains('hidden') && wsEls['g-login-screen'].style.display === 'none', 'Clicking Ubipharm hides g-login-screen completely');
+  assert(!wsEls['g-dashboard'].classList.contains('hidden'), 'Clicking Ubipharm opens g-dashboard');
+  assert(wsEls['grossiste-header-name'].textContent.includes('UBIPHARM'), `Wholesaler dashboard displays UBIPHARM ("${wsEls['grossiste-header-name'].textContent}")`);
+}
+
 console.log('\n════════════════════════════════════════════════════════════════');
 console.log(`RÉSULTAT GLOBAL : ${passed} réussis · ${failed} échoués`);
 console.log('════════════════════════════════════════════════════════════════');
@@ -393,3 +532,4 @@ if (failed > 0) {
   console.error('Échecs détectés :\n - ' + failures.join('\n - '));
   process.exit(1);
 }
+process.exit(0);

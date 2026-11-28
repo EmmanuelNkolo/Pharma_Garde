@@ -382,8 +382,17 @@
   }
 
   function showDashboard() {
-    document.getElementById('doc-login-screen')?.classList.add('hidden');
-    document.getElementById('doc-dashboard')?.classList.remove('hidden');
+    const loginScreen = document.getElementById('doc-login-screen');
+    const dash = document.getElementById('doc-dashboard');
+    if (loginScreen) {
+      loginScreen.classList.add('hidden');
+      loginScreen.style.display = 'none';
+    }
+    if (dash) {
+      dash.classList.remove('hidden');
+      dash.style.display = '';
+    }
+    try { window.scrollTo(0, 0); } catch (e) {}
     updateHeader();
     if (window.PGSubscription && currentDoctor) {
       PGSubscription.syncWithSupabase(currentDoctor, 'doctor').then(() => updateHeader()).catch(() => {});

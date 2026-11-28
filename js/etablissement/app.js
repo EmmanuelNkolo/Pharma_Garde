@@ -99,8 +99,17 @@
   }
 
   function showDashboard() {
-    document.getElementById('fac-login-screen')?.classList.add('hidden');
-    document.getElementById('fac-dashboard')?.classList.remove('hidden');
+    const loginScreen = document.getElementById('fac-login-screen');
+    const dash = document.getElementById('fac-dashboard');
+    if (loginScreen) {
+      loginScreen.classList.add('hidden');
+      loginScreen.style.display = 'none';
+    }
+    if (dash) {
+      dash.classList.remove('hidden');
+      dash.style.display = '';
+    }
+    try { window.scrollTo(0, 0); } catch (e) {}
     const nm = document.getElementById('fac-header-name');
     if (nm) nm.textContent = currentFacility.name;
     const typeLabels = { laboratory: '🔬 Laboratoire d\'Analyses', hospital: '🏥 Hôpital', clinic: '🏨 Clinique', imaging: '🩻 Imagerie' };

@@ -738,9 +738,17 @@
   //  DASHBOARD
   // ═══════════════════════════════════════════════════════
   function showDashboard() {
-    $('login-screen').style.display = 'none';
-    $('login-screen').classList.add('hidden');
-    $('dashboard').classList.remove('hidden');
+    const ls = $('login-screen');
+    const dash = $('dashboard');
+    if (ls) {
+      ls.style.display = 'none';
+      ls.classList.add('hidden');
+    }
+    if (dash) {
+      dash.classList.remove('hidden');
+      dash.style.display = '';
+    }
+    try { window.scrollTo(0, 0); } catch (e) {}
 
     // Populate settings
     if (currentDelegate) {
@@ -903,6 +911,7 @@
       attribution: '© OpenStreetMap contributors',
       maxZoom: 19,
     }).addTo(delegateMap);
+    if (window.PG && typeof PG.registerMap === 'function') PG.registerMap(delegateMap);
 
     // User marker (blue pulse matching Capture 2)
     const userIcon = L.divIcon({

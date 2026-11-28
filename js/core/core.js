@@ -329,13 +329,50 @@
       }
     }, true);
   }
+  const _pgMaps = [];
   function syncHeaderHeight() {
-    const h = document.querySelector('.pg-header');
-    if (!h) return;
-    const apply = () => document.documentElement.style.setProperty('--pg-header-h', h.offsetHeight + 'px');
+    const apply = () => {
+      const pgH = document.querySelector('.pg-header');
+      if (pgH && pgH.offsetHeight > 0) {
+        document.documentElement.style.setProperty('--pg-header-h', pgH.offsetHeight + 'px');
+      }
+      const appH = document.querySelector('.app-header:not(.hidden)');
+      if (appH && appH.offsetHeight > 0) {
+        document.documentElement.style.setProperty('--header-height', appH.offsetHeight + 'px');
+      }
+    };
     apply();
-    if (window.ResizeObserver) new ResizeObserver(apply).observe(h);
+    if (window.ResizeObserver) {
+      const ro = new ResizeObserver(apply);
+      document.querySelectorAll('.pg-header, .app-header').forEach(el => ro.observe(el));
+    }
     window.addEventListener('resize', apply);
+    window.addEventListener('orientationchange', () => {
+      setTimeout(apply, 120);
+      setTimeout(apply, 380);
+    });
+  }
+  function bindOrientationSupport() {
+    try {
+      if (screen && screen.orientation && typeof screen.orientation.unlock === 'function') {
+        screen.orientation.unlock();
+      }
+    } catch (e) {}
+    const refreshLayout = () => {
+      const applyH = () => {
+        const appH = document.querySelector('.app-header:not(.hidden)');
+        if (appH && appH.offsetHeight > 0) {
+          document.documentElement.style.setProperty('--header-height', appH.offsetHeight + 'px');
+        }
+        _pgMaps.forEach((m) => { try { if (m && typeof m.invalidateSize === 'function') m.invalidateSize(true); } catch (e) {} });
+      };
+      setTimeout(applyH, 160);
+      setTimeout(applyH, 420);
+    };
+    window.addEventListener('orientationchange', refreshLayout);
+    if (screen && screen.orientation && typeof screen.orientation.addEventListener === 'function') {
+      screen.orientation.addEventListener('change', refreshLayout);
+    }
   }
   function busy(btn, on, label) {
     if (!btn) return;
@@ -360,9 +397,14 @@
   function throttle(key, ms) { const now = Date.now(); if (lastHit[key] && now - lastHit[key] < ms) return false; lastHit[key] = now; return true; }
 
   // ── Carte (Leaflet) ───────────────────────────────────────────
+  function registerMap(map) {
+    if (map && _pgMaps.indexOf(map) === -1) _pgMaps.push(map);
+    return map;
+  }
   function baseMap(containerId, center, zoom) {
     const map = L.map(containerId, { zoomControl: false, attributionControl: true, preferCanvas: true }).setView([center.lat, center.lng], zoom || 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+    registerMap(map);
     return map;
   }
   function meIcon() { return L.divIcon({ className: '', html: '<div class="pg-me"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }); }
@@ -438,11 +480,11 @@
     toast, sound, locate, reverse, searchPlace, db,
     PROMO_STATUS, VISIT_STATUS, OBJECT_LABELS, chip, table, exportCSV, exportPDF, reportShell, reportTable,
     openModal, closeModal, confirmModal, promptModal, busy, panelToggle, toggleFullscreen, throttle, syncHeaderHeight,
-    baseMap, meIcon, pharmacyIcon, radiusZoom,
+    baseMap, registerMap, meIcon, pharmacyIcon, radiusZoom,
   };
 
   document.addEventListener('DOMContentLoaded', () => {
-    bindModalClose(); bindPressFeedback(); syncHeaderHeight();
+    bindModalClose(); bindPressFeedback(); syncHeaderHeight(); bindOrientationSupport();
   });
   registerSW();
 })();

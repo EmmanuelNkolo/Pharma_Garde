@@ -467,6 +467,7 @@
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '© OpenStreetMap · Pharma-Garde B2B Radar'
         }).addTo(networkMap);
+        if (window.PG && typeof PG.registerMap === 'function') PG.registerMap(networkMap);
         networkMarkersLayer = L.layerGroup().addTo(networkMap);
       }
 

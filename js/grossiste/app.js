@@ -212,8 +212,15 @@
   async function showDashboard() {
     const loginScreen = document.getElementById('g-login-screen');
     const dash = document.getElementById('g-dashboard');
-    if (loginScreen) loginScreen.classList.add('hidden');
-    if (dash) dash.classList.remove('hidden');
+    if (loginScreen) {
+      loginScreen.classList.add('hidden');
+      loginScreen.style.display = 'none';
+    }
+    if (dash) {
+      dash.classList.remove('hidden');
+      dash.style.display = '';
+    }
+    try { window.scrollTo(0, 0); } catch (e) {}
 
     updateHeaderIdentity();
     if (window.PGSubscription && currentWholesaler) {

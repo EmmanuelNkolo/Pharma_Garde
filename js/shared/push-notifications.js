@@ -124,10 +124,10 @@
   function buildPillLabel() {
     const perm = getPermission();
     if (perm === 'unsupported') return null;
-    if (perm === 'granted' && isEnabled()) return { text: '🔔 Alertes actives', active: true };
-    if (perm === 'granted' && !isEnabled()) return { text: '🔕 Alertes en pause', active: false };
-    if (perm === 'denied') return { text: '🔕 Alertes bloquées', active: false };
-    return { text: '🔔 Activer les alertes', active: false };
+    if (perm === 'granted' && isEnabled()) return { text: '🔔 Alertes ON', active: true };
+    if (perm === 'granted' && !isEnabled()) return { text: '🔕 Pause', active: false };
+    if (perm === 'denied') return { text: '🔕 Bloquées', active: false };
+    return { text: '🔔 Alertes', active: false };
   }
 
   function refreshPills() {
@@ -175,12 +175,13 @@
 
   function autoMount() {
     if (!isSupported()) return;
-    // Injecter discrètement le bouton d'activation des alertes dans les en-têtes / barres rapides disponibles
+    // Injecter discrètement le bouton d'activation des alertes dans la barre d'en-tête active
+    // (sans jamais casser la grille symétrique de l'écran d'accueil)
     const targets = [
-      document.querySelector('.topbar__right'),
-      document.querySelector('.pro-header__actions'),
-      document.querySelector('.g-topbar__actions'),
-      document.querySelector('.welcome-screen__quick-actions')
+      document.querySelector('.app-header__actions'),
+      document.querySelector('.grossiste-header > div:last-child'),
+      document.querySelector('.pharm-header > div:last-child'),
+      document.querySelector('.topbar__right')
     ].filter(Boolean);
     if (targets.length > 0) {
       renderOptInPill(targets[0]);
